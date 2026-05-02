@@ -61,6 +61,7 @@ pub fn create(
     Ok(conn.last_insert_rowid())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update(
     db: &DbPool,
     id: i64,
