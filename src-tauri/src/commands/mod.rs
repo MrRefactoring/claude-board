@@ -16,3 +16,5 @@ pub mod chat;
 pub mod roadmap;
 pub mod gsd;
 pub mod logs;
+pub mod git_utils;
+pub mod models;

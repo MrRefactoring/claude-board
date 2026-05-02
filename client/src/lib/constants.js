@@ -63,12 +63,15 @@ export const MODEL_BG_ACTIVE = {
 };
 
 // ─── Effort levels ───
-export const EFFORT_LEVELS = ['low', 'medium', 'high'];
+// Mirrors the values accepted by `claude --effort` (low / medium / high / xhigh / max).
+export const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
 export const EFFORT_OPTIONS = [
   { value: 'low', label: 'Low', color: 'bg-green-500/20 text-green-300' },
   { value: 'medium', label: 'Medium', color: 'bg-amber-500/20 text-amber-300' },
-  { value: 'high', label: 'High', color: 'bg-red-500/20 text-red-300' },
+  { value: 'high', label: 'High', color: 'bg-orange-500/20 text-orange-300' },
+  { value: 'xhigh', label: 'X-High', color: 'bg-red-500/20 text-red-300' },
+  { value: 'max', label: 'Max', color: 'bg-fuchsia-500/20 text-fuchsia-300' },
 ];
 
 // ─── Token costs (USD per million tokens) ───

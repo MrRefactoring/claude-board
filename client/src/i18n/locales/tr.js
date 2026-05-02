@@ -58,6 +58,8 @@ export default {
   'effort.low': 'D\u00fc\u015f\u00fck',
   'effort.medium': 'Orta',
   'effort.high': 'Y\u00fcksek',
+  'effort.xhigh': '\u00c7ok Y\u00fcksek',
+  'effort.max': 'En Y\u00fcksek',
 
   // ─── Dashboard ───
   'dashboard.title': 'Claude Board',
@@ -224,6 +226,10 @@ export default {
   'projectModal.autoPushDesc': 'Dalları otomatik olarak uzak depoya gönder',
   'projectModal.autoPR': 'Otomatik PR',
   'projectModal.autoPRDesc': 'Tamamlandığında pull request oluştur',
+  'projectModal.notGitRepoWarning':
+    'Bu klasör bir git deposu değil. Git başlatılana kadar Otomatik Dal, Otomatik Push ve Otomatik PR kullanılamaz.',
+  'projectModal.gitInit': 'Burada git başlat',
+  'projectModal.checkingGit': 'Git durumu kontrol ediliyor…',
   'projectModal.autoTest': 'Otomatik Test',
   'projectModal.autoTestEnabled': 'Otomatik test etkin',
   'projectModal.autoTestDisabled': 'Otomatik test devre dışı',
@@ -930,6 +936,18 @@ export default {
   'settings.defaultEffort': 'Varsay\u0131lan D\u00fc\u015f\u00fcnme \u00c7abas\u0131',
   'settings.defaultEffortDesc':
     'Yeni g\u00f6revler i\u00e7in varsay\u0131lan d\u00fc\u015f\u00fcnme \u00e7abas\u0131 seviyesi',
+  'settings.modelsTab': 'Modeller',
+  'settings.builtinModels': 'Yerle\u015fik Modeller',
+  'settings.customModels': '\u00d6zel Modeller',
+  'settings.addModel': 'Model Ekle',
+  'settings.noCustomModels':
+    "Hen\u00fcz \u00f6zel model yok. Belirli bir Claude model id (\u00f6rn. claude-opus-4-7) veya CLI'\u0131n\u0131z\u0131n destekledi\u011fi ba\u015fka bir modeli kullanmak i\u00e7in ekleyin.",
+  'settings.confirmDeleteModel': 'Bu \u00f6zel modeli silmek istedi\u011finize emin misiniz?',
+  'settings.modelId': 'Model ID',
+  'settings.modelLabel': 'G\u00f6r\u00fcnen Ad',
+  'settings.modelColor': 'Tailwind Renk S\u0131n\u0131flar\u0131',
+  'settings.inputCost': 'Giri\u015f \u00fccreti ($/Mtok)',
+  'settings.outputCost': '\u00c7\u0131k\u0131\u015f \u00fccreti ($/Mtok)',
   'settings.language': 'Dil',
   'settings.languageDesc': 'Uygulama g\u00f6r\u00fcnt\u00fcleme dili',
   'settings.notificationsDesc':

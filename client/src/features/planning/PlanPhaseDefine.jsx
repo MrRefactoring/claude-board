@@ -1,6 +1,7 @@
 import { Sparkles, Cpu, AlertCircle, Zap, ChevronDown, ChevronRight, Brain } from 'lucide-react';
 import { GRANULARITIES } from './planningConstants';
-import { MODEL_OPTIONS, EFFORT_OPTIONS } from '../../lib/constants';
+import { EFFORT_OPTIONS } from '../../lib/constants';
+import { useModels } from '../../lib/useModels';
 import MDEditor from '@uiw/react-md-editor';
 
 function MdPreview({ content }) {
@@ -15,7 +16,6 @@ function MdPreview({ content }) {
   );
 }
 
-const MODELS = MODEL_OPTIONS;
 const EFFORTS = EFFORT_OPTIONS;
 
 export function PlanPhaseDefine({
@@ -37,6 +37,7 @@ export function PlanPhaseDefine({
   setShowContext,
   t,
 }) {
+  const { models: MODELS } = useModels();
   return (
     <div className="space-y-4">
       {/* Error Alert */}

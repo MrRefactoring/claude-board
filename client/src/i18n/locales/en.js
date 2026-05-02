@@ -58,6 +58,8 @@ export default {
   'effort.low': 'Low',
   'effort.medium': 'Medium',
   'effort.high': 'High',
+  'effort.xhigh': 'X-High',
+  'effort.max': 'Max',
 
   // ─── Dashboard ───
   'dashboard.title': 'Claude Board',
@@ -221,6 +223,10 @@ export default {
   'projectModal.autoPushDesc': 'Push branches to remote automatically',
   'projectModal.autoPR': 'Auto PR',
   'projectModal.autoPRDesc': 'Create pull request on completion',
+  'projectModal.notGitRepoWarning':
+    'This folder is not a git repository. Auto-branch, Auto-push, and Auto-PR are unavailable until git is initialized.',
+  'projectModal.gitInit': 'Initialize git here',
+  'projectModal.checkingGit': 'Checking git status…',
   'projectModal.autoTest': 'Auto Test',
   'projectModal.autoTestEnabled': 'Auto-test enabled',
   'projectModal.autoTestDisabled': 'Auto-test disabled',
@@ -909,6 +915,18 @@ export default {
   'settings.defaultModelDesc': 'Default Claude model for new tasks',
   'settings.defaultEffort': 'Default Thinking Effort',
   'settings.defaultEffortDesc': 'Default thinking effort level for new tasks',
+  'settings.modelsTab': 'Models',
+  'settings.builtinModels': 'Built-in Models',
+  'settings.customModels': 'Custom Models',
+  'settings.addModel': 'Add Model',
+  'settings.noCustomModels':
+    'No custom models yet. Add one to use a specific Claude model id (e.g. claude-opus-4-7) or another vendor model your CLI supports.',
+  'settings.confirmDeleteModel': 'Delete this custom model?',
+  'settings.modelId': 'Model ID',
+  'settings.modelLabel': 'Display Name',
+  'settings.modelColor': 'Tailwind Color Classes',
+  'settings.inputCost': 'Input cost ($/Mtok)',
+  'settings.outputCost': 'Output cost ($/Mtok)',
   'settings.language': 'Language',
   'settings.languageDesc': 'Application display language',
   'settings.notificationsDesc': 'Configure native desktop notifications for task events',

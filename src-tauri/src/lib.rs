@@ -418,6 +418,14 @@ pub fn run() {
             // Logs (for bug reports)
             commands::logs::get_logs_dir,
             commands::logs::open_logs_dir,
+            // Git utilities
+            commands::git_utils::check_git_repo,
+            commands::git_utils::init_git_repo,
+            // Models registry
+            commands::models::list_models,
+            commands::models::add_custom_model,
+            commands::models::update_custom_model,
+            commands::models::delete_custom_model,
         ])
         .on_menu_event(|app, event| {
             match event.id().as_ref() {

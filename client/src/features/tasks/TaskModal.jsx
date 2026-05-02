@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { X, Sparkles, ChevronDown, ChevronRight, Settings2, Mic, MicOff } from 'lucide-react';
 import { useVoiceInput } from '../../hooks/useVoiceInput';
 import { useTranslation } from '../../i18n/I18nProvider';
-import { TASK_TYPE_OPTIONS, PRIORITY_OPTIONS, MODEL_OPTIONS, EFFORT_OPTIONS } from '../../lib/constants';
+import { TASK_TYPE_OPTIONS, PRIORITY_OPTIONS, EFFORT_OPTIONS } from '../../lib/constants';
+import { useModels } from '../../lib/useModels';
 import { api } from '../../lib/api';
 import { IS_TAURI } from '../../lib/tauriEvents';
 import TemplateSelector from './TemplateSelector';
@@ -11,11 +12,11 @@ import TokenEstimate from './TokenEstimate';
 
 const TASK_TYPES = TASK_TYPE_OPTIONS;
 const PRIORITIES = PRIORITY_OPTIONS;
-const MODELS = MODEL_OPTIONS;
 const EFFORTS = EFFORT_OPTIONS;
 
 export default function TaskModal({ task, onSubmit, onClose, templates = [], roles = [], allTasks = [] }) {
   const { t } = useTranslation();
+  const { models: MODELS } = useModels();
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [priority, setPriority] = useState(task?.priority || 0);
@@ -77,7 +78,7 @@ export default function TaskModal({ task, onSubmit, onClose, templates = [], rol
     if (attachedFiles.length > 0) parts.push(`${attachedFiles.length} file(s)`);
     if (acceptanceCriteria.trim()) parts.push('AC');
     return parts;
-  }, [model, thinkingEffort, roleId, roles, attachedFiles, acceptanceCriteria]);
+  }, [model, thinkingEffort, roleId, roles, attachedFiles, acceptanceCriteria, MODELS]);
 
   useEffect(() => {
     titleRef.current?.focus();

@@ -151,6 +151,18 @@ pub fn create_tables(conn: &Connection) {
             updated_at DATETIME DEFAULT (datetime('now','localtime'))
         );
 
+        CREATE TABLE IF NOT EXISTS custom_models (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            model_id TEXT NOT NULL UNIQUE,
+            label TEXT NOT NULL,
+            color TEXT,
+            input_cost_per_mtok REAL,
+            output_cost_per_mtok REAL,
+            sort_order INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT (datetime('now','localtime')),
+            updated_at DATETIME DEFAULT (datetime('now','localtime'))
+        );
+
         CREATE TABLE IF NOT EXISTS scans (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER NOT NULL,
