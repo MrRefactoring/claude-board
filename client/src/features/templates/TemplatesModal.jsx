@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Plus, Pencil, Trash2, Layers, Variable, Eye, ChevronLeft } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useTranslation } from '../../i18n/I18nProvider';
-import { TASK_TYPE_OPTIONS, MODEL_OPTIONS, EFFORT_OPTIONS } from '../../lib/constants';
+import { TASK_TYPE_OPTIONS, EFFORT_OPTIONS } from '../../lib/constants';
+import { useModels } from '../../lib/useModels';
 import { useCrudResource } from '../../hooks/useCrudResource';
 import ModalShell from '../../components/ModalShell';
 import Spinner from '../../components/Spinner';
@@ -10,7 +11,6 @@ import EmptyState from '../../components/EmptyState';
 import InlineDeleteConfirm from '../../components/InlineDeleteConfirm';
 
 const TASK_TYPES = TASK_TYPE_OPTIONS;
-const MODELS = MODEL_OPTIONS;
 const EFFORTS = EFFORT_OPTIONS;
 
 function VariableEditor({ variables, onChange }) {
@@ -127,6 +127,7 @@ function HighlightedTextarea({ value, onChange, placeholder, rows }) {
 }
 
 function TemplateForm({ template, onSave, onCancel }) {
+  const { models: MODELS } = useModels();
   const [name, setName] = useState(template?.name || '');
   const [description, setDescription] = useState(template?.description || '');
   const [templateText, setTemplateText] = useState(template?.template || '');

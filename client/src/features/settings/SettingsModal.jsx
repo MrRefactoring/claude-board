@@ -17,28 +17,26 @@ import {
   Terminal,
   Globe,
   FolderOpen,
+  Plus,
+  Trash,
+  Edit2,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useTranslation } from '../../i18n/I18nProvider';
 import { IS_TAURI } from '../../lib/tauriEvents';
+import { EFFORT_OPTIONS } from '../../lib/constants';
+import { useModels, refreshModels } from '../../lib/useModels';
 
 const TABS = [
   { key: 'general', icon: Settings, labelKey: 'settings.general' },
+  { key: 'models', icon: Brain, labelKey: 'settings.modelsTab' },
   { key: 'notifications', icon: Bell, labelKey: 'settings.notifications' },
   { key: 'about', icon: Info, labelKey: 'settings.about' },
 ];
 
-const MODELS = [
-  { value: 'haiku', label: 'Haiku', desc: 'Fast & lightweight' },
-  { value: 'sonnet', label: 'Sonnet', desc: 'Balanced' },
-  { value: 'opus', label: 'Opus', desc: 'Most capable' },
-];
-
-const EFFORTS = [
-  { value: 'low', labelKey: 'effort.low' },
-  { value: 'medium', labelKey: 'effort.medium' },
-  { value: 'high', labelKey: 'effort.high' },
-];
+const EFFORTS = EFFORT_OPTIONS.map((e) => ({ value: e.value, labelKey: `effort.${e.value}` }));
 
 function Toggle({ enabled, onChange, disabled }) {
   return (
@@ -73,7 +71,7 @@ function SettingRow({ icon: Icon, label, description, children }) {
   );
 }
 
-function GeneralTab({ settings, onChange, t }) {
+function GeneralTab({ settings, onChange, t, models }) {
   return (
     <div className="divide-y divide-surface-700/30">
       {IS_TAURI && (
@@ -114,9 +112,10 @@ function GeneralTab({ settings, onChange, t }) {
           onChange={(e) => onChange('default_model', e.target.value)}
           className="bg-surface-700 border border-surface-600 rounded-lg px-3 py-1.5 text-xs text-surface-200 focus:outline-none focus:ring-1 focus:ring-claude"
         >
-          {MODELS.map((m) => (
+          {models.map((m) => (
             <option key={m.value} value={m.value}>
               {m.label}
+              {m.source === 'custom' ? ' (custom)' : ''}
             </option>
           ))}
         </select>
@@ -210,6 +209,258 @@ function NotificationsTab({ settings, onChange, t }) {
         >
           <Toggle enabled={settings.sound_enabled} onChange={(v) => onChange('sound_enabled', v)} />
         </SettingRow>
+      </div>
+    </div>
+  );
+}
+
+function ModelsTab({ t, models }) {
+  const builtins = models.filter((m) => m.source === 'builtin');
+  const customs = models.filter((m) => m.source === 'custom');
+  const [editing, setEditing] = useState(null); // null | 'new' | { id, ...row }
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const startNew = () =>
+    setEditing({
+      mode: 'new',
+      model_id: '',
+      label: '',
+      color: 'bg-cyan-500/20 text-cyan-300',
+      input_cost_per_mtok: '',
+      output_cost_per_mtok: '',
+    });
+  const startEdit = (m) =>
+    setEditing({
+      mode: 'edit',
+      id: m.custom_id ?? m.id,
+      model_id: m.value,
+      label: m.label,
+      color: m.color || '',
+      input_cost_per_mtok: m.input_cost_per_mtok ?? '',
+      output_cost_per_mtok: m.output_cost_per_mtok ?? '',
+    });
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setError(null);
+  };
+
+  const save = async () => {
+    if (!editing) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const payload = {
+        modelId: editing.model_id.trim(),
+        label: editing.label.trim(),
+        color: editing.color?.trim() || null,
+        inputCostPerMtok: editing.input_cost_per_mtok === '' ? null : Number(editing.input_cost_per_mtok),
+        outputCostPerMtok: editing.output_cost_per_mtok === '' ? null : Number(editing.output_cost_per_mtok),
+        sortOrder: 0,
+      };
+      if (editing.mode === 'new') {
+        await api.addCustomModel(payload);
+      } else {
+        await api.updateCustomModel(editing.id, payload);
+      }
+      await refreshModels();
+      setEditing(null);
+    } catch (e) {
+      setError(e?.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (id) => {
+    if (!confirm(t('settings.confirmDeleteModel'))) return;
+    setBusy(true);
+    try {
+      await api.deleteCustomModel(id);
+      await refreshModels();
+    } catch (e) {
+      setError(e?.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className="text-xs uppercase tracking-wide text-surface-500 font-semibold mb-2">
+          {t('settings.builtinModels')}
+        </div>
+        <div className="space-y-1.5">
+          {builtins.map((m) => (
+            <div
+              key={m.value}
+              className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-800/40 border border-surface-700/30"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono ${m.color || 'bg-surface-700/50 text-surface-300'}`}
+                >
+                  {m.value}
+                </span>
+                <span className="text-sm text-surface-200">{m.label}</span>
+              </div>
+              <div className="text-[10px] text-surface-500 font-mono">
+                ${m.input_cost_per_mtok ?? '?'} / ${m.output_cost_per_mtok ?? '?'} per Mtok
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs uppercase tracking-wide text-surface-500 font-semibold">
+            {t('settings.customModels')}
+          </div>
+          <button
+            type="button"
+            onClick={startNew}
+            disabled={busy || editing !== null}
+            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md bg-claude/20 hover:bg-claude/30 text-claude disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Plus size={11} /> {t('settings.addModel')}
+          </button>
+        </div>
+        {customs.length === 0 && !editing && (
+          <div className="text-[11px] text-surface-500 px-3 py-3 rounded-lg bg-surface-800/30 border border-dashed border-surface-700/40">
+            {t('settings.noCustomModels')}
+          </div>
+        )}
+        <div className="space-y-1.5">
+          {customs.map((m) => (
+            <div
+              key={m.value}
+              className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-800/40 border border-surface-700/30"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono ${m.color || 'bg-surface-700/50 text-surface-300'}`}
+                >
+                  {m.value}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-sm text-surface-200 truncate">{m.label}</div>
+                  <div className="text-[10px] text-surface-500 font-mono">
+                    ${m.input_cost_per_mtok ?? '—'} / ${m.output_cost_per_mtok ?? '—'} per Mtok
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => startEdit(m)}
+                  disabled={busy || editing !== null}
+                  className="p-1.5 rounded-md text-surface-400 hover:text-surface-200 hover:bg-surface-700/50 disabled:opacity-50"
+                >
+                  <Edit2 size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(m.custom_id)}
+                  disabled={busy || editing !== null}
+                  className="p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                >
+                  <Trash size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {editing && (
+          <div className="mt-3 p-3 rounded-lg bg-surface-800/60 border border-surface-700/50 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-wide text-surface-500 font-semibold">
+                  {t('settings.modelId')}
+                </span>
+                <input
+                  value={editing.model_id}
+                  onChange={(e) => setEditing({ ...editing, model_id: e.target.value })}
+                  placeholder="claude-opus-4-7"
+                  className="mt-1 w-full bg-surface-900 border border-surface-700 rounded-md px-2 py-1.5 text-xs text-surface-200 font-mono focus:outline-none focus:ring-1 focus:ring-claude"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-wide text-surface-500 font-semibold">
+                  {t('settings.modelLabel')}
+                </span>
+                <input
+                  value={editing.label}
+                  onChange={(e) => setEditing({ ...editing, label: e.target.value })}
+                  placeholder="Opus 4.7"
+                  className="mt-1 w-full bg-surface-900 border border-surface-700 rounded-md px-2 py-1.5 text-xs text-surface-200 focus:outline-none focus:ring-1 focus:ring-claude"
+                />
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-wide text-surface-500 font-semibold">
+                  {t('settings.inputCost')}
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editing.input_cost_per_mtok}
+                  onChange={(e) => setEditing({ ...editing, input_cost_per_mtok: e.target.value })}
+                  placeholder="3.00"
+                  className="mt-1 w-full bg-surface-900 border border-surface-700 rounded-md px-2 py-1.5 text-xs text-surface-200 focus:outline-none focus:ring-1 focus:ring-claude"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-wide text-surface-500 font-semibold">
+                  {t('settings.outputCost')}
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editing.output_cost_per_mtok}
+                  onChange={(e) => setEditing({ ...editing, output_cost_per_mtok: e.target.value })}
+                  placeholder="15.00"
+                  className="mt-1 w-full bg-surface-900 border border-surface-700 rounded-md px-2 py-1.5 text-xs text-surface-200 focus:outline-none focus:ring-1 focus:ring-claude"
+                />
+              </label>
+            </div>
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-wide text-surface-500 font-semibold">
+                {t('settings.modelColor')}
+              </span>
+              <input
+                value={editing.color}
+                onChange={(e) => setEditing({ ...editing, color: e.target.value })}
+                placeholder="bg-cyan-500/20 text-cyan-300"
+                className="mt-1 w-full bg-surface-900 border border-surface-700 rounded-md px-2 py-1.5 text-xs text-surface-200 font-mono focus:outline-none focus:ring-1 focus:ring-claude"
+              />
+            </label>
+            {error && <div className="text-[11px] text-red-400">{error}</div>}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={cancelEdit}
+                disabled={busy}
+                className="px-3 py-1.5 text-xs text-surface-300 bg-surface-700/50 hover:bg-surface-700 rounded-md disabled:opacity-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={save}
+                disabled={busy || !editing.model_id.trim() || !editing.label.trim()}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-claude hover:bg-claude-light text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {busy ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                {t('common.save')}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -323,6 +574,7 @@ export default function SettingsModal({ onClose }) {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { models } = useModels();
 
   useEffect(() => {
     loadSettings();
@@ -411,7 +663,8 @@ export default function SettingsModal({ onClose }) {
             <div className="flex items-center justify-center py-12 text-surface-500 text-sm">{t('common.loading')}</div>
           ) : (
             <>
-              {tab === 'general' && <GeneralTab settings={settings} onChange={handleChange} t={t} />}
+              {tab === 'general' && <GeneralTab settings={settings} onChange={handleChange} t={t} models={models} />}
+              {tab === 'models' && <ModelsTab t={t} models={models} />}
               {tab === 'notifications' && <NotificationsTab settings={settings} onChange={handleChange} t={t} />}
               {tab === 'about' && <AboutTab t={t} />}
             </>

@@ -1,11 +1,11 @@
 import { useRef } from 'react';
 import { Cpu, Zap, Shield, Paperclip, Image, FileText, Trash2 } from 'lucide-react';
 import { useTranslation } from '../../i18n/I18nProvider';
-import { MODEL_OPTIONS, EFFORT_OPTIONS } from '../../lib/constants';
+import { EFFORT_OPTIONS } from '../../lib/constants';
+import { useModels } from '../../lib/useModels';
 import DependencySelector from './DependencySelector';
 import TagInput from './TagInput';
 
-const MODELS = MODEL_OPTIONS;
 const EFFORTS = EFFORT_OPTIONS;
 
 export default function TaskOptionsPanel({
@@ -31,6 +31,7 @@ export default function TaskOptionsPanel({
 }) {
   const { t } = useTranslation();
   const fileInputRef = useRef(null);
+  const { models: MODELS } = useModels();
 
   return (
     <div className="space-y-3 bg-surface-800/20 rounded-lg p-3 border border-surface-700/30">

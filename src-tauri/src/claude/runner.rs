@@ -666,11 +666,30 @@ fn build_claude_args(
         "--model".to_string(), model.to_string(),
     ];
 
-    // MCP config
+    // MCP config — sidecar lives under the bundled resources/ dir alongside the
+    // executable. Tauri places it at <exe-dir>/resources/mcp-server.js for both
+    // dev and release builds. Older layouts had it directly next to the exe, so
+    // fall back to that path if the resources/ variant is missing.
     let mcp_server_path = std::env::current_exe()
         .ok()
-        .and_then(|p| p.parent().map(|d| d.join("mcp-server.js").to_string_lossy().to_string()))
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .map(|exe_dir| {
+            let bundled = exe_dir.join("resources").join("mcp-server.js");
+            if bundled.exists() {
+                bundled
+            } else {
+                exe_dir.join("mcp-server.js")
+            }
+        })
+        .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
+
+    if mcp_server_path.is_empty() || !std::path::Path::new(&mcp_server_path).exists() {
+        log::warn!(
+            "MCP sidecar (mcp-server.js) not found near executable; tasks will run without claude-board MCP tools (path tried: {})",
+            mcp_server_path
+        );
+    }
 
     let mcp_config = serde_json::json!({
         "mcpServers": {
@@ -844,8 +863,54 @@ fn handle_process_lifecycle(
                 crate::services::notification::notify_task_completed(app, &crate::services::notification::TaskNotification::new(task_title, task_key));
                 crate::services::webhook::fire(project_id, "task_completed", &format!("Task completed: {}", task_title),
                     serde_json::json!({"taskId": task_id, "taskKey": task_key, "title": task_title}));
-                // No auto-test — cascade immediately
-                crate::services::queue::on_task_completed(db, app, project_id, task_id);
+
+                // Without auto-test, the approval flag still governs the next status.
+                // require_approval=false means "auto-approve" → move directly to Done.
+                let needs_approval = project.as_ref()
+                    .and_then(|p| p.require_approval)
+                    .unwrap_or(0) == 1;
+
+                if needs_approval {
+                    // Manual approval required — leave task in Testing for user review and cascade.
+                    crate::services::queue::on_task_completed(db, app, project_id, task_id);
+                } else {
+                    // Auto-approve: promote Testing → Done and run the same finalization
+                    // that the auto-test pass path performs (PR, branch cleanup, GH issue close).
+                    tasks::update_status(db, task_id, TaskStatus::Done.as_str());
+                    tasks::finalize_timer(db, task_id);
+                    generate_lifecycle_summary(task_id, db);
+                    emit_task_updated(db, app, task_id);
+                    crate::services::gsd::apply_task_status_cascade(db, Some(app), task_id);
+                    activity::add(db, project_id, Some(task_id), "task_approved",
+                        &format!("Task auto-approved: {}", task_title), None);
+
+                    if let (Some(done_task), Some(proj)) = (tasks::get_by_id(db, task_id), projects::get_by_id(db, project_id)) {
+                        auto_create_pr_public(&done_task, working_dir, &proj, db, app);
+                        let after_pr = tasks::get_by_id(db, task_id).unwrap_or(done_task.clone());
+                        cleanup_task_branch(&after_pr, project_working_dir, &proj);
+
+                        if proj.github_sync_enabled.unwrap_or(0) == 1 {
+                            if let Some(issue_num) = done_task.github_issue_number {
+                                let repo = proj.github_repo.as_deref().unwrap_or("").to_string();
+                                if !repo.is_empty() {
+                                    let pr_url = after_pr.pr_url.as_deref().unwrap_or("").to_string();
+                                    let tk = done_task.task_key.as_deref().unwrap_or("").to_string();
+                                    let comment = if !pr_url.is_empty() {
+                                        format!("Completed via Claude Board task `{}`. PR: {}", tk, pr_url)
+                                    } else {
+                                        format!("Completed via Claude Board task `{}`.", tk)
+                                    };
+                                    std::thread::spawn(move || {
+                                        if let Ok(token) = crate::commands::github::get_gh_token_pub() {
+                                            let _ = crate::services::github_sync::close_and_comment(&token, &repo, issue_num, &comment);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    crate::services::queue::on_task_completed(db, app, project_id, task_id);
+                }
             }
         }
     } else {

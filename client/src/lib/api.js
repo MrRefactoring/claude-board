@@ -183,6 +183,17 @@ export const api = {
   getAppSettings: () => call('get_app_settings', 'GET', '/api/settings'),
   updateAppSettings: (data) => call('update_app_settings', 'PUT', '/api/settings', { data }, data),
 
+  // ─── Git utilities ───
+  checkGitRepo: (path) => call('check_git_repo', 'GET', `/api/git/check?path=${encodeURIComponent(path)}`, { path }),
+  initGitRepo: (path, initialBranch = 'main') =>
+    call('init_git_repo', 'POST', '/api/git/init', { path, initialBranch }, { path, initialBranch }),
+
+  // ─── Models registry ───
+  listModels: () => call('list_models', 'GET', '/api/models'),
+  addCustomModel: (data) => call('add_custom_model', 'POST', '/api/models', data, data),
+  updateCustomModel: (id, data) => call('update_custom_model', 'PUT', `/api/models/${id}`, { id, ...data }, data),
+  deleteCustomModel: (id) => call('delete_custom_model', 'DELETE', `/api/models/${id}`, { id }),
+
   // ─── Logs (bug reports) ───
   // Tauri-only: the HTTP shim has no filesystem access.
   getLogsDir: () => (IS_TAURI ? tauriCall('get_logs_dir') : Promise.reject(new Error('Tauri-only'))),

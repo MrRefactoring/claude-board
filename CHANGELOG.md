@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.10.0] - 2026-05-02
+
+### Features
+- **Dynamic model registry** — Settings → Models tab lists built-in Claude aliases and pinned versions (Haiku 4.5, Sonnet 4.6, Opus 4.6, Opus 4.7, Opus 4.7 1M context) and lets you add your own custom models with id, label, color, and per-Mtok input/output costs. Custom models persist in a new `custom_models` SQLite table and surface in every model picker (project auto-test model, task model, templates, planning)
+- **Git-aware project automation** — When the working directory of a project is not a git repository, Auto Branch / Auto Push / Auto PR toggles are disabled and a banner with a "Initialize git here" button appears in the project modal. Status is probed on directory change with a debounced `check_git_repo` Tauri command
+- **Expanded effort levels** — Added `xhigh` and `max` to match the values accepted by `claude --effort`. Pickers across task creation, templates, planning, and settings reflect the wider range
+- **Auto-approve on completion without auto-test** — Projects with `require_approval=false` (auto-approve) and `auto_test=false` now move tasks straight from `testing` to `done` after Claude finishes, instead of leaving them stuck in `testing`. The full auto-approve finalization runs (timer, lifecycle summary, auto-PR, branch cleanup, GitHub issue close)
+
+### Bug fixes
+- **MCP sidecar discovery** — `runner.rs` now resolves `mcp-server.js` from `<exe-dir>/resources/` (Tauri's bundled layout) before falling back to `<exe-dir>/mcp-server.js`. Previously the sidecar was never found in dev/release builds, so per-task MCP tool calls (status updates, log push, etc.) silently failed
+- **Maximum update depth in `useModels`** — Replaced the `useSyncExternalStore` snapshot pattern with a simpler `useState` + module-level subscriber set, eliminating the render loop that hit the React update budget on app start
+
+### Internals
+- New Tauri commands: `check_git_repo`, `init_git_repo`, `list_models`, `add_custom_model`, `update_custom_model`, `delete_custom_model`
+- New modules: `commands/git_utils.rs`, `commands/models.rs`, `db/custom_models.rs`, `client/src/lib/useModels.js`, `client/src/lib/useGitRepoStatus.js`
+- Built-in model id collision check now diffs against the full built-in list (aliases + pinned versions) instead of the three aliases
+
 ## [1.8.1] - 2026-04-16
 
 ### Bug fixes

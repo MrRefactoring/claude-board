@@ -29,6 +29,8 @@ import { AVATAR_VARIANTS, AVATAR_COLORS } from '../../lib/constants';
 import { useTranslation } from '../../i18n/I18nProvider';
 import { api } from '../../lib/api';
 import { IS_TAURI } from '../../lib/tauriEvents';
+import { useGitRepoStatus } from '../../lib/useGitRepoStatus';
+import { useModels } from '../../lib/useModels';
 
 const PERMISSION_MODES = [
   {
@@ -98,6 +100,45 @@ export default function ProjectModal({ project, onSubmit, onClose }) {
   const [loading, setLoading] = useState(false);
   const [autoSlug, setAutoSlug] = useState(!project);
   const nameRef = useRef(null);
+  const {
+    status: gitStatus,
+    loading: gitLoading,
+    refresh: refreshGitStatus,
+  } = useGitRepoStatus(workingDir, {
+    enabled: IS_TAURI,
+  });
+  const { models: availableModels } = useModels();
+  const isGitRepo = gitStatus?.isRepo === true;
+  // Until the probe completes (or in web mode where we can't probe) treat as repo
+  // to avoid flashing the warning. In Tauri the probe is fast.
+  const gitGateUnknown = !IS_TAURI || gitStatus === null;
+  const gitDisabled = !gitGateUnknown && !isGitRepo;
+  const [gitInitBusy, setGitInitBusy] = useState(false);
+  const [gitInitError, setGitInitError] = useState(null);
+
+  // Force git automation toggles off when the working dir is confirmed non-repo.
+  useEffect(() => {
+    if (gitDisabled) {
+      if (autoBranch) setAutoBranch(false);
+      if (autoPr) setAutoPr(false);
+      if (autoPush) setAutoPush(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gitDisabled]);
+
+  const handleGitInit = async () => {
+    if (!workingDir.trim() || gitInitBusy) return;
+    setGitInitBusy(true);
+    setGitInitError(null);
+    try {
+      await api.initGitRepo(workingDir.trim(), prBaseBranch.trim() || 'main');
+      refreshGitStatus();
+    } catch (e) {
+      setGitInitError(e?.message || String(e));
+    } finally {
+      setGitInitBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (tab === 'general') nameRef.current?.focus();
@@ -437,24 +478,53 @@ export default function ProjectModal({ project, onSubmit, onClose }) {
 
                   {/* Git Workflow */}
                   <Section title={t('projectModal.gitWorkflow')} icon={GitBranch}>
-                    <div className="grid gap-2">
+                    {gitDisabled && (
+                      <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <Info size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-amber-200 leading-relaxed">
+                            {t('projectModal.notGitRepoWarning')}
+                          </p>
+                          {IS_TAURI && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={gitInitBusy || !workingDir.trim()}
+                                onClick={handleGitInit}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {gitInitBusy ? <Loader2 size={11} className="animate-spin" /> : <GitBranch size={11} />}
+                                {t('projectModal.gitInit')}
+                              </button>
+                              {gitInitError && <span className="text-[11px] text-red-300">{gitInitError}</span>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {gitLoading && IS_TAURI && (
+                      <div className="flex items-center gap-2 text-[11px] text-surface-500 pb-1">
+                        <Loader2 size={11} className="animate-spin" /> {t('projectModal.checkingGit')}
+                      </div>
+                    )}
+                    <div className={`grid gap-2 ${gitDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
                       <ToggleRow
-                        enabled={autoBranch}
-                        onToggle={() => setAutoBranch(!autoBranch)}
+                        enabled={autoBranch && !gitDisabled}
+                        onToggle={() => !gitDisabled && setAutoBranch(!autoBranch)}
                         label={t('projectModal.autoBranch')}
                         desc={t('projectModal.autoBranchDesc')}
                         activeColor="violet"
                       />
                       <ToggleRow
-                        enabled={autoPush}
-                        onToggle={() => setAutoPush(!autoPush)}
+                        enabled={autoPush && !gitDisabled}
+                        onToggle={() => !gitDisabled && setAutoPush(!autoPush)}
                         label={t('projectModal.autoPush')}
                         desc={t('projectModal.autoPushDesc')}
                         activeColor="violet"
                       />
                       <ToggleRow
-                        enabled={autoPr}
-                        onToggle={() => setAutoPr(!autoPr)}
+                        enabled={autoPr && !gitDisabled}
+                        onToggle={() => !gitDisabled && setAutoPr(!autoPr)}
                         label={t('projectModal.autoPR')}
                         desc={t('projectModal.autoPRDesc')}
                         activeColor="violet"
@@ -554,9 +624,12 @@ export default function ProjectModal({ project, onSubmit, onClose }) {
                             className="input-field"
                           >
                             <option value="">{t('projectModal.defaultSonnet')}</option>
-                            <option value="haiku">Haiku</option>
-                            <option value="sonnet">Sonnet</option>
-                            <option value="opus">Opus</option>
+                            {availableModels.map((m) => (
+                              <option key={m.value} value={m.value}>
+                                {m.label}
+                                {m.source === 'custom' ? ' (custom)' : ''}
+                              </option>
+                            ))}
                           </select>
                         </Field>
                       </div>

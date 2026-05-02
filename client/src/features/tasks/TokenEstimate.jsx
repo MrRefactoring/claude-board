@@ -1,5 +1,6 @@
 import { Cpu, Coins } from 'lucide-react';
 import { MODEL_COSTS } from '../../lib/constants';
+import { useModels, getModelCosts } from '../../lib/useModels';
 
 function estimateTokens(text) {
   if (!text) return 0;
@@ -7,11 +8,13 @@ function estimateTokens(text) {
 }
 
 export default function TokenEstimate({ title, description, acceptanceCriteria, model }) {
+  const { models } = useModels();
   const fullText = (title + ' ' + description + ' ' + acceptanceCriteria).trim();
   const tokens = estimateTokens(fullText);
   if (tokens < 10) return null;
 
-  const cost = MODEL_COSTS[model];
+  const dynamic = getModelCosts(model, models);
+  const cost = dynamic || MODEL_COSTS[model] || MODEL_COSTS.sonnet;
   const inputCost = (tokens / 1e6) * cost.input;
 
   return (
