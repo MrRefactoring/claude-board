@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { api } from './api';
 
-// Mirrors src-tauri/src/commands/models.rs `builtin_models()` — used as a
+// Mirrors src-tauri/src/commands/models.rs `default_seed_models()` — used as a
 // transient fallback before the backend list arrives (or in web-only mode).
+// In the desktop app these are seeded into the editable custom_models table and
+// served (source: 'custom') from list_models; keep costs in sync with the seed.
 const BUILTIN_FALLBACK = [
   // Aliases (track latest)
   {
@@ -26,8 +28,8 @@ const BUILTIN_FALLBACK = [
     label: 'Opus (latest)',
     source: 'builtin',
     color: 'bg-purple-500/20 text-purple-300',
-    input_cost_per_mtok: 15.0,
-    output_cost_per_mtok: 75.0,
+    input_cost_per_mtok: 5.0,
+    output_cost_per_mtok: 25.0,
   },
   // Pinned versions
   {
@@ -51,24 +53,48 @@ const BUILTIN_FALLBACK = [
     label: 'Opus 4.6',
     source: 'builtin',
     color: 'bg-purple-500/20 text-purple-300',
-    input_cost_per_mtok: 15.0,
-    output_cost_per_mtok: 75.0,
+    input_cost_per_mtok: 5.0,
+    output_cost_per_mtok: 25.0,
   },
   {
     value: 'claude-opus-4-7',
     label: 'Opus 4.7',
     source: 'builtin',
     color: 'bg-purple-500/20 text-purple-300',
-    input_cost_per_mtok: 15.0,
-    output_cost_per_mtok: 75.0,
+    input_cost_per_mtok: 5.0,
+    output_cost_per_mtok: 25.0,
   },
   {
     value: 'claude-opus-4-7[1m]',
     label: 'Opus 4.7 (1M context)',
     source: 'builtin',
     color: 'bg-fuchsia-500/20 text-fuchsia-300',
-    input_cost_per_mtok: 15.0,
-    output_cost_per_mtok: 75.0,
+    input_cost_per_mtok: 5.0,
+    output_cost_per_mtok: 25.0,
+  },
+  {
+    value: 'claude-opus-4-8',
+    label: 'Opus 4.8',
+    source: 'builtin',
+    color: 'bg-purple-500/20 text-purple-300',
+    input_cost_per_mtok: 5.0,
+    output_cost_per_mtok: 25.0,
+  },
+  {
+    value: 'claude-opus-4-8[1m]',
+    label: 'Opus 4.8 (1M context)',
+    source: 'builtin',
+    color: 'bg-fuchsia-500/20 text-fuchsia-300',
+    input_cost_per_mtok: 5.0,
+    output_cost_per_mtok: 25.0,
+  },
+  {
+    value: 'claude-fable-5',
+    label: 'Fable 5',
+    source: 'builtin',
+    color: 'bg-amber-500/20 text-amber-300',
+    input_cost_per_mtok: 10.0,
+    output_cost_per_mtok: 50.0,
   },
 ];
 

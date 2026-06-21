@@ -25,6 +25,7 @@ import { ProjectCard } from './ProjectCard';
 import { ProjectListRow } from './ProjectListRow';
 import { ClaudeUsageCard } from './ClaudeUsageCard';
 import { SuggestionBanner, filterDismissed } from './SuggestionBanner';
+import { StarBanner } from './StarBanner';
 
 // Cache outside component so it survives remounts
 let summaryCache = null;
@@ -270,6 +271,9 @@ export default function Dashboard({ projects, onSelectProject, onNewProject, onO
 
         {/* Suggestions */}
         {suggestions.length > 0 && <SuggestionBanner suggestions={suggestions} setSuggestions={setSuggestions} t={t} />}
+
+        {/* Star on GitHub */}
+        <StarBanner />
 
         {/* Project Grid */}
         {loading ? (

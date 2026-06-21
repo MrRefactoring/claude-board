@@ -75,10 +75,13 @@ export const EFFORT_OPTIONS = [
 ];
 
 // ─── Token costs (USD per million tokens) ───
+// Fallback estimates only — the editable per-model costs from Settings → Models
+// (via getModelCosts) take precedence when available. Keep in sync with the
+// default seed in src-tauri/src/commands/models.rs `default_seed_models()`.
 export const MODEL_COSTS = {
-  haiku: { input: 0.25, output: 1.25 },
+  haiku: { input: 1.0, output: 5.0 },
   sonnet: { input: 3.0, output: 15.0 },
-  opus: { input: 15.0, output: 75.0 },
+  opus: { input: 5.0, output: 25.0 },
 };
 
 // ─── Defaults ───

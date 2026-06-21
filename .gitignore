@@ -16,6 +16,7 @@ src-tauri/target/
 .claude/
 .mcp.json
 CLAUDE.md
+.planning/
 
 # OS
 .DS_Store
@@ -30,3 +31,4 @@ src-tauri/keys/
 scripts/
 # vault-bridge
 .vault.json
+
