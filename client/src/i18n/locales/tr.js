@@ -496,6 +496,11 @@ export default {
   'header.scanAppendDesc': 'Analizi mevcut i\u00e7eri\u011fin sonuna ekle',
   'dashboard.groupByNamespace': 'Ad alan\u0131na g\u00f6re grupla',
   'dashboard.groups': 'grup',
+  'dashboard.starTitle': 'Claude Board ho\u015funa gitti mi?',
+  'dashboard.starDesc':
+    'Projeyi desteklemek i\u00e7in GitHub\u2019da y\u0131ld\u0131z ver, geli\u015fmelerden haberdar ol.',
+  'dashboard.starCta': 'GitHub\u2019da y\u0131ld\u0131z ver',
+  'dashboard.starDismiss': 'Kapat',
 
   // ─── Pipeline ───
   'board.pipeline': 'Pipeline',
@@ -946,6 +951,7 @@ export default {
     'Yeni g\u00f6revler i\u00e7in varsay\u0131lan d\u00fc\u015f\u00fcnme \u00e7abas\u0131 seviyesi',
   'settings.modelsTab': 'Modeller',
   'settings.builtinModels': 'Yerle\u015fik Modeller',
+  'settings.models': 'Modeller',
   'settings.customModels': '\u00d6zel Modeller',
   'settings.addModel': 'Model Ekle',
   'settings.noCustomModels':

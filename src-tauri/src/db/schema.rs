@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
 
 pub fn create_tables(conn: &Connection) {
     conn.execute_batch(
@@ -879,6 +879,47 @@ pub fn run_migrations(conn: &Connection) {
     // Generate project_key for projects that don't have one
     backfill_project_keys(conn);
     backfill_task_keys(conn);
+
+    // Seed the default model list into the editable custom_models table (once)
+    seed_default_models(conn);
+}
+
+/// One-time seed of the default models into the editable `custom_models` table.
+/// Gated by an `app_settings` flag so it runs exactly once — later user edits
+/// and deletions are preserved across launches. Existing ids are left untouched
+/// (INSERT OR IGNORE on the UNIQUE model_id).
+fn seed_default_models(conn: &Connection) {
+    let already = conn
+        .query_row(
+            "SELECT value FROM app_settings WHERE key='models_seeded'",
+            [],
+            |r| r.get::<_, String>(0),
+        )
+        .map(|v| v == "true")
+        .unwrap_or(false);
+    if already {
+        return;
+    }
+
+    for (i, (model_id, label, color, input, output)) in
+        crate::commands::models::default_seed_models().iter().enumerate()
+    {
+        if let Err(e) = conn.execute(
+            "INSERT OR IGNORE INTO custom_models
+                (model_id, label, color, input_cost_per_mtok, output_cost_per_mtok, sort_order)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![model_id, label, color, input, output, (i as i64) * 10],
+        ) {
+            log::error!("seed_default_models: {} failed: {}", model_id, e);
+        }
+    }
+
+    conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES ('models_seeded', 'true')
+         ON CONFLICT(key) DO UPDATE SET value='true'",
+        [],
+    )
+    .ok();
 }
 
 pub fn generate_project_key(slug: &str) -> String {

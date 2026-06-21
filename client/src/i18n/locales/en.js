@@ -488,6 +488,10 @@ export default {
   'header.scanAppendDesc': 'Add analysis to the end of existing content',
   'dashboard.groupByNamespace': 'Group by namespace',
   'dashboard.groups': 'groups',
+  'dashboard.starTitle': 'Enjoying Claude Board?',
+  'dashboard.starDesc': 'Star us on GitHub to support the project and stay in the loop.',
+  'dashboard.starCta': 'Star on GitHub',
+  'dashboard.starDismiss': 'Dismiss',
 
   // ─── Pipeline ───
   'board.pipeline': 'Pipeline',
@@ -925,6 +929,7 @@ export default {
   'settings.defaultEffortDesc': 'Default thinking effort level for new tasks',
   'settings.modelsTab': 'Models',
   'settings.builtinModels': 'Built-in Models',
+  'settings.models': 'Models',
   'settings.customModels': 'Custom Models',
   'settings.addModel': 'Add Model',
   'settings.noCustomModels':

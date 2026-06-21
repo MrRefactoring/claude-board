@@ -13,70 +13,40 @@ pub struct ModelEntry {
     pub custom_id: Option<i64>,   // present for source="custom"
 }
 
-fn builtin_models() -> Vec<ModelEntry> {
-    // Generic aliases route to "latest" of each family; specific ids pin a version.
-    // Costs are USD per million tokens (Anthropic public pricing as of 2026 cutoff).
+/// Canonical default model list, seeded once into the editable `custom_models`
+/// table (see `db::schema::seed_default_models`). Generic aliases route to the
+/// "latest" of each family; specific ids pin a version. Costs are USD per
+/// million tokens (Anthropic public pricing). Users edit or delete these from
+/// Settings → Models — to ship a new default, add a row here; it lands on the
+/// next fresh install (existing installs keep the user's edited list).
+///
+/// Tuple shape: `(model_id, label, tailwind_color, input_cost, output_cost)`.
+pub fn default_seed_models() -> Vec<(&'static str, &'static str, &'static str, f64, f64)> {
     vec![
         // ── Aliases (track latest) ──
-        ModelEntry {
-            value: "haiku".into(), label: "Haiku (latest)".into(),
-            color: Some("bg-green-500/20 text-green-300".into()), source: "builtin".into(),
-            input_cost_per_mtok: Some(1.0), output_cost_per_mtok: Some(5.0),
-            custom_id: None,
-        },
-        ModelEntry {
-            value: "sonnet".into(), label: "Sonnet (latest)".into(),
-            color: Some("bg-blue-500/20 text-blue-300".into()), source: "builtin".into(),
-            input_cost_per_mtok: Some(3.0), output_cost_per_mtok: Some(15.0),
-            custom_id: None,
-        },
-        ModelEntry {
-            value: "opus".into(), label: "Opus (latest)".into(),
-            color: Some("bg-purple-500/20 text-purple-300".into()), source: "builtin".into(),
-            input_cost_per_mtok: Some(15.0), output_cost_per_mtok: Some(75.0),
-            custom_id: None,
-        },
+        ("haiku", "Haiku (latest)", "bg-green-500/20 text-green-300", 1.0, 5.0),
+        ("sonnet", "Sonnet (latest)", "bg-blue-500/20 text-blue-300", 3.0, 15.0),
+        ("opus", "Opus (latest)", "bg-purple-500/20 text-purple-300", 5.0, 25.0),
         // ── Pinned versions ──
-        ModelEntry {
-            value: "claude-haiku-4-5".into(), label: "Haiku 4.5".into(),
-            color: Some("bg-green-500/20 text-green-300".into()), source: "builtin".into(),
-            input_cost_per_mtok: Some(1.0), output_cost_per_mtok: Some(5.0),
-            custom_id: None,
-        },
-        ModelEntry {
-            value: "claude-sonnet-4-6".into(), label: "Sonnet 4.6".into(),
-            color: Some("bg-blue-500/20 text-blue-300".into()), source: "builtin".into(),
-            input_cost_per_mtok: Some(3.0), output_cost_per_mtok: Some(15.0),
-            custom_id: None,
-        },
-        ModelEntry {
-            value: "claude-opus-4-6".into(), label: "Opus 4.6".into(),
-            color: Some("bg-purple-500/20 text-purple-300".into()), source: "builtin".into(),
-            input_cost_per_mtok: Some(15.0), output_cost_per_mtok: Some(75.0),
-            custom_id: None,
-        },
-        ModelEntry {
-            value: "claude-opus-4-7".into(), label: "Opus 4.7".into(),
-            color: Some("bg-purple-500/20 text-purple-300".into()), source: "builtin".into(),
-            input_cost_per_mtok: Some(15.0), output_cost_per_mtok: Some(75.0),
-            custom_id: None,
-        },
-        ModelEntry {
-            value: "claude-opus-4-7[1m]".into(), label: "Opus 4.7 (1M context)".into(),
-            color: Some("bg-fuchsia-500/20 text-fuchsia-300".into()), source: "builtin".into(),
-            input_cost_per_mtok: Some(15.0), output_cost_per_mtok: Some(75.0),
-            custom_id: None,
-        },
+        ("claude-haiku-4-5", "Haiku 4.5", "bg-green-500/20 text-green-300", 1.0, 5.0),
+        ("claude-sonnet-4-6", "Sonnet 4.6", "bg-blue-500/20 text-blue-300", 3.0, 15.0),
+        ("claude-opus-4-6", "Opus 4.6", "bg-purple-500/20 text-purple-300", 5.0, 25.0),
+        ("claude-opus-4-7", "Opus 4.7", "bg-purple-500/20 text-purple-300", 5.0, 25.0),
+        ("claude-opus-4-7[1m]", "Opus 4.7 (1M context)", "bg-fuchsia-500/20 text-fuchsia-300", 5.0, 25.0),
+        ("claude-opus-4-8", "Opus 4.8", "bg-purple-500/20 text-purple-300", 5.0, 25.0),
+        ("claude-opus-4-8[1m]", "Opus 4.8 (1M context)", "bg-fuchsia-500/20 text-fuchsia-300", 5.0, 25.0),
+        ("claude-fable-5", "Fable 5", "bg-amber-500/20 text-amber-300", 10.0, 50.0),
     ]
 }
 
 #[tauri::command]
 pub fn list_models() -> Result<Vec<ModelEntry>, String> {
+    // All models live in the editable custom_models table (seeded with the
+    // defaults on first run), so the whole list is user-editable from settings.
     let db = db::get_db();
-    let mut out = builtin_models();
-    let customs = custom_models::list(&db);
-    for c in customs {
-        out.push(ModelEntry {
+    let out = custom_models::list(&db)
+        .into_iter()
+        .map(|c| ModelEntry {
             value: c.model_id,
             label: c.label,
             color: c.color,
@@ -84,8 +54,8 @@ pub fn list_models() -> Result<Vec<ModelEntry>, String> {
             input_cost_per_mtok: c.input_cost_per_mtok,
             output_cost_per_mtok: c.output_cost_per_mtok,
             custom_id: Some(c.id),
-        });
-    }
+        })
+        .collect();
     Ok(out)
 }
 
@@ -102,11 +72,11 @@ pub fn add_custom_model(
     let label = label.trim();
     if model_id.is_empty() { return Err("Model id is required".into()); }
     if label.is_empty() { return Err("Label is required".into()); }
-    if builtin_models().iter().any(|m| m.value == model_id) {
-        return Err("Built-in model id cannot be used as a custom model".into());
-    }
 
     let db = db::get_db();
+    if custom_models::list(&db).iter().any(|m| m.model_id == model_id) {
+        return Err("A model with this id already exists".into());
+    }
     let id = custom_models::create(
         &db, model_id, label, color.as_deref(),
         input_cost_per_mtok, output_cost_per_mtok,
