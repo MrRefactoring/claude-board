@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { api } from '../lib/api';
+import type { TranslateFn } from '../lib/types';
 import en from './locales/en';
 import tr from './locales/tr';
 
@@ -9,9 +11,24 @@ import tr from './locales/tr';
  * 2. Add import and entry to `locales` and `LANGUAGES` below
  * 3. That's it — the language selector will pick it up automatically
  */
-const locales = { en, tr };
+type Locale = Record<string, string>;
 
-const LANGUAGES = [
+export interface Language {
+  code: string;
+  label: string;
+  flag?: string;
+}
+
+export interface I18nContextValue {
+  lang: string;
+  setLang: (code: string) => void;
+  t: TranslateFn;
+  languages: Language[];
+}
+
+const locales: Record<string, Locale> = { en, tr };
+
+const LANGUAGES: Language[] = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'tr', label: 'Türkçe', flag: '🇹🇷' },
   // { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
@@ -23,7 +40,7 @@ const LANGUAGES = [
 const SUPPORTED = LANGUAGES.map((l) => l.code);
 const STORAGE_KEY = 'ui-lang';
 
-function detectLang() {
+function detectLang(): string {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored && SUPPORTED.includes(stored)) return stored;
@@ -32,12 +49,12 @@ function detectLang() {
   return SUPPORTED.includes(nav) ? nav : 'en';
 }
 
-const I18nCtx = createContext(null);
+const I18nCtx = createContext<I18nContextValue | null>(null);
 
-export function I18nProvider({ children }) {
+export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState(detectLang);
 
-  const setLang = useCallback((code) => {
+  const setLang = useCallback((code: string) => {
     if (!SUPPORTED.includes(code)) return;
     setLangState(code);
     try {
@@ -45,11 +62,11 @@ export function I18nProvider({ children }) {
     } catch {}
   }, []);
 
-  const t = useCallback(
+  const t = useCallback<TranslateFn>(
     (key, params) => {
       const str = locales[lang]?.[key] ?? locales.en[key] ?? key;
       if (!params) return str;
-      return str.replace(/\{(\w+)\}/g, (_, k) => params[k] ?? `{${k}}`);
+      return str.replace(/\{(\w+)\}/g, (_, k: string) => String(params[k] ?? `{${k}}`));
     },
     [lang],
   );
@@ -60,22 +77,28 @@ export function I18nProvider({ children }) {
       api
         .getAppSettings()
         .then((s) => {
-          if (s?.language && SUPPORTED.includes(s.language)) {
-            setLang(s.language);
+          const language = (s as { language?: string } | null)?.language;
+          if (language && SUPPORTED.includes(language)) {
+            setLang(language);
           }
         })
         .catch(() => {});
     }
   }, [setLang]);
 
-  const value = useMemo(() => ({ lang, setLang, t, languages: LANGUAGES }), [lang, setLang, t]);
+  const value = useMemo<I18nContextValue>(() => ({ lang, setLang, t, languages: LANGUAGES }), [lang, setLang, t]);
 
   return <I18nCtx.Provider value={value}>{children}</I18nCtx.Provider>;
 }
 
-const fallbackCtx = { lang: 'en', setLang: () => {}, t: (key) => key, languages: [] };
+const fallbackCtx: I18nContextValue = {
+  lang: 'en',
+  setLang: () => {},
+  t: (key) => key,
+  languages: [],
+};
 
-export function useTranslation() {
+export function useTranslation(): I18nContextValue {
   const ctx = useContext(I18nCtx);
   if (!ctx) {
     console.warn('useTranslation called outside I18nProvider — using fallback');

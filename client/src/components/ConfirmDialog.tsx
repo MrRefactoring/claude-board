@@ -1,6 +1,7 @@
 import { useTranslation } from '../i18n/I18nProvider';
+import type { ConfirmState } from '../lib/types';
 
-export default function ConfirmDialog({ title, message, danger, onConfirm, onCancel }) {
+export default function ConfirmDialog({ title, message, danger, onConfirm, onCancel }: ConfirmState) {
   const { t } = useTranslation();
   return (
     <div

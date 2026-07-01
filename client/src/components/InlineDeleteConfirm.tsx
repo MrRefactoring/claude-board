@@ -1,4 +1,10 @@
-export default function InlineDeleteConfirm({ message = 'Delete this item?', onConfirm, onCancel }) {
+interface Props {
+  message?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+export default function InlineDeleteConfirm({ message = 'Delete this item?', onConfirm, onCancel }: Props) {
   return (
     <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-xl">
       <div className="bg-surface-800 rounded-lg p-4 border border-surface-700 shadow-xl mx-4">

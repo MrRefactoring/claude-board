@@ -8,15 +8,20 @@ import { useTranslation } from './I18nProvider';
  *   compact  — show only flag + code (for tight spaces like headers)
  *   inline   — show as inline button group instead of dropdown
  */
-export default function LanguageSelector({ compact = false, inline = false }) {
+interface Props {
+  compact?: boolean;
+  inline?: boolean;
+}
+
+export default function LanguageSelector({ compact = false, inline = false }: Props) {
   const { lang, setLang, languages } = useTranslation();
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => {
-      if (!ref.current?.contains(e.target)) setOpen(false);
+    const handler = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);

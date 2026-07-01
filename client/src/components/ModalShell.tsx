@@ -1,4 +1,16 @@
 import { X } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
+
+interface Props {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  icon?: LucideIcon;
+  iconClass?: string;
+  onClose: () => void;
+  maxWidth?: string;
+  children: ReactNode;
+}
 
 export default function ModalShell({
   title,
@@ -8,7 +20,7 @@ export default function ModalShell({
   onClose,
   maxWidth = 'max-w-lg',
   children,
-}) {
+}: Props) {
   return (
     <div
       className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm"

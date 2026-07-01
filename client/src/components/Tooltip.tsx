@@ -1,18 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
+import type { ReactNode } from 'react';
 
-export default function Tooltip({ children, text, position = 'bottom', delay = 300, shortcut }) {
+interface Props {
+  children: ReactNode;
+  text?: string;
+  position?: 'top' | 'bottom' | 'left' | 'right';
+  delay?: number;
+  shortcut?: string;
+}
+
+export default function Tooltip({ children, text, position = 'bottom', delay = 300, shortcut }: Props) {
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
-  const triggerRef = useRef(null);
-  const tooltipRef = useRef(null);
-  const timerRef = useRef(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const show = () => {
     timerRef.current = setTimeout(() => setVisible(true), delay);
   };
 
   const hide = () => {
-    clearTimeout(timerRef.current);
+    clearTimeout(timerRef.current ?? undefined);
     setVisible(false);
   };
 
@@ -20,7 +29,8 @@ export default function Tooltip({ children, text, position = 'bottom', delay = 3
     if (!visible || !triggerRef.current || !tooltipRef.current) return;
     const trigger = triggerRef.current.getBoundingClientRect();
     const tip = tooltipRef.current.getBoundingClientRect();
-    let top, left;
+    let top: number;
+    let left: number;
 
     switch (position) {
       case 'top':
@@ -53,7 +63,7 @@ export default function Tooltip({ children, text, position = 'bottom', delay = 3
   }, [visible, position]);
 
   useEffect(() => {
-    return () => clearTimeout(timerRef.current);
+    return () => clearTimeout(timerRef.current ?? undefined);
   }, []);
 
   if (!text) return children;

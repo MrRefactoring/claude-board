@@ -1,20 +1,26 @@
 import { AlertTriangle, CheckCircle, XCircle, Info } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { Toast as ToastItem, ToastType } from '../lib/types';
 
-const STYLES = {
+const STYLES: Record<ToastType, string> = {
   success: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
   error: 'bg-red-500/10 border-red-500/30 text-red-300',
   info: 'bg-claude/10 border-claude/30 text-claude-light',
   warning: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
 };
 
-const ICONS = {
+const ICONS: Record<ToastType, LucideIcon> = {
   success: CheckCircle,
   error: XCircle,
   info: Info,
   warning: AlertTriangle,
 };
 
-export default function Toast({ toasts }) {
+interface Props {
+  toasts: ToastItem[];
+}
+
+export default function Toast({ toasts }: Props) {
   if (toasts.length === 0) return null;
 
   return (
