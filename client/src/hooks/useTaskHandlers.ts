@@ -1,9 +1,28 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { api } from '../lib/api';
 import { emitStatusTransition } from '../features/board/StatusTransitionContext';
+import type { Task, Project, TaskStatus, AddToast, TranslateFn, ConfirmState } from '../lib/types';
 
 // Track in-flight status updates to prevent socket events from overriding optimistic state
-export const pendingUpdates = new Set();
+export const pendingUpdates = new Set<number>();
+
+/** Extra fields the task modal tacks onto the payload before create/update. */
+type TaskFormData = Partial<Task> & { _files?: File[]; _pendingDeps?: number[] };
+
+interface UseTaskHandlersOptions {
+  tasks: Task[];
+  setTasks: Dispatch<SetStateAction<Task[]>>;
+  addToast: AddToast;
+  t: TranslateFn;
+  setConfirm: (value: ConfirmState | null) => void;
+  terminal: { openTab: (task: Task) => void };
+  setSelectedTask: (task: Task | null) => void;
+  setActivePanel: (panel: string) => void;
+  openModal: (name: string, data?: unknown) => void;
+  closeModal: (name: string) => void;
+  currentProject: Project | null;
+}
 
 export function useTaskHandlers({
   tasks,
@@ -17,12 +36,12 @@ export function useTaskHandlers({
   openModal,
   closeModal,
   currentProject,
-}) {
+}: UseTaskHandlersOptions) {
   const onStatusChange = useCallback(
-    async (taskId, newStatus) => {
+    async (taskId: number, newStatus: TaskStatus) => {
       const task = tasks.find((x) => x.id === taskId);
       if (!task) return;
-      const fromStatus = task.status || 'backlog';
+      const fromStatus: TaskStatus = task.status || 'backlog';
 
       if (newStatus === 'in_progress' && fromStatus !== 'in_progress') {
         setConfirm({
@@ -39,7 +58,7 @@ export function useTaskHandlers({
               addToast(t('toast.claudeStarted', { title: task.title }), 'success');
             } catch (e) {
               setTasks((prev) => prev.map((x) => (x.id === taskId ? { ...x, status: fromStatus } : x)));
-              addToast(e.message, 'error');
+              addToast((e as Error).message, 'error');
             } finally {
               pendingUpdates.delete(taskId);
             }
@@ -57,7 +76,7 @@ export function useTaskHandlers({
         setTasks((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
       } catch (e) {
         setTasks((prev) => prev.map((x) => (x.id === taskId ? { ...x, status: fromStatus } : x)));
-        addToast(e.message, 'error');
+        addToast((e as Error).message, 'error');
       } finally {
         pendingUpdates.delete(taskId);
       }
@@ -66,18 +85,19 @@ export function useTaskHandlers({
   );
 
   const onCreate = useCallback(
-    async (data) => {
+    async (data: TaskFormData) => {
+      if (!currentProject) return;
       const files = data._files;
       const pendingDeps = data._pendingDeps;
       delete data._files;
       delete data._pendingDeps;
       const task = await api.createTask(currentProject.id, data);
       setTasks((prev) => (prev.some((x) => x.id === task.id) ? prev : [...prev, task]));
-      if (files?.length > 0) {
+      if (files && files.length > 0) {
         try {
           await api.uploadAttachments(task.id, files);
         } catch (e) {
-          addToast('File upload failed: ' + e.message, 'error');
+          addToast('File upload failed: ' + (e as Error).message, 'error');
         }
       }
       if (pendingDeps && pendingDeps.length > 0) {
@@ -87,7 +107,7 @@ export function useTaskHandlers({
             await api.addDependency(task.id, depId);
             depOk++;
           } catch (e) {
-            addToast(`Dependency failed: ${e.message || e}`, 'error');
+            addToast(`Dependency failed: ${(e as Error).message || String(e)}`, 'error');
           }
         }
         if (depOk > 0) addToast(`${depOk} dependency added`, 'info');
@@ -99,16 +119,16 @@ export function useTaskHandlers({
   );
 
   const onUpdate = useCallback(
-    async (editingTask, data) => {
+    async (editingTask: Task, data: TaskFormData) => {
       const files = data._files;
       delete data._files;
       const updated = await api.updateTask(editingTask.id, data);
       setTasks((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
-      if (files?.length > 0) {
+      if (files && files.length > 0) {
         try {
           await api.uploadAttachments(editingTask.id, files);
         } catch (e) {
-          addToast('File upload failed: ' + e.message, 'error');
+          addToast('File upload failed: ' + (e as Error).message, 'error');
         }
       }
       closeModal('task');
@@ -118,7 +138,7 @@ export function useTaskHandlers({
   );
 
   const onDelete = useCallback(
-    (task) => {
+    (task: Task) => {
       setConfirm({
         title: t('toast.deleteTaskTitle'),
         message: t('toast.deleteTaskConfirm', { title: task.title }),
@@ -136,7 +156,7 @@ export function useTaskHandlers({
   );
 
   const onBulkDelete = useCallback(
-    (selectedTasks) => {
+    (selectedTasks: Task[]) => {
       if (!selectedTasks?.length) return;
       setConfirm({
         title: t('toast.bulkDeleteTitle'),
@@ -144,7 +164,7 @@ export function useTaskHandlers({
         danger: true,
         onConfirm: async () => {
           setConfirm(null);
-          const ids = selectedTasks.map((t) => t.id);
+          const ids = selectedTasks.map((task) => task.id);
           const results = await Promise.allSettled(ids.map((id) => api.deleteTask(id)));
           const deletedIds = ids.filter((_, i) => results[i].status === 'fulfilled');
           const failCount = ids.length - deletedIds.length;
@@ -165,7 +185,7 @@ export function useTaskHandlers({
   );
 
   const onViewLogs = useCallback(
-    (task) => {
+    (task: Task) => {
       setSelectedTask(task);
       setActivePanel('logs');
       terminal.openTab(task);
@@ -173,10 +193,10 @@ export function useTaskHandlers({
     [terminal, setSelectedTask, setActivePanel],
   );
 
-  const onReview = useCallback((task) => openModal('review', task), [openModal]);
+  const onReview = useCallback((task: Task) => openModal('review', task), [openModal]);
 
   const onApprove = useCallback(
-    async (taskId) => {
+    async (taskId: number) => {
       const updated = await api.updateStatus(taskId, 'done');
       setTasks((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
       closeModal('review');
@@ -186,7 +206,7 @@ export function useTaskHandlers({
   );
 
   const onRequestChanges = useCallback(
-    async (taskId, feedback) => {
+    async (taskId: number, feedback: string) => {
       const updated = await api.requestChanges(taskId, feedback);
       setTasks((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
       closeModal('review');
@@ -196,23 +216,23 @@ export function useTaskHandlers({
   );
 
   const onReorderTasks = useCallback(
-    async (orderedIds) => {
+    async (orderedIds: number[]) => {
       const orderedSet = new Set(orderedIds);
       // Optimistic: reorder only within the affected status group
       setTasks((prev) => {
-        const byId = new Map(prev.map((t) => [t.id, t]));
-        const reordered = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+        const byId = new Map(prev.map((task) => [task.id, task]));
+        const reordered = orderedIds.map((id) => byId.get(id)).filter((x): x is Task => Boolean(x));
         // Replace matching tasks in-place, preserve order of everything else
-        const result = [];
+        const result: Task[] = [];
         let inserted = false;
-        for (const t of prev) {
-          if (orderedSet.has(t.id)) {
+        for (const task of prev) {
+          if (orderedSet.has(task.id)) {
             if (!inserted) {
               result.push(...reordered);
               inserted = true;
             }
           } else {
-            result.push(t);
+            result.push(task);
           }
         }
         return result;

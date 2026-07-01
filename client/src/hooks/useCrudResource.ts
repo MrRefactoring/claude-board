@@ -1,10 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export function useCrudResource({ projectId, getAll, create, update, remove }) {
-  const [items, setItems] = useState([]);
+interface CrudConfig<T> {
+  projectId: number;
+  getAll: (projectId: number) => Promise<T[]>;
+  create: (projectId: number, data: Partial<T>) => Promise<T>;
+  update: (id: number, data: Partial<T>) => Promise<T>;
+  remove: (id: number) => Promise<void>;
+}
+
+export function useCrudResource<T extends { id: number }>({
+  projectId,
+  getAll,
+  create,
+  update,
+  remove,
+}: CrudConfig<T>) {
+  const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null); // null | 'new' | item object
-  const [deleting, setDeleting] = useState(null);
+  const [editing, setEditing] = useState<'new' | T | null>(null); // null | 'new' | item object
+  const [deleting, setDeleting] = useState<T | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -21,10 +35,10 @@ export function useCrudResource({ projectId, getAll, create, update, remove }) {
   }, [reload]);
 
   const handleSave = useCallback(
-    async (data) => {
+    async (data: Partial<T>) => {
       if (editing === 'new') {
         await create(projectId, data);
-      } else if (editing?.id) {
+      } else if (editing) {
         await update(editing.id, data);
       }
       setEditing(null);
@@ -34,7 +48,7 @@ export function useCrudResource({ projectId, getAll, create, update, remove }) {
   );
 
   const handleDelete = useCallback(
-    async (id) => {
+    async (id: number) => {
       await remove(id);
       setDeleting(null);
       reload();

@@ -178,3 +178,28 @@ export interface Model {
   input_cost_per_mtok?: number;
   output_cost_per_mtok?: number;
 }
+
+// ─── Shared UI types (used across hooks, App shell, and components) ───
+
+export type ToastType = 'info' | 'error' | 'success' | 'warning';
+
+export interface Toast {
+  id: number;
+  message: string;
+  type: ToastType;
+}
+
+/** Adds a transient toast notification. */
+export type AddToast = (message: string, type?: ToastType) => void;
+
+/** Translation function from the i18n provider: key + optional interpolation params. */
+export type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+
+/** Payload passed to the global confirm dialog. */
+export interface ConfirmState {
+  title: string;
+  message: string;
+  danger?: boolean;
+  onConfirm: () => void | Promise<void>;
+  onCancel?: () => void;
+}

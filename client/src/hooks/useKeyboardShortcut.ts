@@ -2,11 +2,22 @@ import { useEffect, useRef } from 'react';
 
 const INPUT_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
 
-/**
- * Keyboard shortcut hook for voice activation.
- * @param {{ key: string, onActivate: () => void, onDeactivate?: () => void, mode?: 'hold'|'toggle', enabled?: boolean }} opts
- */
-export function useKeyboardShortcut({ key = 'v', onActivate, onDeactivate, mode = 'toggle', enabled = true }) {
+interface KeyboardShortcutOptions {
+  key?: string;
+  onActivate: () => void;
+  onDeactivate?: () => void;
+  mode?: 'hold' | 'toggle';
+  enabled?: boolean;
+}
+
+/** Keyboard shortcut hook for voice activation. */
+export function useKeyboardShortcut({
+  key = 'v',
+  onActivate,
+  onDeactivate,
+  mode = 'toggle',
+  enabled = true,
+}: KeyboardShortcutOptions) {
   const activeRef = useRef(false);
 
   useEffect(() => {
@@ -15,10 +26,10 @@ export function useKeyboardShortcut({ key = 'v', onActivate, onDeactivate, mode 
     function isInputFocused() {
       const el = document.activeElement;
       if (!el) return false;
-      return INPUT_TAGS.has(el.tagName) || el.contentEditable === 'true';
+      return INPUT_TAGS.has(el.tagName) || (el as HTMLElement).contentEditable === 'true';
     }
 
-    function handleKeyDown(e) {
+    function handleKeyDown(e: KeyboardEvent) {
       if (isInputFocused()) return;
       if (e.key.toLowerCase() !== key.toLowerCase()) return;
       if (e.repeat) return;
@@ -45,7 +56,7 @@ export function useKeyboardShortcut({ key = 'v', onActivate, onDeactivate, mode 
       }
     }
 
-    function handleKeyUp(e) {
+    function handleKeyUp(e: KeyboardEvent) {
       if (mode !== 'hold') return;
       if (e.key.toLowerCase() !== key.toLowerCase()) return;
       if (activeRef.current) {

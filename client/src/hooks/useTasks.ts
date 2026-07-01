@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { socket } from '../lib/socket';
 import { tauriListen, IS_TAURI } from '../lib/tauriEvents';
 import { pendingUpdates } from './useTaskHandlers';
+import type { Task, Project, AddToast } from '../lib/types';
+import type { AppEventMap } from '../lib/events';
 
-export function useTasks(currentProject, addToast) {
-  const [tasks, setTasks] = useState([]);
+export function useTasks(currentProject: Project | null, addToast?: AddToast) {
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   // Load tasks when project changes
   useEffect(() => {
@@ -24,7 +26,7 @@ export function useTasks(currentProject, addToast) {
 
   // Real-time events
   useEffect(() => {
-    const onCreate = (task) => {
+    const onCreate = (task: Task) => {
       if (currentProject && task.project_id === currentProject.id) {
         setTasks((prev) => {
           if (prev.some((t) => t.id === task.id)) return prev;
@@ -32,13 +34,13 @@ export function useTasks(currentProject, addToast) {
         });
       }
     };
-    const onUpdate = (task) => {
+    const onUpdate = (task: AppEventMap['task:updated']) => {
       // Skip socket updates for tasks with in-flight API calls to prevent race conditions
       if (pendingUpdates.has(task.id)) return;
       setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, ...task } : t)));
     };
-    const onUsage = (usage) => {
-      const patch = {};
+    const onUsage = (usage: AppEventMap['task:usage']) => {
+      const patch: Partial<Task> = {};
       if (usage.input_tokens !== undefined) patch.input_tokens = usage.input_tokens;
       if (usage.output_tokens !== undefined) patch.output_tokens = usage.output_tokens;
       if (usage.cache_read_tokens !== undefined) patch.cache_read_tokens = usage.cache_read_tokens;
@@ -46,7 +48,7 @@ export function useTasks(currentProject, addToast) {
       if (usage.total_cost != null) patch.total_cost = usage.total_cost;
       setTasks((prev) => prev.map((t) => (t.id === usage.taskId ? { ...t, ...patch } : t)));
     };
-    const onDelete = ({ id }) => {
+    const onDelete = ({ id }: { id: number }) => {
       setTasks((prev) => prev.filter((t) => t.id !== id));
     };
 

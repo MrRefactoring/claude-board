@@ -1,5 +1,17 @@
 import { useCallback } from 'react';
 import { api } from '../lib/api';
+import type { Project, AddToast, TranslateFn, ConfirmState } from '../lib/types';
+
+interface UseProjectHandlersOptions {
+  currentProject: Project | null;
+  navigateToProject: (project: Project | null) => void;
+  navigateToDashboard: () => void;
+  addToast: AddToast;
+  t: TranslateFn;
+  setConfirm: (value: ConfirmState | null) => void;
+  openModal: (name: string, data?: unknown) => void;
+  closeModal: (name: string) => void;
+}
 
 export function useProjectHandlers({
   currentProject,
@@ -10,9 +22,9 @@ export function useProjectHandlers({
   setConfirm,
   openModal,
   closeModal,
-}) {
+}: UseProjectHandlersOptions) {
   const onCreate = useCallback(
-    async (data) => {
+    async (data: Partial<Project>) => {
       const p = await api.createProject(data);
       closeModal('project');
       navigateToProject(p);
@@ -22,7 +34,7 @@ export function useProjectHandlers({
   );
 
   const onUpdate = useCallback(
-    async (editingProject, data) => {
+    async (editingProject: Project, data: Partial<Project>) => {
       await api.updateProject(editingProject.id, data);
       closeModal('project');
       addToast(t('toast.projectUpdated'), 'success');
@@ -49,7 +61,7 @@ export function useProjectHandlers({
   }, [currentProject, navigateToDashboard, addToast, t, setConfirm]);
 
   const onDeleteById = useCallback(
-    (project, onAfterDelete) => {
+    (project: Project, onAfterDelete?: () => void) => {
       if (!project?.id) return;
       setConfirm({
         title: t('toast.deleteProjectTitle'),

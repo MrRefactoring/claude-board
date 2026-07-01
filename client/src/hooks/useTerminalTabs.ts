@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { Task } from '../lib/types';
 
-export function useTerminalTabs(tasks) {
-  const [tabs, setTabs] = useState([]);
-  const [activeTabId, setActiveTabId] = useState(null);
+type SplitMode = 'vertical' | 'horizontal' | null;
+
+export function useTerminalTabs(tasks: Task[]) {
+  const [tabs, setTabs] = useState<Task[]>([]);
+  const [activeTabId, setActiveTabId] = useState<number | null>(null);
   const [layout, setLayout] = useState('bottom');
   const [bottomHeight, setBottomHeight] = useState(300);
-  const [splitMode, setSplitMode] = useState(null); // null | 'vertical' | 'horizontal'
-  const [splitTabId, setSplitTabId] = useState(null);
+  const [splitMode, setSplitMode] = useState<SplitMode>(null);
+  const [splitTabId, setSplitTabId] = useState<number | null>(null);
 
   // Keep tabs in sync with task data
   useEffect(() => {
@@ -18,13 +21,13 @@ export function useTerminalTabs(tasks) {
     );
   }, [tasks]);
 
-  const openTab = useCallback((task) => {
+  const openTab = useCallback((task: Task) => {
     setTabs((prev) => (prev.find((t) => t.id === task.id) ? prev : [...prev, task]));
     setActiveTabId(task.id);
   }, []);
 
   const closeTab = useCallback(
-    (taskId) => {
+    (taskId: number) => {
       setTabs((prev) => {
         const remaining = prev.filter((t) => t.id !== taskId);
         if (taskId === activeTabId) {
@@ -49,7 +52,7 @@ export function useTerminalTabs(tasks) {
   }, []);
 
   const toggleSplit = useCallback(
-    (mode) => {
+    (mode: Exclude<SplitMode, null>) => {
       if (splitMode === mode) {
         setSplitMode(null);
         setSplitTabId(null);

@@ -1,13 +1,25 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-const SpeechRecognition =
+const SpeechRecognitionCtor =
   typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 
-export function useVoiceInput({ lang = 'en-US', continuous = false, onResult, onEnd } = {}) {
+// The lib.dom typings for the Web Speech API are incomplete in this TS release
+// (the SpeechRecognition instance interface isn't named), so derive it from the
+// constructor value we already reference.
+type SpeechRecognitionInstance = InstanceType<NonNullable<Window['SpeechRecognition']>>;
+
+interface VoiceInputOptions {
+  lang?: string;
+  continuous?: boolean;
+  onResult?: (text: string) => void;
+  onEnd?: () => void;
+}
+
+export function useVoiceInput({ lang = 'en-US', continuous = false, onResult, onEnd }: VoiceInputOptions = {}) {
   const [isListening, setIsListening] = useState(false);
-  const [isSupported] = useState(!!SpeechRecognition);
+  const [isSupported] = useState(!!SpeechRecognitionCtor);
   const [interim, setInterim] = useState('');
-  const recognitionRef = useRef(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const manualStopRef = useRef(false);
   // Keep latest callbacks in refs to avoid stale closures
   const onResultRef = useRef(onResult);
@@ -29,7 +41,7 @@ export function useVoiceInput({ lang = 'en-US', continuous = false, onResult, on
   }, []);
 
   const start = useCallback(() => {
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognitionCtor) return;
 
     // Stop any existing session
     if (recognitionRef.current) {
@@ -38,7 +50,7 @@ export function useVoiceInput({ lang = 'en-US', continuous = false, onResult, on
       } catch {}
     }
 
-    const recognition = new SpeechRecognition();
+    const recognition = new SpeechRecognitionCtor();
     recognition.lang = lang;
     recognition.continuous = continuous;
     recognition.interimResults = true;
@@ -51,7 +63,7 @@ export function useVoiceInput({ lang = 'en-US', continuous = false, onResult, on
       setInterim('');
     };
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       let finalText = '';
       let interimText = '';
 
@@ -72,7 +84,7 @@ export function useVoiceInput({ lang = 'en-US', continuous = false, onResult, on
       }
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       if (event.error !== 'aborted' && event.error !== 'no-speech') {
         console.warn('Speech recognition error:', event.error);
       }

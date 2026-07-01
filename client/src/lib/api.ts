@@ -105,7 +105,7 @@ const coreApi = {
   stopTask: (id: number): Promise<void> => call('stop_task', 'POST', `/api/tasks/${id}/stop`, { id }),
   restartTask: (id: number): Promise<void> =>
     call('restart_task', 'POST', `/api/tasks/${id}/restart`, { id, mcpPort: MCP_PORT }),
-  requestChanges: (id: number, feedback: string): Promise<void> =>
+  requestChanges: (id: number, feedback: string): Promise<Task> =>
     call(
       'request_changes',
       'POST',

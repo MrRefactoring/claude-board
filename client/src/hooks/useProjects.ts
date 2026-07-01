@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
 import { socket } from '../lib/socket';
 import { tauriListen, IS_TAURI } from '../lib/tauriEvents';
+import type { Project } from '../lib/types';
 
 export function useProjects() {
-  const [projects, setProjects] = useState([]);
-  const [currentProject, setCurrentProject] = useState(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [initialLoad, setInitialLoad] = useState(true);
 
-  const loadProjects = useCallback(async () => {
+  const loadProjects = useCallback(async (): Promise<Project[]> => {
     try {
       const data = await api.getProjects();
       setProjects(data);
@@ -52,12 +53,12 @@ export function useProjects() {
   // Socket events — empty deps is intentional: `socket` is a module-level singleton
   // (never changes) and all handlers use only state setter functions (stable by React guarantee)
   useEffect(() => {
-    const onCreate = (project) => setProjects((prev) => [...prev, project]);
-    const onUpdate = (project) => {
+    const onCreate = (project: Project) => setProjects((prev) => [...prev, project]);
+    const onUpdate = (project: Project) => {
       setProjects((prev) => prev.map((p) => (p.id === project.id ? project : p)));
       setCurrentProject((prev) => (prev?.id === project.id ? project : prev));
     };
-    const onDelete = ({ id }) => {
+    const onDelete = ({ id }: { id: number }) => {
       setProjects((prev) => prev.filter((p) => p.id !== id));
       setCurrentProject((prev) => {
         if (prev?.id === id) {
@@ -87,7 +88,7 @@ export function useProjects() {
     }
   }, []);
 
-  const navigateToProject = useCallback((project) => {
+  const navigateToProject = useCallback((project: Project | null) => {
     setCurrentProject(project);
     if (project) window.history.pushState({ slug: project.slug }, '', `/${project.slug}`);
   }, []);
