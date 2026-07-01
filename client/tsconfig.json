@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    /* Language / emit */
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "useDefineForClassFields": true,
+    "noEmit": true,
+
+    /* Module semantics (Vite-friendly, TS7-ready) */
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": false,
+
+    /* Path aliases (paths resolves relative to this file under moduleResolution: Bundler,
+       so no deprecated baseUrl is needed) */
+    "paths": { "@/*": ["./src/*"] },
+
+    /* Type surface */
+    "types": ["vite/client", "node", "vitest/globals"],
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Incremental interop — KEEP during migration, flip off in Phase 9 */
+    "allowJs": true,
+    "checkJs": false,
+
+    /* Strictness */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["src"]
+}

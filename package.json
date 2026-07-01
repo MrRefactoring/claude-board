@@ -21,9 +21,10 @@
     "tauri:build": "npx tauri build",
     "lint": "cd client && npx eslint src/",
     "lint:fix": "cd client && npx eslint src/ --fix",
-    "format": "prettier --write \"client/src/**/*.{js,jsx}\"",
+    "type-check": "cd client && npx tsc --noEmit && npx tsc --noEmit -p tsconfig.node.json",
+    "format": "prettier --write \"client/src/**/*.{js,jsx,ts,tsx}\"",
     "test": "cd client && npx vitest run",
-    "format:check": "prettier --check \"client/src/**/*.{js,jsx}\"",
+    "format:check": "prettier --check \"client/src/**/*.{js,jsx,ts,tsx}\"",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -36,7 +37,7 @@
     "prettier": "^3.8.4"
   },
   "lint-staged": {
-    "client/src/**/*.{js,jsx}": [
+    "client/src/**/*.{js,jsx,ts,tsx}": [
       "eslint --max-warnings 10"
     ]
   },
