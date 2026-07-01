@@ -1,3 +1,4 @@
+use super::env_path;
 use super::events::{EventContext, UsageBaseline, UsageSession, UsageTracker};
 use super::prompt::build_prompt;
 use super::state_machine::{EngineConfig, TaskStatus};
@@ -942,19 +943,26 @@ fn build_claude_args(
     ];
 
     // MCP config — sidecar lives under the bundled resources/ dir alongside the
-    // executable. Tauri places it at <exe-dir>/resources/mcp-server.js for both
-    // dev and release builds. Older layouts had it directly next to the exe, so
-    // fall back to that path if the resources/ variant is missing.
+    // executable. Tauri places it at <exe-dir>/resources/mcp-server.js on Windows
+    // and Linux. On macOS the executable lives in Contents/MacOS/ but bundled
+    // resources are copied to the sibling Contents/Resources/ dir instead, so
+    // that layout needs its own candidate. Older layouts had it directly next to
+    // the exe, so that's kept as a last-resort fallback.
     let mcp_server_path = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|d| d.to_path_buf()))
-        .map(|exe_dir| {
-            let bundled = exe_dir.join("resources").join("mcp-server.js");
-            if bundled.exists() {
-                bundled
-            } else {
-                exe_dir.join("mcp-server.js")
-            }
+        .and_then(|exe_dir| {
+            let mut candidates = vec![exe_dir.join("resources").join("mcp-server.js")];
+            #[cfg(target_os = "macos")]
+            candidates.push(
+                exe_dir
+                    .join("..")
+                    .join("Resources")
+                    .join("resources")
+                    .join("mcp-server.js"),
+            );
+            candidates.push(exe_dir.join("mcp-server.js"));
+            candidates.into_iter().find(|p| p.exists())
         })
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
@@ -1490,7 +1498,7 @@ pub fn start(
     let task_key = task.task_key.clone();
 
     std::thread::spawn(move || {
-        let mut cmd = Command::new("claude");
+        let mut cmd = env_path::claude_command();
         cmd.args(&args)
             .current_dir(&effective_dir)
             .stdout(Stdio::piped())
@@ -1707,7 +1715,7 @@ After all checks, you MUST output this exact JSON block as your final output:
     let task_key = task.task_key.clone();
 
     std::thread::spawn(move || {
-        let mut cmd = Command::new("claude");
+        let mut cmd = env_path::claude_command();
         cmd.args(&args)
             .current_dir(&effective_dir)
             .stdout(Stdio::piped())

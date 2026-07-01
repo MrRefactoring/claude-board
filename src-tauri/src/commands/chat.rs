@@ -1,4 +1,5 @@
-use std::process::{Command, Stdio};
+use std::process::Stdio;
+use crate::claude::env_path;
 use crate::db::{self, projects, tasks};
 
 #[cfg(target_os = "windows")]
@@ -53,7 +54,7 @@ pub async fn chat_send(
 
     // Run Claude CLI in one-shot mode
     let result = tauri::async_runtime::spawn_blocking(move || {
-        let mut cmd = Command::new("claude");
+        let mut cmd = env_path::claude_command();
         cmd.args(["-p", &prompt, "--model", &model_str, "--output-format", "text"])
             .current_dir(&project.working_dir)
             .stdout(Stdio::piped())

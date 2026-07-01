@@ -206,7 +206,10 @@ export default function OnboardingTour({ active, onComplete, hasProject }) {
   const [dir, setDir] = useState(1); // 1=forward, -1=back (for animation direction)
   const [animKey, setAnimKey] = useState(0);
 
-  const steps = getSteps(t, hasProject);
+  // getSteps() builds fresh array/object literals on every call. Without memoizing,
+  // `cur` gets a new reference each render, so the position-tracking effect below
+  // (which depends on `cur`) would re-run every render, call setState, and loop forever.
+  const steps = useMemo(() => getSteps(t, hasProject), [t, hasProject]);
   const cur = steps[step];
 
   useEffect(() => {

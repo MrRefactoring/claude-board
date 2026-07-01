@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
+#[cfg(target_os = "windows")]
+use std::process::Command;
 use parking_lot::Mutex;
 use once_cell::sync::Lazy;
 use tauri::{AppHandle, Emitter};
+use crate::claude::env_path;
 use crate::db::{self, projects as pq, tasks as tq, activity};
 
 #[cfg(target_os = "windows")]
@@ -52,7 +55,7 @@ pub fn start_planning(
 
     std::thread::spawn(move || {
         log::info!("Planning: spawning claude in {}", &working_dir);
-        let mut cmd = Command::new("claude");
+        let mut cmd = env_path::claude_command();
         cmd.args(&args)
             .current_dir(&working_dir)
             .stdout(Stdio::piped()).stderr(Stdio::piped()).stdin(Stdio::null());
