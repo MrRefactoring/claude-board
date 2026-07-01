@@ -16,7 +16,7 @@ export const TOOL_ICONS = {
   TodoWrite: GitBranch,
 };
 
-export function getToolIcon(name) {
+export function getToolIcon(name?: string | null) {
   if (!name) return Code;
   for (const [k, I] of Object.entries(TOOL_ICONS)) {
     if (name.toLowerCase().includes(k.toLowerCase())) return I;
@@ -37,7 +37,7 @@ export const TOOL_COLORS = {
   Agent: 'text-violet-400',
 };
 
-export function getToolColor(name) {
+export function getToolColor(name?: string | null): string {
   if (!name) return 'text-purple-400';
   for (const [k, c] of Object.entries(TOOL_COLORS)) {
     if (name.toLowerCase().includes(k.toLowerCase())) return c;

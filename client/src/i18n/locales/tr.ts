@@ -168,13 +168,11 @@ export default {
   'taskModal.newTask': 'Yeni G\u00f6rev',
   'taskModal.editTask': 'G\u00f6revi D\u00fczenle',
   'taskModal.title': 'Ba\u015fl\u0131k',
-  'taskModal.titlePlaceholder': 'Ne yap\u0131lmas\u0131 gerekiyor?',
   'taskModal.description': 'A\u00e7\u0131klama',
   'taskModal.descPlaceholder': 'G\u00f6revi detayl\u0131 a\u00e7\u0131klay\u0131n...',
   'taskModal.type': 'T\u00fcr',
   'taskModal.priority': '\u00d6ncelik',
   'taskModal.model': 'Model',
-  'taskModal.effort': 'D\u00fc\u015f\u00fcnme Eforu',
   'taskModal.acceptance': 'Kabul Kriterleri',
   'taskModal.acceptancePlaceholder': '"Tamamland\u0131" neye benziyor tan\u0131mlay\u0131n...',
   'taskModal.role': 'Rol',
@@ -281,7 +279,6 @@ export default {
   'projectModal.approvalDesc':
     'Otomatik test geçtikten sonra görevi tamamlanmış olarak işaretlemeden önce manuel onay gerektir.',
   'projectModal.namePlaceholder': 'Projem',
-  'projectModal.randomize': 'Rastgele',
   'projectModal.browseFolder': 'Klasör seç',
   'projectModal.browse': 'Gözat',
   'projectModal.githubIssuesSync': 'GitHub Issues Senkronizasyonu',
@@ -595,8 +592,6 @@ export default {
 
   // ─── Genel ───
   'common.clearAll': 'T\u00fcm\u00fcn\u00fc temizle',
-  'common.delete': 'Sil',
-  'common.cancel': '\u0130ptal',
   'common.none': 'Yok',
   'common.deleteConfirm': 'Bu \u00f6\u011feyi silmek istedi\u011finize emin misiniz?',
 
@@ -699,9 +694,7 @@ export default {
   'taskModal.acAbbr': 'KK',
   'taskModal.template': '\u015eablon',
   'taskModal.preview': '\u00d6nizleme',
-  'taskModal.model': 'Model',
   'taskModal.effort': 'Yo\u011funluk',
-  'taskModal.role': 'Rol',
   'taskModal.attachFiles': 'Dosya Ekle',
   'taskModal.addMoreFiles': 'Daha Fazla Ekle',
   'taskModal.waitsFor': 'bekler',
@@ -732,8 +725,6 @@ export default {
   'planning.balancedDesc': '5-10 g\u00f6rev, iyi detay',
   'planning.detailedDesc': '10-20 g\u00f6rev, ince ayr\u0131nt\u0131',
   'planning.phaseAnalyzing': 'Analiz ediliyor',
-  'planning.phaseExploring': 'Ke\u015ffediliyor',
-  'planning.phasePlanning': 'Planlan\u0131yor',
   'planning.phaseReview': '\u0130nceleme',
   'planning.analyzingCodebase': 'Claude kodtaban\u0131n\u0131 analiz ediyor...',
   'planning.noStructuredTasks':

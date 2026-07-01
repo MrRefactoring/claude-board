@@ -10,9 +10,18 @@
  * outside the desktop shell.
  */
 
+type LogSink = (message: string) => void;
+
+interface LogBackend {
+  info: LogSink;
+  warn: LogSink;
+  error: LogSink;
+  debug: LogSink;
+}
+
 const IS_TAURI = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
 
-let backend = {
+let backend: LogBackend = {
   info: () => {},
   warn: () => {},
   error: () => {},
@@ -21,7 +30,7 @@ let backend = {
 
 let installed = false;
 
-function safeStringify(value) {
+function safeStringify(value: unknown): string {
   if (value instanceof Error) {
     return `${value.name}: ${value.message}\n${value.stack || '(no stack)'}`;
   }
@@ -33,22 +42,22 @@ function safeStringify(value) {
   }
 }
 
-function joinArgs(args) {
+function joinArgs(args: unknown[]): string {
   return args.map(safeStringify).join(' ');
 }
 
 export const logger = {
-  info: (...args) => backend.info(joinArgs(args)),
-  warn: (...args) => backend.warn(joinArgs(args)),
-  error: (...args) => backend.error(joinArgs(args)),
-  debug: (...args) => backend.debug(joinArgs(args)),
+  info: (...args: unknown[]) => backend.info(joinArgs(args)),
+  warn: (...args: unknown[]) => backend.warn(joinArgs(args)),
+  error: (...args: unknown[]) => backend.error(joinArgs(args)),
+  debug: (...args: unknown[]) => backend.debug(joinArgs(args)),
 };
 
 /**
  * Install global handlers. Idempotent — safe to call multiple times.
  * Must be called early (before app render) so we don't miss boot errors.
  */
-export async function installGlobalErrorHandlers() {
+export async function installGlobalErrorHandlers(): Promise<void> {
   if (installed || typeof window === 'undefined') return;
   installed = true;
 
@@ -86,7 +95,7 @@ export async function installGlobalErrorHandlers() {
   // to the devtools console as well.
   const origError = window.console?.error?.bind(window.console);
   if (origError) {
-    window.console.error = (...args) => {
+    window.console.error = (...args: unknown[]) => {
       try {
         backend.error(`[console.error] ${joinArgs(args)}`);
       } catch {

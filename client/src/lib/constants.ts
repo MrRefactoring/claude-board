@@ -104,7 +104,7 @@ const TAG_PALETTE = [
   'bg-lime-500/15 text-lime-400',
   'bg-rose-500/15 text-rose-400',
 ];
-export function getTagColor(tag) {
+export function getTagColor(tag: string): string {
   let hash = 0;
   for (const ch of tag) hash = ((hash << 5) - hash + ch.charCodeAt(0)) | 0;
   return TAG_PALETTE[Math.abs(hash) % TAG_PALETTE.length];

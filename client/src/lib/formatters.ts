@@ -1,13 +1,18 @@
-export function formatTokens(n) {
+export function formatTokens(n?: number | null): string {
   if (!n || n === 0) return '0';
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
   if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
   return String(n);
 }
 
-export function formatDuration(startedAt, completedAt, workDurationMs = 0, lastResumedAt = null) {
+export function formatDuration(
+  startedAt?: string | null,
+  completedAt?: string | null,
+  workDurationMs = 0,
+  lastResumedAt: string | null = null,
+): string | null {
   if (!startedAt) return null;
-  let diffMs;
+  let diffMs: number;
   if (workDurationMs > 0 || lastResumedAt) {
     // Use accumulated work duration + current active segment
     diffMs = workDurationMs || 0;
@@ -18,7 +23,7 @@ export function formatDuration(startedAt, completedAt, workDurationMs = 0, lastR
     // Fallback: old behavior for tasks without timer tracking
     const start = new Date(startedAt);
     const end = completedAt ? new Date(completedAt) : new Date();
-    diffMs = end - start;
+    diffMs = end.getTime() - start.getTime();
   }
   const mins = Math.floor(diffMs / 60000);
   const hours = Math.floor(mins / 60);
@@ -29,14 +34,14 @@ export function formatDuration(startedAt, completedAt, workDurationMs = 0, lastR
   return '<1m';
 }
 
-export function formatMs(ms) {
+export function formatMs(ms?: number | null): string {
   if (!ms) return '';
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${Math.floor(ms / 60000)}m${Math.floor((ms % 60000) / 1000)}s`;
 }
 
-export function formatTime(dateStr) {
+export function formatTime(dateStr?: string | null): string {
   if (!dateStr) return '';
   return new Date(dateStr).toLocaleTimeString('en-US', {
     hour12: false,
@@ -46,7 +51,7 @@ export function formatTime(dateStr) {
   });
 }
 
-export function formatTimeAgo(dateStr) {
+export function formatTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'just now';
@@ -56,14 +61,14 @@ export function formatTimeAgo(dateStr) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-export function basename(path) {
+export function basename(path?: string | null): string | null {
   if (!path) return null;
-  return path.replace(/\\/g, '/').split('/').pop();
+  return path.replace(/\\/g, '/').split('/').pop() ?? null;
 }
 
-export function shortenPath(path) {
+export function shortenPath(path?: string | null): string {
   if (!path) return '';
   const parts = path.replace(/\\/g, '/').split('/');
   if (parts.length <= 3) return parts.join('/');
-  return '\u2026/' + parts.slice(-3).join('/');
+  return '…/' + parts.slice(-3).join('/');
 }
