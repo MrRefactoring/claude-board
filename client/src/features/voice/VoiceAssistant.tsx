@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Mic, MicOff, X } from 'lucide-react';
+import { Mic, X } from 'lucide-react';
 import { useVoiceAssistant } from './VoiceAssistantProvider';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { t } from './i18n/t';

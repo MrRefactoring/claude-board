@@ -1,9 +1,12 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { Mic, MicOff, Send, Trash2, Volume2, VolumeX, Keyboard, Globe } from 'lucide-react';
 import AudioVisualizer from './AudioVisualizer';
 import CommandHints from './CommandHints';
 import { VOICE_LANGUAGES } from '../VoiceAssistantProvider';
+import type { VoiceContextValue } from '../VoiceAssistantProvider';
 import { t } from '../i18n/t';
+
+type ChatPanelProps = VoiceContextValue;
 
 export default function ChatPanel({
   state,
@@ -15,12 +18,12 @@ export default function ChatPanel({
   commands,
   voiceLang,
   changeLang,
-}) {
+}: ChatPanelProps) {
   const [textInput, setTextInput] = useState('');
   const [langOpen, setLangOpen] = useState(false);
-  const chatEndRef = useRef(null);
-  const inputRef = useRef(null);
-  const langRef = useRef(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const langRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -35,14 +38,14 @@ export default function ChatPanel({
   // Close language dropdown on outside click
   useEffect(() => {
     if (!langOpen) return;
-    const handler = (e) => {
-      if (!langRef.current?.contains(e.target)) setLangOpen(false);
+    const handler = (e: MouseEvent) => {
+      if (!langRef.current?.contains(e.target as Node)) setLangOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [langOpen]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!textInput.trim()) return;
     processInput(textInput);

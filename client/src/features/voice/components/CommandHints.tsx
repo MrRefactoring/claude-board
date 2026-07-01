@@ -2,8 +2,15 @@
  * Shows clickable command suggestion chips when assistant is idle.
  */
 import { t } from '../i18n/t';
+import type { VoiceCommand } from '../commands/commandRegistry';
 
-export default function CommandHints({ commands, onSelect, voiceLang }) {
+interface CommandHintsProps {
+  commands: VoiceCommand[];
+  onSelect: (text: string) => void;
+  voiceLang: string;
+}
+
+export default function CommandHints({ commands, onSelect, voiceLang }: CommandHintsProps) {
   const hints = commands.filter((c) => c.id !== 'cancel' && c.hint);
 
   if (hints.length === 0) return null;

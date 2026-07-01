@@ -5,19 +5,17 @@
  */
 
 import { CONFIRM_PATTERNS, DENY_PATTERNS } from '../i18n/patterns';
+import type { Intent, VoiceCommand } from '../commands/commandRegistry';
 
-const CONVERSATIONAL = [
+const CONVERSATIONAL: { id: string; patterns: RegExp[] }[] = [
   { id: 'confirm', patterns: CONFIRM_PATTERNS },
   { id: 'deny', patterns: DENY_PATTERNS },
 ];
 
 /**
  * Detect intent from user text.
- * @param {string} text
- * @param {import('../commands/commandRegistry').VoiceCommand[]} commands
- * @returns {{ id: string, text: string } | null}
  */
-export function detectIntent(text, commands = []) {
+export function detectIntent(text: string | null | undefined, commands: VoiceCommand[] = []): Intent | null {
   if (!text) return null;
   const cleaned = text.trim().toLowerCase();
 

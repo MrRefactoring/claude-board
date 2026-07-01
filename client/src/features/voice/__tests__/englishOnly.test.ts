@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getAllCommands } from '../commands/commandRegistry';
+import type { Task, Project } from '../../../lib/types';
 import '../commands/index';
 
 describe('English-only validation', () => {
@@ -22,8 +23,8 @@ describe('English-only validation', () => {
         flow: 'idle',
         draft: {},
         intent: { id: cmd.id, text: 'test' },
-        tasks: [{ id: 1, title: 'T', status: 'backlog' }],
-        currentProject: { id: 1 },
+        tasks: [{ id: 1, title: 'T', status: 'backlog' }] as Task[],
+        currentProject: { id: 1 } as Project,
         refs: {},
       });
       if (result?.message) {

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { registerCommand, resolveCommand, getAllCommands } from '../commands/commandRegistry';
+import { describe, it, expect } from 'vitest';
+import { resolveCommand, getAllCommands } from '../commands/commandRegistry';
 
 // Commands auto-register via barrel import
 import '../commands/index';
@@ -29,13 +29,13 @@ describe('commandRegistry', () => {
   it('resolves command by intent id', () => {
     const cmd = resolveCommand({ id: 'create_task', text: 'create task' }, 'idle');
     expect(cmd).not.toBeNull();
-    expect(cmd.id).toBe('create_task');
+    expect(cmd?.id).toBe('create_task');
   });
 
   it('resolves flow owner when in active flow', () => {
     const cmd = resolveCommand({ id: 'freetext', text: 'my task title' }, 'create:title');
     expect(cmd).not.toBeNull();
-    expect(cmd.id).toBe('create_task');
+    expect(cmd?.id).toBe('create_task');
   });
 
   it('returns null for unknown freetext when idle', () => {

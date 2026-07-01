@@ -3,7 +3,7 @@
  * Keys follow: area.key pattern. Use {param} for interpolation.
  */
 
-const locales = {
+const locales: Record<string, Record<string, string>> = {
   'en-US': {
     // welcome
     welcome:

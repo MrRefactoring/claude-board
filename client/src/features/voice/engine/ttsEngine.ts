@@ -2,11 +2,11 @@
  * Text-to-Speech engine — robust voice selection for Tauri/WebView2 on Windows.
  */
 
-let _voices = [];
+let _voices: SpeechSynthesisVoice[] = [];
 let _voicesReady = false;
 
 // Language name keywords for fallback voice matching by name
-const LANG_NAME_KEYWORDS = {
+const LANG_NAME_KEYWORDS: Record<string, string[]> = {
   en: ['english', 'david', 'zira', 'mark', 'james', 'jenny'],
   tr: ['turkish', 'tolga', 'emel'],
   de: ['german', 'deutsch', 'hedda', 'katja', 'stefan'],
@@ -24,7 +24,7 @@ const LANG_NAME_KEYWORDS = {
   hi: ['hindi', 'हिन्दी', 'hemant', 'kalpana'],
 };
 
-function refreshVoices() {
+function refreshVoices(): void {
   if (!window.speechSynthesis) return;
   const v = window.speechSynthesis.getVoices();
   if (v.length > 0) {
@@ -38,9 +38,9 @@ if (typeof window !== 'undefined' && window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = refreshVoices;
 }
 
-function ensureVoices() {
+function ensureVoices(): Promise<void> {
   if (_voicesReady) return Promise.resolve();
-  return new Promise((resolve) => {
+  return new Promise<void>((resolve) => {
     refreshVoices();
     if (_voicesReady) {
       resolve();
@@ -64,14 +64,14 @@ function ensureVoices() {
  * 2. Voice name keyword match ("Microsoft David - English")
  * 3. Give up → return null (browser will use system default)
  */
-function findVoice(targetLang) {
+function findVoice(targetLang: string): SpeechSynthesisVoice | null {
   if (_voices.length === 0) return null;
 
   const target = targetLang.toLowerCase().replace('_', '-');
   const prefix = target.split('-')[0];
 
   // Strategy 1: Match by lang code
-  let best = null;
+  let best: SpeechSynthesisVoice | null = null;
   let bestScore = -1;
 
   for (const v of _voices) {
@@ -106,7 +106,7 @@ function findVoice(targetLang) {
   return null;
 }
 
-function unstick() {
+function unstick(): void {
   const s = window.speechSynthesis;
   s.cancel();
   s.resume();
@@ -115,14 +115,14 @@ function unstick() {
 /**
  * Speak text aloud in the specified language.
  */
-export async function speak(text, lang = 'en-US') {
+export async function speak(text: string, lang: string = 'en-US'): Promise<void> {
   const synth = window.speechSynthesis;
   if (!synth) return;
 
   await ensureVoices();
   unstick();
 
-  return new Promise((resolve) => {
+  return new Promise<void>((resolve) => {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1;
     utterance.pitch = 1;
@@ -135,7 +135,7 @@ export async function speak(text, lang = 'en-US') {
       utterance.lang = voice.lang;
     }
 
-    let keepAlive;
+    let keepAlive: ReturnType<typeof setInterval>;
     utterance.onend = () => {
       clearInterval(keepAlive);
       resolve();
@@ -157,16 +157,16 @@ export async function speak(text, lang = 'en-US') {
   });
 }
 
-export function cancelSpeech() {
+export function cancelSpeech(): void {
   window.speechSynthesis?.cancel();
 }
 
-export function isTtsSupported() {
+export function isTtsSupported(): boolean {
   return typeof window !== 'undefined' && !!window.speechSynthesis;
 }
 
 /** Debug: log all available voices to console */
-export function debugVoices() {
+export function debugVoices(): number {
   refreshVoices();
   console.table(_voices.map((v) => ({ name: v.name, lang: v.lang, local: v.localService, default: v.default })));
   return _voices.length;

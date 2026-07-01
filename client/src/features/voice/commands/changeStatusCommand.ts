@@ -1,8 +1,10 @@
 import { registerCommand } from './commandRegistry';
+import type { CommandContext, CommandResult } from './commandRegistry';
+import type { TaskStatus } from '../../../lib/types';
 import { t } from '../i18n/t';
 import { CHANGE_STATUS_PATTERNS, STATUS_PATTERNS } from '../i18n/patterns';
 
-const STATUS_NEXT = {
+const STATUS_NEXT: Partial<Record<TaskStatus, TaskStatus>> = {
   backlog: 'in_progress',
   in_progress: 'testing',
   testing: 'done',
@@ -21,7 +23,7 @@ registerCommand({
   hint: 'Change status',
   icon: 'arrow-right',
 
-  execute(input, ctx) {
+  execute(input: string, ctx: CommandContext): CommandResult | null {
     const { flow, intent, tasks, refs, lang } = ctx;
 
     if (flow === 'idle') {
@@ -37,7 +39,7 @@ registerCommand({
 
     if (flow === FLOWS.WHICH) {
       const lower = input.toLowerCase();
-      const match = tasks.find(
+      const match = tasks?.find(
         (task) =>
           task.title.toLowerCase().includes(lower) || task.task_key?.toLowerCase() === lower || `#${task.id}` === input,
       );
@@ -79,10 +81,10 @@ registerCommand({
       }
 
       // Try to detect a specific status from input
-      let target = null;
+      let target: TaskStatus | null = null;
       for (const [status, pattern] of Object.entries(STATUS_PATTERNS)) {
         if (pattern.test(input)) {
-          target = status;
+          target = status as TaskStatus;
           break;
         }
       }

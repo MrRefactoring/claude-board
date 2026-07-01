@@ -1,4 +1,5 @@
 import { registerCommand } from './commandRegistry';
+import type { CommandContext, CommandResult } from './commandRegistry';
 import { t } from '../i18n/t';
 import { CANCEL_PATTERNS } from '../i18n/patterns';
 
@@ -10,7 +11,7 @@ registerCommand({
   hint: 'Cancel',
   icon: 'x-circle',
 
-  execute(_input, ctx) {
+  execute(_input: string, ctx: CommandContext): CommandResult | null {
     const { lang } = ctx;
     if (ctx.flow !== 'idle') {
       return { flow: 'idle', draft: {}, message: t('cancel.done', lang) };

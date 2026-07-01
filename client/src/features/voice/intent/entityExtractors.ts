@@ -5,8 +5,7 @@
 import { TYPE_MAP, PRIORITY_MAP } from '../i18n/patterns';
 import { t } from '../i18n/t';
 
-/** @param {string} text @returns {string|null} */
-export function extractTaskType(text) {
+export function extractTaskType(text: string): string | null {
   const lower = text.toLowerCase();
   for (const [type, keywords] of Object.entries(TYPE_MAP)) {
     if (keywords.some((k) => lower.includes(k))) return type;
@@ -14,8 +13,7 @@ export function extractTaskType(text) {
   return null;
 }
 
-/** @param {string} text @returns {number|null} */
-export function extractPriority(text) {
+export function extractPriority(text: string): number | null {
   const lower = text.toLowerCase();
   for (const [priority, keywords] of Object.entries(PRIORITY_MAP)) {
     if (keywords.some((k) => lower.includes(k))) return Number(priority);
@@ -23,10 +21,9 @@ export function extractPriority(text) {
   return null;
 }
 
-/** @param {string} text @returns {string|null} */
-export function extractModel(text) {
+export function extractModel(text: string): string | null {
   const lower = text.toLowerCase();
-  const MODEL_MAP = {
+  const MODEL_MAP: Record<string, string[]> = {
     haiku: ['haiku'],
     sonnet: ['sonnet'],
     opus: ['opus'],
@@ -37,7 +34,6 @@ export function extractModel(text) {
   return null;
 }
 
-/** @param {number} priority @param {string} lang @returns {string} */
-export function priorityLabel(priority, lang = 'en-US') {
+export function priorityLabel(priority: number, lang: string = 'en-US'): string {
   return t(`priority.${priority}`, lang) || t('priority.0', lang);
 }

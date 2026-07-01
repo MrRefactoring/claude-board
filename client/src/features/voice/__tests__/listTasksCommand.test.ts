@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { getAllCommands } from '../commands/commandRegistry';
+import type { Task } from '../../../lib/types';
 import '../commands/index';
 
-const listCmd = getAllCommands().find((c) => c.id === 'list_tasks');
+const listCmd = getAllCommands().find((c) => c.id === 'list_tasks')!;
 
 describe('listTasksCommand', () => {
   it('reports no tasks', () => {
-    const result = listCmd.execute('list tasks', { flow: 'idle', tasks: [], refs: {} });
+    const result = listCmd.execute('list tasks', { flow: 'idle', tasks: [], refs: {} })!;
     expect(result.message).toContain('No tasks');
   });
 
@@ -18,8 +19,8 @@ describe('listTasksCommand', () => {
       { status: 'done' },
       { status: 'done' },
       { status: 'done' },
-    ];
-    const result = listCmd.execute('list tasks', { flow: 'idle', tasks, refs: {} });
+    ] as Task[];
+    const result = listCmd.execute('list tasks', { flow: 'idle', tasks, refs: {} })!;
     expect(result.message).toContain('6 total');
     expect(result.message).toContain('Backlog: 2');
     expect(result.message).toContain('In Progress: 1');

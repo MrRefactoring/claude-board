@@ -3,16 +3,16 @@
  * No audio files needed.
  */
 
-let _ctx = null;
+let _ctx: AudioContext | null = null;
 
-function getCtx() {
+function getCtx(): AudioContext | null {
   if (!_ctx && typeof AudioContext !== 'undefined') {
     _ctx = new AudioContext();
   }
   return _ctx;
 }
 
-function beep(freq, duration = 0.08, startTime = 0) {
+function beep(freq: number, duration = 0.08, startTime = 0): void {
   const ctx = getCtx();
   if (!ctx) return;
   if (ctx.state === 'suspended') ctx.resume();

@@ -1,15 +1,64 @@
-import { createContext, useContext, useReducer, useRef, useCallback, useEffect, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useReducer,
+  useRef,
+  useCallback,
+  useEffect,
+  useState,
+  type ReactNode,
+  type Dispatch,
+} from 'react';
 import { useVoiceInput } from '../../hooks/useVoiceInput';
-import { speak, cancelSpeech } from './engine/ttsEngine';
+import { speak } from './engine/ttsEngine';
 import { playStartBeep, playStopBeep } from './engine/soundEffects';
 import { startAudioCapture, stopAudioCapture, getAnalyser } from './engine/sttEngine';
 import { detectIntent } from './intent/intentParser';
 import { resolveCommand, getAllCommands } from './commands/commandRegistry';
+import type { CommandResult, CommandRefs, CommandHandlers, TaskDraft, VoiceCommand } from './commands/commandRegistry';
 import { t } from './i18n/t';
+import type { Task, Project } from '../../lib/types';
 import './commands/index'; // register all commands
 
+// ─── Types ───
+export interface Message {
+  role: 'user' | 'assistant';
+  text: string;
+  ts: number;
+}
+
+export interface VoiceState {
+  open: boolean;
+  messages: Message[];
+  flow: string;
+  draft: TaskDraft;
+  ttsEnabled: boolean;
+  isSpeaking: boolean;
+}
+
+export type VoiceAction =
+  | { type: 'TOGGLE_OPEN' }
+  | { type: 'SET_OPEN'; value: boolean }
+  | { type: 'ADD_MESSAGE'; msg: Message }
+  | { type: 'SET_FLOW'; flow: string; draft?: TaskDraft }
+  | { type: 'TOGGLE_TTS' }
+  | { type: 'SET_SPEAKING'; value: boolean }
+  | { type: 'CLEAR' };
+
+export interface VoiceContextValue {
+  state: VoiceState;
+  dispatch: Dispatch<VoiceAction>;
+  processInput: (rawText: string) => Promise<void>;
+  voice: ReturnType<typeof useVoiceInput>;
+  flowLabel: string | null;
+  getAnalyser: () => AnalyserNode | null;
+  commands: VoiceCommand[];
+  voiceLang: string;
+  changeLang: (code: string) => void;
+}
+
 // ─── State ───
-const initial = {
+const initial: VoiceState = {
   open: false,
   messages: [],
   flow: 'idle',
@@ -18,7 +67,7 @@ const initial = {
   isSpeaking: false,
 };
 
-function reducer(state, action) {
+function reducer(state: VoiceState, action: VoiceAction): VoiceState {
   switch (action.type) {
     case 'TOGGLE_OPEN':
       return { ...state, open: !state.open };
@@ -40,7 +89,7 @@ function reducer(state, action) {
 }
 
 // ─── Context ───
-const VoiceCtx = createContext(null);
+const VoiceCtx = createContext<VoiceContextValue | null>(null);
 
 const VOICE_LANGUAGES = [
   { code: 'en-US', label: 'English' },
@@ -62,15 +111,29 @@ const VOICE_LANGUAGES = [
 
 export { VOICE_LANGUAGES };
 
-export function VoiceAssistantProvider({ children, tasks, currentProject, onCreateTask, onStatusChange }) {
+interface VoiceAssistantProviderProps {
+  children: ReactNode;
+  tasks: Task[];
+  currentProject: Project | null;
+  onCreateTask?: CommandHandlers['onCreateTask'];
+  onStatusChange?: CommandHandlers['onStatusChange'];
+}
+
+export function VoiceAssistantProvider({
+  children,
+  tasks,
+  currentProject,
+  onCreateTask,
+  onStatusChange,
+}: VoiceAssistantProviderProps) {
   const [state, dispatch] = useReducer(reducer, initial);
   // Auto-detect voice language from app UI language
-  const [voiceLang, setVoiceLang] = useState(() => {
+  const [voiceLang, setVoiceLang] = useState<string>(() => {
     const stored = localStorage.getItem('voice-lang');
     if (stored) return stored;
     // Sync with app UI language
     const uiLang = localStorage.getItem('ui-lang') || navigator.language?.split('-')[0] || 'en';
-    const langMap = {
+    const langMap: Record<string, string> = {
       en: 'en-US',
       tr: 'tr-TR',
       de: 'de-DE',
@@ -90,7 +153,7 @@ export function VoiceAssistantProvider({ children, tasks, currentProject, onCrea
     return langMap[uiLang] || 'en-US';
   });
 
-  const changeLang = useCallback((code) => {
+  const changeLang = useCallback((code: string) => {
     setVoiceLang(code);
     localStorage.setItem('voice-lang', code);
   }, []);
@@ -100,9 +163,9 @@ export function VoiceAssistantProvider({ children, tasks, currentProject, onCrea
   const tasksRef = useRef(tasks);
   const projectRef = useRef(currentProject);
   const handlersRef = useRef({ onCreateTask, onStatusChange });
-  const commandRefsRef = useRef({}); // mutable refs for commands (e.g., statusTarget)
+  const commandRefsRef = useRef<CommandRefs>({}); // mutable refs for commands (e.g., statusTarget)
   const voiceLangRef = useRef(voiceLang);
-  const voiceRef = useRef(null); // ref to useVoiceInput return, updated below
+  const voiceRef = useRef<ReturnType<typeof useVoiceInput> | null>(null); // ref to useVoiceInput return, updated below
 
   useEffect(() => {
     stateRef.current = state;
@@ -121,7 +184,7 @@ export function VoiceAssistantProvider({ children, tasks, currentProject, onCrea
   }, [voiceLang]);
 
   // ─── Process input ───
-  const processInput = useCallback(async (rawText) => {
+  const processInput = useCallback(async (rawText: string): Promise<void> => {
     if (!rawText?.trim()) return;
     const text = rawText.trim();
     const cur = stateRef.current;
@@ -146,7 +209,7 @@ export function VoiceAssistantProvider({ children, tasks, currentProject, onCrea
     };
 
     // Resolve command
-    let result = null;
+    let result: CommandResult | null = null;
     const command = resolveCommand(intent, cur.flow);
 
     if (command) {
@@ -208,7 +271,7 @@ export function VoiceAssistantProvider({ children, tasks, currentProject, onCrea
   // ─── Flow label ───
   const flowLabel = state.flow !== 'idle' ? t('flow.' + state.flow, voiceLang) : null;
 
-  const value = {
+  const value: VoiceContextValue = {
     state,
     dispatch,
     processInput,
@@ -223,8 +286,7 @@ export function VoiceAssistantProvider({ children, tasks, currentProject, onCrea
   return <VoiceCtx.Provider value={value}>{children}</VoiceCtx.Provider>;
 }
 
-/** @returns {{ state, dispatch, processInput, voice, flowLabel, getAnalyser, commands, voiceLang, changeLang }} */
-export function useVoiceAssistant() {
+export function useVoiceAssistant(): VoiceContextValue {
   const ctx = useContext(VoiceCtx);
   if (!ctx) throw new Error('useVoiceAssistant must be inside VoiceAssistantProvider');
   return ctx;

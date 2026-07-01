@@ -1,12 +1,18 @@
 import { useRef, useEffect } from 'react';
 
+interface AudioVisualizerProps {
+  getAnalyser?: () => AnalyserNode | null;
+  isActive: boolean;
+  className?: string;
+}
+
 /**
  * Canvas-based audio waveform visualizer.
  * Reads frequency data from an AnalyserNode and draws bars.
  */
-export default function AudioVisualizer({ getAnalyser, isActive, className = '' }) {
-  const canvasRef = useRef(null);
-  const rafRef = useRef(null);
+export default function AudioVisualizer({ getAnalyser, isActive, className = '' }: AudioVisualizerProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isActive) {
@@ -15,7 +21,7 @@ export default function AudioVisualizer({ getAnalyser, isActive, className = '' 
       const canvas = canvasRef.current;
       if (canvas) {
         const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx?.clearRect(0, 0, canvas.width, canvas.height);
       }
       return;
     }
@@ -23,9 +29,12 @@ export default function AudioVisualizer({ getAnalyser, isActive, className = '' 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     function draw() {
       rafRef.current = requestAnimationFrame(draw);
+      // Re-narrow captured refs (TS drops the outer non-null narrowing inside this closure).
+      if (!canvas || !ctx) return;
       const analyser = getAnalyser?.();
 
       const w = canvas.width;

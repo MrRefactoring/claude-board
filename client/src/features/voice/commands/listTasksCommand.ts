@@ -1,4 +1,5 @@
 import { registerCommand } from './commandRegistry';
+import type { CommandContext, CommandResult } from './commandRegistry';
 import { t } from '../i18n/t';
 import { LIST_TASKS_PATTERNS } from '../i18n/patterns';
 
@@ -10,13 +11,13 @@ registerCommand({
   hint: 'List tasks',
   icon: 'list',
 
-  execute(_input, ctx) {
+  execute(_input: string, ctx: CommandContext): CommandResult | null {
     const { tasks, lang } = ctx;
     if (!tasks || tasks.length === 0) {
       return { flow: 'idle', message: t('list.empty', lang) };
     }
 
-    const byStatus = {};
+    const byStatus: Record<string, number> = {};
     tasks.forEach((task) => {
       byStatus[task.status] = (byStatus[task.status] || 0) + 1;
     });

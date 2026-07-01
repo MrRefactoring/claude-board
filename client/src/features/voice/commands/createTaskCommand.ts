@@ -1,4 +1,5 @@
 import { registerCommand } from './commandRegistry';
+import type { CommandContext, CommandResult } from './commandRegistry';
 import { extractTaskType, extractPriority, priorityLabel } from '../intent/entityExtractors';
 import { t } from '../i18n/t';
 import { CREATE_TASK_PATTERNS, SKIP_PATTERN } from '../i18n/patterns';
@@ -19,7 +20,7 @@ registerCommand({
   hint: 'Create task',
   icon: 'plus-circle',
 
-  execute(input, ctx) {
+  execute(input: string, ctx: CommandContext): CommandResult | null {
     const { flow, draft, intent, lang } = ctx;
 
     if (flow === 'idle') {
@@ -78,13 +79,13 @@ registerCommand({
         return {
           flow: 'idle',
           draft: {},
-          message: t('create.done', lang, { title: draft.title }),
+          message: t('create.done', lang, { title: draft?.title }),
           action: (handlers) => {
             handlers.onCreateTask?.({
-              title: draft.title,
-              description: draft.description || '',
-              task_type: draft.task_type || 'feature',
-              priority: draft.priority || 0,
+              title: draft?.title ?? '',
+              description: draft?.description || '',
+              task_type: draft?.task_type || 'feature',
+              priority: draft?.priority || 0,
               model: 'sonnet',
             });
           },
