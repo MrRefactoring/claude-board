@@ -42,7 +42,7 @@ function parsePhaseDescription(raw: string | null | undefined): ParsedPhaseDescr
   let section: string | null = null;
 
   while (i < lines.length) {
-    const rawLine = lines[i];
+    const rawLine = lines[i] ?? '';
     const line = rawLine.trim();
     if (!line) {
       i++;
@@ -50,12 +50,14 @@ function parsePhaseDescription(raw: string | null | undefined): ParsedPhaseDescr
     }
 
     // Markdown table: header row | separator | body rows
-    if (line.startsWith('|') && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+    if (line.startsWith('|') && i + 1 < lines.length && isTableSeparator(lines[i + 1] ?? '')) {
       const headers = parseTableRow(line);
       const rows = [];
       i += 2;
-      while (i < lines.length && lines[i].trim().startsWith('|') && !isTableSeparator(lines[i])) {
-        rows.push(parseTableRow(lines[i]));
+      while (i < lines.length) {
+        const rowLine = lines[i];
+        if (!rowLine || !rowLine.trim().startsWith('|') || isTableSeparator(rowLine)) break;
+        rows.push(parseTableRow(rowLine));
         i++;
       }
       result.tables.push({ headers, rows });
@@ -65,8 +67,8 @@ function parsePhaseDescription(raw: string | null | undefined): ParsedPhaseDescr
     // **Label** (optional parens): value
     const m = line.match(/^\*\*([^*]+)\*\*(?:\s*\([^)]*\))?\s*:?\s*(.*)$/);
     if (m) {
-      const label = m[1].toLowerCase().trim();
-      const value = m[2].trim();
+      const label = (m[1] ?? '').toLowerCase().trim();
+      const value = (m[2] ?? '').trim();
       if (label === 'goal') {
         result.goal = value;
         section = 'goal';
@@ -95,7 +97,7 @@ function parsePhaseDescription(raw: string | null | undefined): ParsedPhaseDescr
 
     // Numbered list (1. ...) — success criteria items
     const numbered = line.match(/^\d+\.\s+(.+)$/);
-    if (numbered && section === 'successCriteria') {
+    if (numbered?.[1] && section === 'successCriteria') {
       result.successCriteria.push(numbered[1].trim());
       i++;
       continue;
@@ -103,7 +105,7 @@ function parsePhaseDescription(raw: string | null | undefined): ParsedPhaseDescr
 
     // Bullet list
     const bullet = line.match(/^[-*]\s+(.+)$/);
-    if (bullet && section === 'successCriteria') {
+    if (bullet?.[1] && section === 'successCriteria') {
       result.successCriteria.push(bullet[1].trim());
       i++;
       continue;

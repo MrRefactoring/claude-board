@@ -228,7 +228,7 @@ export default function Board({
         counts[tag] = (counts[tag] || 0) + 1;
       });
     });
-    const sorted = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const sorted = Object.keys(counts).sort((a, b) => (counts[b] ?? 0) - (counts[a] ?? 0));
     return { activeTags: sorted, tagCounts: counts };
   }, [tasks]);
 
@@ -268,6 +268,7 @@ export default function Board({
     () => COLUMNS.filter((col) => col.id !== 'awaiting_approval' || project?.require_approval),
     [project?.require_approval],
   );
+  const mobileColumn = visibleColumns.find((c) => c.id === mobileTab) || visibleColumns[0];
 
   // ─── Epic swimlanes ───
   // Leaf progress within a lane (containers are excluded from the count).
@@ -532,20 +533,22 @@ export default function Board({
 
               {/* Mobile: single column */}
               <div className="flex-1 overflow-y-auto md:hidden p-3">
-                <Column
-                  column={visibleColumns.find((c) => c.id === mobileTab) || visibleColumns[0]}
-                  tasks={columnTasks(mobileTab)}
-                  highlight={overColumnId === mobileTab}
-                  altDrag={altDrag}
-                  dndPrefix="m:"
-                  onViewLogs={onViewLogs}
-                  onEditTask={onEditTask}
-                  onDeleteTask={onDeleteTask}
-                  onStatusChange={onStatusChange}
-                  onReviewTask={onReviewTask}
-                  onViewDetail={onViewDetail}
-                  isMobile
-                />
+                {mobileColumn && (
+                  <Column
+                    column={mobileColumn}
+                    tasks={columnTasks(mobileTab)}
+                    highlight={overColumnId === mobileTab}
+                    altDrag={altDrag}
+                    dndPrefix="m:"
+                    onViewLogs={onViewLogs}
+                    onEditTask={onEditTask}
+                    onDeleteTask={onDeleteTask}
+                    onStatusChange={onStatusChange}
+                    onReviewTask={onReviewTask}
+                    onViewDetail={onViewDetail}
+                    isMobile
+                  />
+                )}
               </div>
 
               {/* Desktop: grouped into epic swimlanes, or a single columns row */}

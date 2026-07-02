@@ -45,7 +45,7 @@ export default function SessionsTab() {
   const grouped: Record<string, Session[]> = {};
   list.forEach((s) => {
     if (!grouped[s.project]) grouped[s.project] = [];
-    grouped[s.project].push(s);
+    grouped[s.project]?.push(s);
   });
   return (
     <div className="space-y-4">

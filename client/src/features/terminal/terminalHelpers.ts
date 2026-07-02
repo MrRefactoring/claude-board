@@ -87,6 +87,7 @@ export function groupToolEntries(logs: LogLine[]): GroupedEntry[] {
 
   for (let i = 0; i < logs.length; i++) {
     const log = logs[i];
+    if (!log) continue;
 
     // Insert turn separator when Claude speaks after tool results
     if (
@@ -106,8 +107,9 @@ export function groupToolEntries(logs: LogLine[]): GroupedEntry[] {
       let result: LogLine | null = null;
       if (toolId) {
         for (let j = i + 1; j < logs.length && j < i + 20; j++) {
-          if (logs[j].log_type === 'tool_result' && logs[j].meta?.toolId === toolId) {
-            result = logs[j];
+          const candidate = logs[j];
+          if (candidate?.log_type === 'tool_result' && candidate.meta?.toolId === toolId) {
+            result = candidate;
             break;
           }
         }

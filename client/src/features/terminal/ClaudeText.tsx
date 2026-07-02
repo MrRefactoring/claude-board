@@ -59,7 +59,7 @@ export function ThinkingBlock({ message, time }: { message?: string; time?: stri
 
   const preview = useMemo(() => {
     if (!message) return '';
-    const first = message.split('\n')[0].trim();
+    const first = (message.split('\n')[0] ?? '').trim();
     return first.length > 120 ? first.slice(0, 120) + '…' : first;
   }, [message]);
 

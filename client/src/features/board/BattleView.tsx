@@ -421,25 +421,23 @@ export default function BattleView({ tasks, projectId }: BattleViewProps) {
 
   const arenaAgents = useMemo(() => {
     const agents: ArenaAgent[] = [];
-    runningTasks.forEach((t, i) =>
-      agents.push({ ...t, _pos: ARENA_POSITIONS[i % ARENA_POSITIONS.length], _state: 'active' }),
-    );
+    runningTasks.forEach((t, i) => {
+      const pos = ARENA_POSITIONS[i % ARENA_POSITIONS.length];
+      if (!pos) return;
+      agents.push({ ...t, _pos: pos, _state: 'active' });
+    });
     doneTasks.forEach((t, i) => {
       if (!agents.find((a) => a.id === t.id)) {
-        agents.push({
-          ...t,
-          _pos: ARENA_POSITIONS[(runningTasks.length + i) % ARENA_POSITIONS.length],
-          _state: 'victory',
-        });
+        const pos = ARENA_POSITIONS[(runningTasks.length + i) % ARENA_POSITIONS.length];
+        if (!pos) return;
+        agents.push({ ...t, _pos: pos, _state: 'victory' });
       }
     });
     failedTasks.forEach((t, i) => {
       if (!agents.find((a) => a.id === t.id)) {
-        agents.push({
-          ...t,
-          _pos: ARENA_POSITIONS[(runningTasks.length + doneTasks.length + i) % ARENA_POSITIONS.length],
-          _state: 'defeat',
-        });
+        const pos = ARENA_POSITIONS[(runningTasks.length + doneTasks.length + i) % ARENA_POSITIONS.length];
+        if (!pos) return;
+        agents.push({ ...t, _pos: pos, _state: 'defeat' });
       }
     });
     return agents;
@@ -504,6 +502,7 @@ export default function BattleView({ tasks, projectId }: BattleViewProps) {
       const dmg = Math.min(40, Math.max(1, Math.round(tokens / 8000)));
       const isCrit = power >= 14;
       const attack = ATTACK_TYPES[attackerId % ATTACK_TYPES.length];
+      if (!target || !attack) return;
       const pid = ++nextId.current;
 
       setProjectiles((prev) => [

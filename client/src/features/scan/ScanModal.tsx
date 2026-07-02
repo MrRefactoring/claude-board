@@ -308,7 +308,7 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
       if (match.index > lastIndex) {
         parts.push({ text: result.slice(lastIndex, match.index), highlight: false });
       }
-      parts.push({ text: match[1], highlight: true });
+      parts.push({ text: match[1] ?? '', highlight: true });
       lastIndex = regex.lastIndex;
     }
     if (lastIndex < result.length) {

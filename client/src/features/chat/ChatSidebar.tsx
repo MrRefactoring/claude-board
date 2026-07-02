@@ -42,8 +42,10 @@ function parseAction(content: string): { text: string; action?: ChatAction } {
   const fence = /```(?:board:action|json)?\s*\n([\s\S]*?)```/g;
   let m: RegExpExecArray | null;
   while ((m = fence.exec(content)) !== null) {
+    const body = m[1];
+    if (body === undefined) continue;
     try {
-      const obj = JSON.parse(m[1].trim());
+      const obj = JSON.parse(body.trim());
       if (obj && typeof obj === 'object' && ACTION_TYPES.has(obj.action) && typeof obj.task_id === 'number') {
         const text = (content.slice(0, m.index) + content.slice(m.index + m[0].length)).trim();
         return { text, action: obj as ChatAction };

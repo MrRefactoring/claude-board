@@ -307,6 +307,7 @@ export default function AnalyticsView({ tasks, projectId }: AnalyticsViewProps) 
     stats.recentCompleted.forEach((t) => {
       if (!t.completedAt) return;
       const day = t.completedAt.split(/[T ]/)[0];
+      if (!day) return;
       if (!dayMap[day]) dayMap[day] = { day, cost: 0, tokens: 0, tasks: 0 };
       dayMap[day].cost += t.totalCost || 0;
       dayMap[day].tokens += (t.inputTokens || 0) + (t.outputTokens || 0);

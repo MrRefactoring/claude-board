@@ -81,6 +81,7 @@ function computeTimeScale(tasks: Task[], containerWidth: number): TimeScale | nu
   const msPerTick = totalMs / targetTicks;
   const intervals = [60000, 300000, 600000, 1800000, 3600000, 7200000, 14400000, 28800000, 86400000];
   const interval = intervals.find((i) => i >= msPerTick) || intervals[intervals.length - 1];
+  if (!interval) return null;
 
   const ticks: number[] = [];
   let t = Math.ceil(minT / interval) * interval;
@@ -164,7 +165,8 @@ export default function TimelineView({ tasks, waves, edges, onTaskClick }: Timel
 
   const scale = useMemo(() => computeTimeScale(tasks, containerWidth), [tasks, containerWidth, now]);
 
-  const totalH = rows.length > 0 ? rows[rows.length - 1].y + ROW_H + 8 : 100;
+  const lastRow = rows[rows.length - 1];
+  const totalH = lastRow ? lastRow.y + ROW_H + 8 : 100;
 
   if (!scale || rows.length === 0) {
     return (
@@ -281,6 +283,7 @@ export default function TimelineView({ tasks, waves, edges, onTaskClick }: Timel
             const barY = y + 8;
             const barH = ROW_H - 16;
             const colors = STATUS_COLORS[task.status] || STATUS_COLORS.backlog;
+            if (!colors) return null;
             const isHovered = hoveredId === task.id;
 
             return (

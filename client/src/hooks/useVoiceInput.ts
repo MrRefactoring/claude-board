@@ -68,8 +68,10 @@ export function useVoiceInput({ lang = 'en-US', continuous = false, onResult, on
       let interimText = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
+        const result = event.results[i];
+        if (!result) continue;
+        const transcript = result[0]?.transcript ?? '';
+        if (result.isFinal) {
           finalText += transcript;
         } else {
           interimText += transcript;

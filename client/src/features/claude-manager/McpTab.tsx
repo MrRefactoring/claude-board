@@ -109,7 +109,7 @@ function AddMcpForm({ onDone, onCancel }: { onDone: (d: McpServer[]) => void; on
     try {
       const parts = command.trim().split(/\s+/);
       const envList = env.trim() ? env.trim().split('\n').filter(Boolean) : [];
-      onDone((await api.addMcpServer(name.trim(), parts[0], parts.slice(1), scope, envList)) as McpServer[]);
+      onDone((await api.addMcpServer(name.trim(), parts[0] ?? '', parts.slice(1), scope, envList)) as McpServer[]);
     } catch (e) {
       setError((e as Error).message);
     }

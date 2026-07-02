@@ -45,7 +45,7 @@ function detectLang(): string {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored && SUPPORTED.includes(stored)) return stored;
   } catch {}
-  const nav = (navigator.language || '').split('-')[0];
+  const nav = (navigator.language || '').split('-')[0] ?? '';
   return SUPPORTED.includes(nav) ? nav : 'en';
 }
 
@@ -64,7 +64,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback<TranslateFn>(
     (key, params) => {
-      const str = locales[lang]?.[key] ?? locales.en[key] ?? key;
+      const str = locales[lang]?.[key] ?? locales.en?.[key] ?? key;
       if (!params) return str;
       return str.replace(/\{(\w+)\}/g, (_, k: string) => String(params[k] ?? `{${k}}`));
     },

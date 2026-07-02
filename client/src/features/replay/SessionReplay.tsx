@@ -49,10 +49,12 @@ export default function SessionReplay({ taskId }: SessionReplayProps) {
   }, [taskId]);
 
   const timeRange = useMemo(() => {
-    if (events.length === 0) return { start: 0, end: 1 };
+    const first = events[0];
+    const last = events[events.length - 1];
+    if (!first || !last) return { start: 0, end: 1 };
     return {
-      start: events[0].timestampMs,
-      end: events[events.length - 1].timestampMs,
+      start: first.timestampMs,
+      end: last.timestampMs,
     };
   }, [events]);
 
@@ -67,7 +69,8 @@ export default function SessionReplay({ taskId }: SessionReplayProps) {
           setPlaying(false);
           return prev;
         }
-        setSelectedEvent(events[prev + 1]);
+        const next = events[prev + 1];
+        if (next) setSelectedEvent(next);
         return prev + 1;
       });
     }, 300);

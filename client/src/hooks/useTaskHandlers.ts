@@ -167,7 +167,7 @@ export function useTaskHandlers({ tasks, t, terminal, currentProject }: UseTaskH
           setConfirm(null);
           const ids = selectedTasks.map((task) => task.id);
           const results = await Promise.allSettled(ids.map((id) => api.deleteTask(id)));
-          const deletedIds = ids.filter((_, i) => results[i].status === 'fulfilled');
+          const deletedIds = ids.filter((_, i) => results[i]?.status === 'fulfilled');
           const failCount = ids.length - deletedIds.length;
           if (deletedIds.length > 0) {
             setTasks((prev) => prev.filter((x) => !deletedIds.includes(x.id)));

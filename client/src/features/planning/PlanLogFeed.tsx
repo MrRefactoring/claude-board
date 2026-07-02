@@ -38,15 +38,17 @@ export function PlanLogFeed({ logs, isActive }: PlanLogFeedProps) {
     const out: LogEntry[] = [];
     for (let i = 0; i < logs.length; i++) {
       const log = logs[i];
+      if (!log) continue;
       if (log.type === 'tool') {
         // Parse tool name: "Read → src/file.rs" or just "Bash"
         const parts = log.message.split(' → ');
-        const toolName = parts[0].trim();
+        const toolName = (parts[0] ?? '').trim();
         const detail = parts[1] || '';
         // Look ahead for matching result
         let result: PlanLog | null = null;
-        if (i + 1 < logs.length && (logs[i + 1].type === 'result' || logs[i + 1].type === 'error')) {
-          result = logs[i + 1];
+        const next = logs[i + 1];
+        if (next && (next.type === 'result' || next.type === 'error')) {
+          result = next;
           i++; // skip next
         }
         out.push({ type: 'tool_group', toolName, detail, result, ts: log.ts, index: out.length });

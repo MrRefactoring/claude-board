@@ -134,7 +134,7 @@ export default function OrchestrationView({
         counts[tag] = (counts[tag] || 0) + 1;
       }),
     );
-    return { activeTags: Object.keys(counts).sort((a, b) => counts[b] - counts[a]), tagCounts: counts };
+    return { activeTags: Object.keys(counts).sort((a, b) => (counts[b] ?? 0) - (counts[a] ?? 0)), tagCounts: counts };
   }, [tasks]);
 
   const filteredTasks = useMemo(() => {

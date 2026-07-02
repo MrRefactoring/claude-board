@@ -55,14 +55,14 @@ export default function LanguageSelector({ compact = false, inline = false }: Pr
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-surface-400 hover:text-surface-200 hover:bg-surface-800 transition-colors text-xs"
-        title={current.label}
+        title={current?.label}
       >
         <Globe size={13} />
         {compact ? (
           <span className="uppercase font-medium">{lang}</span>
         ) : (
           <span>
-            {current.flag} {current.label}
+            {current?.flag} {current?.label}
           </span>
         )}
       </button>

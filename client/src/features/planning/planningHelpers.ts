@@ -83,7 +83,7 @@ export function computeWaves(proposals: PlanProposal[], deps: PlanDependency[]):
   const parents = Array.from({ length: n }, () => new Set<number>());
   for (const [parentIdx, childIdx] of deps) {
     if (childIdx >= 0 && childIdx < n && parentIdx >= 0 && parentIdx < n) {
-      parents[childIdx].add(parentIdx);
+      parents[childIdx]?.add(parentIdx);
     }
   }
   const assigned = new Set<number>();
@@ -93,7 +93,7 @@ export function computeWaves(proposals: PlanProposal[], deps: PlanDependency[]):
     const wave: number[] = [];
     for (let i = 0; i < n; i++) {
       if (assigned.has(i)) continue;
-      const allMet = [...parents[i]].every((p) => assigned.has(p));
+      const allMet = [...(parents[i] ?? [])].every((p) => assigned.has(p));
       if (allMet) wave.push(i);
     }
     if (wave.length === 0) break; // remaining tasks form a cycle — skip

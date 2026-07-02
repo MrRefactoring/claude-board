@@ -54,7 +54,7 @@ function autoLayout(tasks: GraphTask[], edges: GraphEdge[], waves: GraphTask[][]
     edgeSet.add(e.from);
     edgeSet.add(e.to);
     if (!taskParents[e.to]) taskParents[e.to] = [];
-    taskParents[e.to].push(e.from);
+    taskParents[e.to]?.push(e.from);
   });
 
   if (waves.length > 0) {
@@ -103,7 +103,9 @@ function autoLayout(tasks: GraphTask[], edges: GraphEdge[], waves: GraphTask[][]
     .map(Number)
     .sort((a, b) => a - b);
   sortedWaves.forEach((waveIdx, col) => {
-    const group = waveGroups[waveIdx].sort((a, b) => a.index - b.index);
+    const group = waveGroups[waveIdx];
+    if (!group) return;
+    group.sort((a, b) => a.index - b.index);
     group.forEach((item, row) => {
       positions[item.id] = {
         x: OFFSET_X + col * GAP_X,
@@ -292,8 +294,9 @@ export default function DependencyGraph({
           if (p) updated[task.id] = { x: p.x, y: p.y };
         }
         // Apply the local drag position
-        if (localPositions && localPositions[nodeDrag.id]) {
-          updated[nodeDrag.id] = { x: localPositions[nodeDrag.id].x, y: localPositions[nodeDrag.id].y };
+        const dragPos = localPositions?.[nodeDrag.id];
+        if (dragPos) {
+          updated[nodeDrag.id] = { x: dragPos.x, y: dragPos.y };
         }
         onPositionsChange(updated);
       }
@@ -358,6 +361,7 @@ export default function DependencyGraph({
 
       const isHighlighted = hoveredId === from || hoveredId === to;
       const style = EDGE_STYLES[conditionType] || EDGE_STYLES.always;
+      if (!style) return null;
 
       return (
         <g key={i}>
@@ -485,6 +489,7 @@ export default function DependencyGraph({
           const pos = positions[task.id];
           if (!pos) return null;
           const colors = STATUS_COLORS[task.status ?? 'backlog'] || STATUS_COLORS.backlog;
+          if (!colors) return null;
           const isRunning = task.is_running || task.status === 'in_progress';
           const isTesting = task.is_running && task.status === 'testing';
           const isHovered = hoveredId === task.id;

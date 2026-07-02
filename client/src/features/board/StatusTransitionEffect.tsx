@@ -41,7 +41,7 @@ function generateConfetti(count: number): ConfettiPiece[] {
     scale: 0.3 + Math.random() * 0.7,
     delay: Math.random() * 0.4,
     duration: 0.8 + Math.random() * 0.8,
-    color: colors[Math.floor(Math.random() * colors.length)],
+    color: colors[Math.floor(Math.random() * colors.length)]!,
     shape: Math.random() > 0.5 ? 'rect' : 'circle',
     wobble: Math.random() * 30 - 15,
   }));

@@ -43,7 +43,7 @@ const normalizePhaseNum = (n: string | number): string => {
   return s || '0';
 };
 
-const GSD_ACTIONS: Record<string, GsdAction> = {
+const GSD_ACTIONS = {
   pending: {
     label: 'Plan Phase',
     icon: Brain,
@@ -84,7 +84,7 @@ const GSD_ACTIONS: Record<string, GsdAction> = {
     prompt: (n, title) =>
       `Run /gsd:execute-phase ${n} for phase "${title}". The previous execution failed. Check .planning/phases/ for error context and retry the failed tasks.`,
   },
-};
+} satisfies Record<string, GsdAction>;
 
 export function GsdFileRoadmap({ projectId }: { projectId: number }) {
   const [gsdRoadmap, setGsdRoadmap] = useState<GsdRoadmap | null>(null);
@@ -121,7 +121,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
       for (const t of tasks) {
         const tags = (t as { tags?: string }).tags || '';
         const match = tags.match(/phase-(\d+)/);
-        if (match && tags.includes('gsd')) generated.add(normalizePhaseNum(match[1]));
+        if (match?.[1] && tags.includes('gsd')) generated.add(normalizePhaseNum(match[1]));
       }
       setGeneratedPhases(generated);
     } catch {}

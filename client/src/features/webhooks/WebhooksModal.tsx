@@ -51,7 +51,7 @@ const PLATFORMS = [
   { id: 'discord', label: 'Discord', color: 'bg-[#5865F2]/20 text-[#5865F2]', icon: 'D' },
   { id: 'teams', label: 'Teams', color: 'bg-[#6264A7]/20 text-[#6264A7]', icon: 'T' },
   { id: 'custom', label: 'Custom', color: 'bg-surface-500/20 text-surface-300', icon: '{}' },
-];
+] as const;
 
 const ALL_EVENTS = [
   { id: 'task_created', label: 'Task Created', desc: 'New task added' },

@@ -42,7 +42,8 @@ export default function TagInput({ value = [], onChange, suggestions = [], place
       e.preventDefault();
       addTag(input);
     } else if (e.key === 'Backspace' && !input && value.length > 0) {
-      removeTag(value[value.length - 1]);
+      const last = value[value.length - 1];
+      if (last) removeTag(last);
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
     }

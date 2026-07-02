@@ -37,14 +37,14 @@ interface AutoTestVerdict {
 function parseAutoTestCheck(msg: string): AutoTestCheck | null {
   const m = msg.match(/^Auto-test \[(PASS|FAIL|WARN|SKIP)]\s+(.+?):\s*(.*)$/);
   if (!m) return null;
-  return { status: m[1], name: m[2], detail: m[3] };
+  return { status: m[1] ?? '', name: m[2] ?? '', detail: m[3] ?? '' };
 }
 
 // Parse "Auto-test PASSED: summary" or "Auto-test FAILED: summary — feedback"
 function parseAutoTestVerdict(msg: string): AutoTestVerdict | null {
   const m = msg.match(/^Auto-test (PASSED|FAILED):\s*(.*)$/);
   if (!m) return null;
-  return { passed: m[1] === 'PASSED', summary: m[2] };
+  return { passed: m[1] === 'PASSED', summary: m[2] ?? '' };
 }
 
 // ─── Auto-test check card ───

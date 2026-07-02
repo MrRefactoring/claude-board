@@ -68,7 +68,7 @@ function findVoice(targetLang: string): SpeechSynthesisVoice | null {
   if (_voices.length === 0) return null;
 
   const target = targetLang.toLowerCase().replace('_', '-');
-  const prefix = target.split('-')[0];
+  const prefix = target.split('-')[0] ?? '';
 
   // Strategy 1: Match by lang code
   let best: SpeechSynthesisVoice | null = null;

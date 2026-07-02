@@ -238,7 +238,7 @@ export default function ProjectTerminal({ tasks }: { tasks?: Task[] }) {
     const byId: Record<number, ProjectLogEntry[]> = {};
     for (const task of visibleTasks) byId[task.id] = [];
     for (const l of logs) {
-      if (l.taskId !== undefined && byId[l.taskId]) byId[l.taskId].push(l);
+      if (l.taskId !== undefined) byId[l.taskId]?.push(l);
     }
     return byId;
   }, [logs, visibleTasks]);

@@ -37,7 +37,7 @@ export default function PermissionsTab() {
         <div className="flex items-start gap-2">
           <Icon size={12} className={`${color} flex-shrink-0 mt-0.5`} />
           <div className="min-w-0">
-            <span className="text-xs font-semibold text-surface-200">{title.trim()}</span>
+            <span className="text-xs font-semibold text-surface-200">{title?.trim()}</span>
             {desc && <p className="text-[10px] text-surface-500 mt-0.5 leading-relaxed">{desc}</p>}
           </div>
         </div>

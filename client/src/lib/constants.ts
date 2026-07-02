@@ -129,7 +129,7 @@ const TAG_PALETTE = [
 export function getTagColor(tag: string): string {
   let hash = 0;
   for (const ch of tag) hash = ((hash << 5) - hash + ch.charCodeAt(0)) | 0;
-  return TAG_PALETTE[Math.abs(hash) % TAG_PALETTE.length];
+  return TAG_PALETTE[Math.abs(hash) % TAG_PALETTE.length] ?? '';
 }
 
 // ─── Avatar ───

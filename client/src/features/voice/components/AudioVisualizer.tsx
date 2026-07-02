@@ -66,7 +66,7 @@ export default function AudioVisualizer({ getAnalyser, isActive, className = '' 
       const barW = w / barCount - 1;
 
       for (let i = 0; i < barCount; i++) {
-        const val = data[i] / 255;
+        const val = (data[i] ?? 0) / 255;
         const barH = Math.max(2, val * h);
         const x = i * (barW + 1);
         const alpha = 0.3 + val * 0.7;

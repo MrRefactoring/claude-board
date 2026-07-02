@@ -53,10 +53,9 @@ function load(projectId: number): Persisted {
     const raw = localStorage.getItem(storageKey(projectId));
     if (raw) {
       const parsed = JSON.parse(raw) as Persisted;
-      if (parsed && Array.isArray(parsed.tabs) && parsed.tabs.length > 0) {
-        const activeId = parsed.tabs.some((t) => t.id === parsed.activeId)
-          ? parsed.activeId
-          : parsed.tabs[0].id;
+      const first = parsed && Array.isArray(parsed.tabs) ? parsed.tabs[0] : undefined;
+      if (first) {
+        const activeId = parsed.tabs.some((t) => t.id === parsed.activeId) ? parsed.activeId : first.id;
         return { tabs: parsed.tabs, activeId };
       }
     }
@@ -101,7 +100,7 @@ export function useChatTabs(projectId: number) {
     }
   }, [projectId, state]);
 
-  const activeTab = state.tabs.find((t) => t.id === state.activeId) ?? state.tabs[0];
+  const activeTab = state.tabs.find((t) => t.id === state.activeId) ?? state.tabs[0] ?? freshTab();
 
   const selectTab = useCallback((id: string) => {
     setState((s) => (s.tabs.some((t) => t.id === id) ? { ...s, activeId: id } : s));
@@ -117,11 +116,12 @@ export function useChatTabs(projectId: number) {
   const closeTab = useCallback((id: string) => {
     setState((s) => {
       const remaining = s.tabs.filter((t) => t.id !== id);
-      if (remaining.length === 0) {
+      const last = remaining[remaining.length - 1];
+      if (!last) {
         const t = freshTab();
         return { tabs: [t], activeId: t.id };
       }
-      const activeId = s.activeId === id ? remaining[remaining.length - 1].id : s.activeId;
+      const activeId = s.activeId === id ? last.id : s.activeId;
       return { tabs: remaining, activeId };
     });
   }, []);

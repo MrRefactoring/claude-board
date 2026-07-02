@@ -116,9 +116,11 @@ export default function PipelineView({ tasks, onViewLogs, onViewDetail }: Pipeli
 
   const reorder = async (newOrder: EnrichedPipelineTask[]) => {
     setLocalQueue(newOrder);
+    const projectId = tasks[0]?.project_id;
+    if (projectId === undefined) return;
     try {
       await api.reorderQueue(
-        tasks[0]?.project_id,
+        projectId,
         newOrder.map((t) => t.id),
       );
     } catch {}
@@ -134,6 +136,7 @@ export default function PipelineView({ tasks, onViewLogs, onViewDetail }: Pipeli
       return;
     }
     const [moved] = newOrder.splice(fromIdx, 1);
+    if (!moved) return;
     newOrder.splice(targetIdx, 0, moved);
     setDragId(null);
     setDragOverIdx(null);
@@ -144,7 +147,11 @@ export default function PipelineView({ tasks, onViewLogs, onViewDetail }: Pipeli
     const newOrder = [...effectiveQueue];
     const targetIdx = idx + direction;
     if (targetIdx < 0 || targetIdx >= newOrder.length) return;
-    [newOrder[idx], newOrder[targetIdx]] = [newOrder[targetIdx], newOrder[idx]];
+    const a = newOrder[idx];
+    const b = newOrder[targetIdx];
+    if (!a || !b) return;
+    newOrder[idx] = b;
+    newOrder[targetIdx] = a;
     reorder(newOrder);
   };
 
@@ -334,6 +341,7 @@ function PipelineCard({
   const { t } = useTranslation();
   const status = task.status || 'backlog';
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.backlog;
+  if (!config) return null;
   const typeColor = (task.task_type && TYPE_COLORS[task.task_type]) || 'bg-surface-500/15 text-surface-400';
   const tokens = (task.input_tokens || 0) + (task.output_tokens || 0);
   const depName = task.depends_on ? `#${task.depends_on}` : null;

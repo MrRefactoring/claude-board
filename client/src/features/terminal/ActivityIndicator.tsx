@@ -19,6 +19,7 @@ export function ActivityIndicator({ logs, isRunning }: ActivityIndicatorProps) {
     if (!isRunning) return null;
     for (let i = logs.length - 1; i >= 0; i--) {
       const l = logs[i];
+      if (!l) continue;
       if (l.log_type === 'tool' && l.meta?.toolName && !l.meta.isResult) {
         // Check if this tool has a result
         const toolId = l.meta.toolId;

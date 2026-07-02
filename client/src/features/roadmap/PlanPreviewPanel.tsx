@@ -92,42 +92,48 @@ export function PlanPreviewPanel({
       </div>
 
       <div className="space-y-1.5 max-h-72 overflow-y-auto rounded-md bg-surface-900/40 border border-surface-700/30 p-2">
-        {sortedWaves.map((waveNum) => (
-          <div key={waveNum} className="space-y-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[9px] font-semibold text-surface-500 uppercase tracking-wider">Wave {waveNum}</span>
-              <span className="text-[9px] text-surface-600">
-                {waves[waveNum].length} task{waves[waveNum].length === 1 ? '' : 's'}
-                {waveNum > 1 ? ' · runs after previous wave' : ' · runs first'}
-              </span>
-            </div>
-            {waves[waveNum].map((t, i) => {
-              const tColor = typeColors[t.task_type] || typeColors.auto;
-              return (
-                <div
-                  key={`${waveNum}-${i}`}
-                  className="px-2 py-1.5 rounded-md bg-surface-800/60 border border-surface-700/40 space-y-0.5"
-                >
-                  <div className="flex items-start gap-2">
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${tColor}`}>{t.task_type}</span>
-                    <span className="text-[11px] text-surface-200 flex-1 font-medium">{t.task_name || 'Untitled'}</span>
-                    <span className="text-[9px] text-surface-600 font-mono flex-shrink-0">plan-{t.plan_number}</span>
+        {sortedWaves.map((waveNum) => {
+          const waveTasks = waves[waveNum];
+          if (!waveTasks) return null;
+          return (
+            <div key={waveNum} className="space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] font-semibold text-surface-500 uppercase tracking-wider">
+                  Wave {waveNum}
+                </span>
+                <span className="text-[9px] text-surface-600">
+                  {waveTasks.length} task{waveTasks.length === 1 ? '' : 's'}
+                  {waveNum > 1 ? ' · runs after previous wave' : ' · runs first'}
+                </span>
+              </div>
+              {waveTasks.map((t, i) => {
+                const tColor = typeColors[t.task_type] || typeColors.auto;
+                return (
+                  <div
+                    key={`${waveNum}-${i}`}
+                    className="px-2 py-1.5 rounded-md bg-surface-800/60 border border-surface-700/40 space-y-0.5"
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${tColor}`}>{t.task_type}</span>
+                      <span className="text-[11px] text-surface-200 flex-1 font-medium">{t.task_name || 'Untitled'}</span>
+                      <span className="text-[9px] text-surface-600 font-mono flex-shrink-0">plan-{t.plan_number}</span>
+                    </div>
+                    {t.files && (
+                      <div className="text-[10px] text-surface-500 font-mono pl-1 truncate" title={t.files}>
+                        <span className="text-surface-600">files:</span> {t.files}
+                      </div>
+                    )}
+                    {t.done_criteria && (
+                      <div className="text-[10px] text-surface-500 pl-1 line-clamp-2">
+                        <span className="text-surface-600">done:</span> {t.done_criteria}
+                      </div>
+                    )}
                   </div>
-                  {t.files && (
-                    <div className="text-[10px] text-surface-500 font-mono pl-1 truncate" title={t.files}>
-                      <span className="text-surface-600">files:</span> {t.files}
-                    </div>
-                  )}
-                  {t.done_criteria && (
-                    <div className="text-[10px] text-surface-500 pl-1 line-clamp-2">
-                      <span className="text-surface-600">done:</span> {t.done_criteria}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
 
       {!hasGeneratedTasks && (

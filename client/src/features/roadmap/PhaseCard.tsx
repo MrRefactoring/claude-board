@@ -98,8 +98,10 @@ export function PhaseCard({
   };
 
   const handleToggleCriterion = async (index: number) => {
+    const criterion = criteria[index];
+    if (!criterion) return;
     try {
-      await api.updateSuccessCriterion(phase.id, index, !criteria[index].verified);
+      await api.updateSuccessCriterion(phase.id, index, !criterion.verified);
       onRefresh();
     } catch {}
   };
