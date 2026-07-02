@@ -69,7 +69,6 @@ fn emit_task_updated(db: &DbPool, app: &AppHandle, task_id: i64) {
 
 pub fn stop(task_id: i64, db: &DbPool, app: &AppHandle) {
     if let Some(info) = ACTIVE_PROCESSES.lock().remove(&task_id) {
-        let working_dir = info.working_dir.clone();
         kill_process(info.pid);
         STARTING_TASKS.lock().remove(&task_id);
         EVENT_CTX.task_usage.lock().remove(&task_id);
@@ -78,16 +77,6 @@ pub fn stop(task_id: i64, db: &DbPool, app: &AppHandle) {
             .lock()
             .retain(|_, tc| tc.task_id != task_id);
         super::events::clear_task_file_access(task_id);
-        // Clean up worktree — use project working_dir (parent of .worktrees)
-        // Determine project root: if working_dir is a worktree, its parent's parent is the project root
-        let project_root = if let Some(task) = tasks::get_by_id(db, task_id) {
-            projects::get_by_id(db, task.project_id)
-                .map(|p| p.working_dir)
-                .unwrap_or(working_dir)
-        } else {
-            working_dir
-        };
-        cleanup_task_worktree(task_id, &project_root);
         tasks::add_log(
             db,
             task_id,
@@ -302,24 +291,34 @@ fn ensure_task_worktree(
         }
     }
 
-    // Worktree directory: .worktrees/task-{id} relative to repo root
-    let worktree_dir = Path::new(working_dir)
-        .join(".worktrees")
-        .join(format!("task-{}", task.id));
+    // Worktree directory: .worktrees/<slug>-<id> relative to repo root (the id
+    // suffix keeps names unique across tasks with identical titles; the empty-slug
+    // fallback is already "task-{id}", so don't double the id there).
+    let dir_name = if slug == format!("task-{}", task.id) {
+        slug.clone()
+    } else {
+        format!("{}-{}", slug, task.id)
+    };
+    let worktree_dir = Path::new(working_dir).join(".worktrees").join(&dir_name);
     let worktree_str = worktree_dir.to_string_lossy().to_string();
 
-    // If worktree already exists (e.g. from a previous failed run), remove it first
-    if worktree_dir.exists() {
-        let _ = git_hidden(
-            &["worktree", "remove", "--force", &worktree_str],
-            working_dir,
-        );
-        // Fallback: remove directory manually if git worktree remove failed
-        if worktree_dir.exists() {
-            std::fs::remove_dir_all(&worktree_dir).ok();
+    // If worktree already exists (e.g. from a previous run — worktrees persist
+    // after completion), remove it first so a fresh run starts clean. Also sweep
+    // the legacy pre-rename path (.worktrees/task-{id}).
+    let legacy_dir = Path::new(working_dir)
+        .join(".worktrees")
+        .join(format!("task-{}", task.id));
+    for stale in [&worktree_dir, &legacy_dir] {
+        if stale.exists() {
+            let stale_str = stale.to_string_lossy().to_string();
+            let _ = git_hidden(&["worktree", "remove", "--force", &stale_str], working_dir);
+            // Fallback: remove directory manually if git worktree remove failed
+            if stale.exists() {
+                std::fs::remove_dir_all(stale).ok();
+            }
+            // Prune stale worktree references
+            let _ = git_hidden(&["worktree", "prune"], working_dir);
         }
-        // Prune stale worktree references
-        let _ = git_hidden(&["worktree", "prune"], working_dir);
     }
 
     // Ensure .worktrees directory exists and is git-ignored
@@ -382,41 +381,6 @@ fn ensure_task_worktree(
         }
         tasks::update_branch(db, task.id, &branch_name);
         (working_dir.to_string(), Some(branch_name))
-    }
-}
-
-/// Remove worktree for a task and clean up tracking state.
-fn cleanup_task_worktree(task_id: i64, working_dir: &str) {
-    let wt_dir = TASK_WORKTREES.lock().remove(&task_id);
-    if let Some(wt) = wt_dir {
-        let wt_path = Path::new(&wt);
-        if wt_path.exists() {
-            let mut cmd = Command::new("git");
-            cmd.args(["worktree", "remove", "--force", &wt])
-                .current_dir(working_dir)
-                .stdout(Stdio::null())
-                .stderr(Stdio::null());
-            #[cfg(target_os = "windows")]
-            cmd.creation_flags(CREATE_NO_WINDOW);
-            cmd.output().ok();
-
-            // Fallback manual removal
-            if wt_path.exists() {
-                std::fs::remove_dir_all(wt_path).ok();
-            }
-        }
-        // Prune stale worktree references
-        let mut prune = Command::new("git");
-        prune
-            .args(["worktree", "prune"])
-            .current_dir(working_dir)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        #[cfg(target_os = "windows")]
-        prune.creation_flags(CREATE_NO_WINDOW);
-        prune.output().ok();
-
-        log::info!("Cleaned up worktree for task {} at {}", task_id, wt);
     }
 }
 
@@ -493,14 +457,17 @@ fn effective_auto_merge(_task: &tasks::Task, project: &projects::Project) -> i64
     project.auto_merge.unwrap_or(0)
 }
 
-/// Post-completion branch handling. Always removes the worktree. Critically, it
-/// NEVER force-deletes an unmerged task branch — that used to orphan the agent's
-/// commits (dangling, lost at the next `git gc`). Behaviour:
+/// Post-completion branch handling. The worktree is intentionally KEPT — it
+/// stays in `.worktrees/` for inspection and is only recreated on the task's
+/// next fresh run. Critically, this NEVER force-deletes an unmerged task
+/// branch — that used to orphan the agent's commits (dangling, lost at the
+/// next `git gc`). Behaviour:
 /// - `auto_pr` on   → keep the branch (an open PR owns it).
-/// - `auto_merge` on → try to merge the branch into the base branch, and only on
-///   success delete it. The merge is *skipped* (branch kept) unless the base
-///   branch is the clean, checked-out HEAD of the main working dir; on conflict
-///   we `merge --abort` and keep the branch. Task output is therefore never lost.
+/// - `auto_merge` on → try to merge the branch into the base branch. The merge
+///   is *skipped* (branch kept) unless the base branch is the clean,
+///   checked-out HEAD of the main working dir; on conflict we `merge --abort`
+///   and keep the branch. The branch always survives — it is checked out in
+///   the persistent worktree, so git would refuse to delete it anyway.
 /// - otherwise → keep the branch so the user can merge/inspect it manually.
 pub fn cleanup_task_branch(
     task: &tasks::Task,
@@ -508,9 +475,6 @@ pub fn cleanup_task_branch(
     project: &projects::Project,
     db: &DbPool,
 ) {
-    // Always clean up the worktree regardless of other settings.
-    cleanup_task_worktree(task.id, working_dir);
-
     if project.auto_branch.unwrap_or(1) == 0 {
         return;
     }
@@ -580,9 +544,10 @@ pub fn cleanup_task_branch(
 
     // --no-ff keeps a visible merge commit; on conflict abort and keep the branch.
     if git_ok(&["merge", "--no-ff", "--no-edit", branch]) {
-        // Merged cleanly → commits now live on base; the branch is safe to drop.
-        git_ok(&["branch", "-D", branch]);
-        let msg = format!("auto_merge: ветка {} влита в {} и удалена", branch, base);
+        // The branch stays: it is checked out in the persistent worktree
+        // (git refuses to delete a checked-out branch), and it now points at
+        // merged history anyway.
+        let msg = format!("auto_merge: ветка {} влита в {}", branch, base);
         log::info!("Task {}: {}", task.id, msg);
         tasks::add_log(db, task.id, &msg, "success", None);
     } else {
@@ -1243,7 +1208,6 @@ fn handle_process_lifecycle(
     if was_user_stopped {
         tasks::add_log(db, task_id, "Task stopped by user.", "system", None);
         generate_lifecycle_summary(task_id, db);
-        cleanup_task_worktree(task_id, project_working_dir);
         emit_task_updated(db, app, task_id);
         app.emit(
             "claude:finished",
@@ -1450,8 +1414,7 @@ fn handle_process_lifecycle(
             &format!("Task failed (exit {}): {}", status, task_title),
             serde_json::json!({"taskId": task_id, "taskKey": task_key, "title": task_title, "exitCode": status}),
         );
-        // Clean up worktree on failure (will be re-created on retry)
-        cleanup_task_worktree(task_id, project_working_dir);
+        // Worktree is kept for post-mortem inspection; a retry recreates it fresh.
         crate::services::queue::handle_task_failure(db, app, project_id, task_id);
     }
 
