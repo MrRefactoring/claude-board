@@ -2,8 +2,8 @@
  * Entity extraction from voice input (multi-language).
  */
 
-import { TYPE_MAP, PRIORITY_MAP } from '../i18n/patterns';
-import { t } from '../i18n/t';
+import { TYPE_MAP, PRIORITY_MAP } from '@/features/voice/i18n/patterns';
+import { t } from '@/features/voice/i18n/t';
 
 export function extractTaskType(text: string): string | null {
   const lower = text.toLowerCase();

@@ -1,10 +1,10 @@
 import { Clock, Cpu, Coins, Activity, Tag, Calendar } from 'lucide-react';
-import type { Task } from '../../lib/types';
-import { MarkdownContent } from './MarkdownContent';
-import { StatCard } from './StatCard';
-import { formatTokens, formatDuration } from '../../lib/formatters';
-import { useTranslation } from '../../i18n/I18nProvider';
-import type { TaskDetail } from './taskDetailHelpers';
+import type { Task } from '@/lib/types';
+import { MarkdownContent } from '@/features/tasks/MarkdownContent';
+import { StatCard } from '@/features/tasks/StatCard';
+import { formatTokens, formatDuration } from '@/lib/formatters';
+import { useTranslation } from '@/i18n/I18nProvider';
+import type { TaskDetail } from '@/features/tasks/taskDetailHelpers';
 
 interface Props {
   d: TaskDetail;

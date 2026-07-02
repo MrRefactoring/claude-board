@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, CheckCircle2, StopCircle, Loader2, RotateCcw, Check, ArrowRight } from 'lucide-react';
-import { api } from '../../lib/api';
-import { socket } from '../../lib/socket';
-import { tauriListen, IS_TAURI } from '../../lib/tauriEvents';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { getCache } from './planningHelpers';
-import type { PlanProposal, PlanDependency, PlanStats, PlanPhaseName } from './planningHelpers';
-import { StepIndicator } from './StepIndicator';
-import { PlanPhaseDefine } from './PlanPhaseDefine';
-import { PlanPhaseAnalyze } from './PlanPhaseAnalyze';
-import { PlanPhaseReview } from './PlanPhaseReview';
+import { api } from '@/lib/api';
+import { socket } from '@/lib/socket';
+import { tauriListen, IS_TAURI } from '@/lib/tauriEvents';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { getCache } from '@/features/planning/planningHelpers';
+import type { PlanProposal, PlanDependency, PlanStats, PlanPhaseName } from '@/features/planning/planningHelpers';
+import { StepIndicator } from '@/features/planning/StepIndicator';
+import { PlanPhaseDefine } from '@/features/planning/PlanPhaseDefine';
+import { PlanPhaseAnalyze } from '@/features/planning/PlanPhaseAnalyze';
+import { PlanPhaseReview } from '@/features/planning/PlanPhaseReview';
 
 interface PlanningModalProps {
   projectId: number;

@@ -1,7 +1,7 @@
 import { Cpu, CheckCircle2, XCircle, AlertCircle, MinusCircle, ShieldCheck, ShieldX } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { fmtTime } from './terminalHelpers';
-import type { LogLine } from './terminalHelpers';
+import { fmtTime } from '@/features/terminal/terminalHelpers';
+import type { LogLine } from '@/features/terminal/terminalHelpers';
 
 const CHECK_ICON: Record<string, LucideIcon> = {
   PASS: CheckCircle2,

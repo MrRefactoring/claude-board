@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '../lib/api';
-import { socket } from '../lib/socket';
-import { tauriListen, IS_TAURI } from '../lib/tauriEvents';
-import type { Project } from '../lib/types';
+import { api } from '@/lib/api';
+import { socket } from '@/lib/socket';
+import { tauriListen, IS_TAURI } from '@/lib/tauriEvents';
+import type { Project } from '@/lib/types';
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);

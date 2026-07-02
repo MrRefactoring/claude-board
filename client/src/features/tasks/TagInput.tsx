@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
 import { X, Plus } from 'lucide-react';
-import { getTagColor } from '../../lib/constants';
+import { getTagColor } from '@/lib/constants';
 
 interface Props {
   value?: string[];

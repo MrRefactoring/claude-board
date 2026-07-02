@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { getAllCommands } from '../commands/commandRegistry';
-import type { Task } from '../../../lib/types';
-import '../commands/index';
+import { getAllCommands } from '@/features/voice/commands/commandRegistry';
+import type { Task } from '@/lib/types';
+import '@/features/voice/commands/index';
 
 const listCmd = getAllCommands().find((c) => c.id === 'list_tasks')!;
 

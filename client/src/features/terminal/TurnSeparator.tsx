@@ -1,6 +1,6 @@
 import { Hash } from 'lucide-react';
-import { fmtTime } from './terminalHelpers';
-import type { TranslateFn } from '../../lib/types';
+import { fmtTime } from '@/features/terminal/terminalHelpers';
+import type { TranslateFn } from '@/lib/types';
 
 interface TurnSeparatorProps {
   turn: number;

@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { GitBranch, CalendarRange, Radio, X, Tag, ChevronDown, Loader2, Swords } from 'lucide-react';
-import { api } from '../../lib/api';
-import { IS_TAURI, tauriListen } from '../../lib/tauriEvents';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { getTagColor } from '../../lib/constants';
-import { parseTags } from './TagBadge';
-import PipelineStats from './PipelineStats';
-import AgentCard from './AgentCard';
-import DependencyGraph from './DependencyGraph';
-import TimelineView from './TimelineView';
-import ObservabilityPanel from './ObservabilityPanel';
-import BattleView from './BattleView';
-import type { Task } from '../../lib/types';
+import { api } from '@/lib/api';
+import { IS_TAURI, tauriListen } from '@/lib/tauriEvents';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { getTagColor } from '@/lib/constants';
+import { parseTags } from '@/features/board/TagBadge';
+import PipelineStats from '@/features/board/PipelineStats';
+import AgentCard from '@/features/board/AgentCard';
+import DependencyGraph from '@/features/board/DependencyGraph';
+import TimelineView from '@/features/board/TimelineView';
+import ObservabilityPanel from '@/features/board/ObservabilityPanel';
+import BattleView from '@/features/board/BattleView';
+import type { Task } from '@/lib/types';
 
 const STORAGE_KEY = 'claude-board:dag-positions:';
 

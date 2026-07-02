@@ -1,4 +1,4 @@
-import type { Project } from '../../lib/types';
+import type { Project } from '@/lib/types';
 
 /** Project row enriched with the aggregate counters returned by getProjectsSummary. */
 export interface ProjectSummary extends Project {

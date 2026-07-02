@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { getAllCommands } from '../commands/commandRegistry';
-import type { CommandContext } from '../commands/commandRegistry';
-import type { Task } from '../../../lib/types';
-import '../commands/index';
+import { getAllCommands } from '@/features/voice/commands/commandRegistry';
+import type { CommandContext } from '@/features/voice/commands/commandRegistry';
+import type { Task } from '@/lib/types';
+import '@/features/voice/commands/index';
 
 const statusCmd = getAllCommands().find((c) => c.id === 'change_status')!;
 

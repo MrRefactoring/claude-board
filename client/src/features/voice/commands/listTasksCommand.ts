@@ -1,7 +1,7 @@
-import { registerCommand } from './commandRegistry';
-import type { CommandContext, CommandResult } from './commandRegistry';
-import { t } from '../i18n/t';
-import { LIST_TASKS_PATTERNS } from '../i18n/patterns';
+import { registerCommand } from '@/features/voice/commands/commandRegistry';
+import type { CommandContext, CommandResult } from '@/features/voice/commands/commandRegistry';
+import { t } from '@/features/voice/i18n/t';
+import { LIST_TASKS_PATTERNS } from '@/features/voice/i18n/patterns';
 
 registerCommand({
   id: 'list_tasks',

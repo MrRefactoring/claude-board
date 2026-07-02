@@ -13,10 +13,10 @@ import {
   Search,
 } from 'lucide-react';
 import Markdown from 'react-markdown';
-import { api } from '../../lib/api';
-import { PROSE_DARK, PROSE_DARK_SM } from '../../lib/constants';
-import { useTranslation } from '../../i18n/I18nProvider';
-import type { TranslateFn } from '../../lib/types';
+import { api } from '@/lib/api';
+import { PROSE_DARK, PROSE_DARK_SM } from '@/lib/constants';
+import { useTranslation } from '@/i18n/I18nProvider';
+import type { TranslateFn } from '@/lib/types';
 
 interface CustomSkill {
   name: string;

@@ -12,11 +12,11 @@ import {
   Square,
   MinusSquare,
 } from 'lucide-react';
-import { formatDuration, formatTokens } from '../../lib/formatters';
-import { TYPE_COLORS, PRIORITY_LABELS, MODEL_COLORS } from '../../lib/constants';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { TagList } from './TagBadge';
-import type { Task, TaskType } from '../../lib/types';
+import { formatDuration, formatTokens } from '@/lib/formatters';
+import { TYPE_COLORS, PRIORITY_LABELS, MODEL_COLORS } from '@/lib/constants';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { TagList } from '@/features/board/TagBadge';
+import type { Task, TaskType } from '@/lib/types';
 import type { MouseEvent } from 'react';
 
 interface ListTask extends Task {

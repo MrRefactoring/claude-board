@@ -1,13 +1,13 @@
 import { useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { Cpu, Zap, Shield, Paperclip, Image, FileText, Trash2 } from 'lucide-react';
-import type { Role, Task, Model } from '../../lib/types';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { EFFORT_OPTIONS } from '../../lib/constants';
-import { useModels } from '../../lib/useModels';
-import type { TaskDependencies } from './taskDetailHelpers';
-import DependencySelector from './DependencySelector';
-import TagInput from './TagInput';
+import type { Role, Task, Model } from '@/lib/types';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { EFFORT_OPTIONS } from '@/lib/constants';
+import { useModels } from '@/lib/useModels';
+import type { TaskDependencies } from '@/features/tasks/taskDetailHelpers';
+import DependencySelector from '@/features/tasks/DependencySelector';
+import TagInput from '@/features/tasks/TagInput';
 
 const EFFORTS = EFFORT_OPTIONS;
 

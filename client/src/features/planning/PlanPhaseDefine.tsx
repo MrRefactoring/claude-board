@@ -1,9 +1,9 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Sparkles, Cpu, AlertCircle, Zap, ChevronDown, ChevronRight, Brain } from 'lucide-react';
-import { GRANULARITIES } from './planningConstants';
-import { EFFORT_OPTIONS } from '../../lib/constants';
-import { useModels } from '../../lib/useModels';
-import type { Model, TranslateFn } from '../../lib/types';
+import { GRANULARITIES } from '@/features/planning/planningConstants';
+import { EFFORT_OPTIONS } from '@/lib/constants';
+import { useModels } from '@/lib/useModels';
+import type { Model, TranslateFn } from '@/lib/types';
 import MDEditor from '@uiw/react-md-editor';
 
 function MdPreview({ content }: { content: string }) {

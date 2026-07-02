@@ -16,13 +16,13 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { api } from '../../lib/api';
-import { IS_TAURI } from '../../lib/tauriEvents';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { TYPE_COLORS } from '../../lib/constants';
-import { formatTokens } from '../../lib/formatters';
-import { TagList } from './TagBadge';
-import type { Task } from '../../lib/types';
+import { api } from '@/lib/api';
+import { IS_TAURI } from '@/lib/tauriEvents';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { TYPE_COLORS } from '@/lib/constants';
+import { formatTokens } from '@/lib/formatters';
+import { TagList } from '@/features/board/TagBadge';
+import type { Task } from '@/lib/types';
 
 interface PipelineTask extends Task {
   tags?: string | string[] | null;

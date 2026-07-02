@@ -1,6 +1,6 @@
 import { Cpu, Coins } from 'lucide-react';
-import { MODEL_COSTS } from '../../lib/constants';
-import { useModels, getModelCosts } from '../../lib/useModels';
+import { MODEL_COSTS } from '@/lib/constants';
+import { useModels, getModelCosts } from '@/lib/useModels';
 
 function estimateTokens(text: string): number {
   if (!text) return 0;

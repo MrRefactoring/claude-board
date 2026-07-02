@@ -22,9 +22,9 @@
     "lint": "cd client && npx eslint src/",
     "lint:fix": "cd client && npx eslint src/ --fix",
     "type-check": "cd client && npx tsc --noEmit && npx tsc --noEmit -p tsconfig.node.json",
-    "format": "prettier --write \"client/src/**/*.{js,jsx,ts,tsx}\"",
+    "format": "prettier --write \"client/src/**/*.{ts,tsx}\"",
     "test": "cd client && npx vitest run",
-    "format:check": "prettier --check \"client/src/**/*.{js,jsx,ts,tsx}\"",
+    "format:check": "prettier --check \"client/src/**/*.{ts,tsx}\"",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -37,7 +37,7 @@
     "prettier": "^3.8.4"
   },
   "lint-staged": {
-    "client/src/**/*.{js,jsx,ts,tsx}": [
+    "client/src/**/*.{ts,tsx}": [
       "eslint --max-warnings 10"
     ]
   },

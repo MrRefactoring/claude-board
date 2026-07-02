@@ -1,8 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { GitBranch, X, Search, AlertTriangle, ArrowRight, Lock, Plus } from 'lucide-react';
-import type { Task } from '../../lib/types';
-import type { TaskDependencies } from './taskDetailHelpers';
-import { useTranslation } from '../../i18n/I18nProvider';
+import type { Task } from '@/lib/types';
+import type { TaskDependencies } from '@/features/tasks/taskDetailHelpers';
+import { useTranslation } from '@/i18n/I18nProvider';
 
 const STATUS_DOT: Record<string, string> = {
   backlog: 'bg-surface-400',

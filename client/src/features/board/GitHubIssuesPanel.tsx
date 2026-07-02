@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, RefreshCw, Loader2, ExternalLink, Import, Check } from 'lucide-react';
-import { api } from '../../lib/api';
+import { api } from '@/lib/api';
 
 const LABEL_COLORS = {
   bug: 'bg-red-500/15 text-red-400',

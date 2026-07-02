@@ -1,5 +1,5 @@
-import type { TaskRevision } from '../../lib/types';
-import { MarkdownContent } from './MarkdownContent';
+import type { TaskRevision } from '@/lib/types';
+import { MarkdownContent } from '@/features/tasks/MarkdownContent';
 
 interface Props {
   revisions: TaskRevision[];

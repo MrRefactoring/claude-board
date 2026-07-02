@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, RotateCcw, CheckCircle, Clock, MessageSquare } from 'lucide-react';
-import type { Task, TaskRevision } from '../../lib/types';
-import { api } from '../../lib/api';
-import { useTranslation } from '../../i18n/I18nProvider';
+import type { Task, TaskRevision } from '@/lib/types';
+import { api } from '@/lib/api';
+import { useTranslation } from '@/i18n/I18nProvider';
 
 interface Props {
   task: Task;

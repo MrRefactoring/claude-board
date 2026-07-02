@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { api } from '../lib/api';
-import type { Project, AddToast, TranslateFn, ConfirmState } from '../lib/types';
+import { api } from '@/lib/api';
+import type { Project, AddToast, TranslateFn, ConfirmState } from '@/lib/types';
 
 interface UseProjectHandlersOptions {
   currentProject: Project | null;

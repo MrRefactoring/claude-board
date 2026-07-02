@@ -1,4 +1,4 @@
-import type { Task, Commit, TaskRevision, Attachment } from '../../lib/types';
+import type { Task, Commit, TaskRevision, Attachment } from '@/lib/types';
 
 export const TYPE_COLORS: Record<string, string> = {
   feature: 'bg-blue-500/15 text-blue-400',

@@ -1,5 +1,5 @@
 import { Code } from 'lucide-react';
-import { TOOL_ICONS, TOOL_COLORS } from './planningConstants';
+import { TOOL_ICONS, TOOL_COLORS } from '@/features/planning/planningConstants';
 
 /** A single Claude-proposed task from the planning session. */
 export interface PlanProposal {

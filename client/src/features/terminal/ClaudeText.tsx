@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { fmtTime } from './terminalHelpers';
+import { fmtTime } from '@/features/terminal/terminalHelpers';
 import { Brain, ChevronDown, ChevronRight } from 'lucide-react';
 
 // ─── Code block with basic JSON syntax highlighting ───

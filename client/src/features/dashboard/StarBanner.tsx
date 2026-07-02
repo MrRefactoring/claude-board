@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Star, X } from 'lucide-react';
-import { useTranslation } from '../../i18n/I18nProvider';
+import { useTranslation } from '@/i18n/I18nProvider';
 
 const DISMISSED_KEY = 'star_banner_dismissed';
 const REPO_URL = 'https://github.com/bahri-hirfanoglu/claude-board';

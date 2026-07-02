@@ -29,12 +29,12 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Avatar from 'boring-avatars';
-import { AVATAR_COLORS } from '../../lib/constants';
-import { formatTokens as fmtTokens } from '../../lib/formatters';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { IS_TAURI, IS_MACOS } from '../../lib/tauriEvents';
-import Tooltip from '../../components/Tooltip';
-import type { Task, Project } from '../../lib/types';
+import { AVATAR_COLORS } from '@/lib/constants';
+import { formatTokens as fmtTokens } from '@/lib/formatters';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { IS_TAURI, IS_MACOS } from '@/lib/tauriEvents';
+import Tooltip from '@/components/Tooltip';
+import type { Task, Project } from '@/lib/types';
 
 type AvatarVariant = 'marble' | 'beam' | 'pixel' | 'sunset' | 'ring' | 'bauhaus' | 'geometric' | 'abstract';
 

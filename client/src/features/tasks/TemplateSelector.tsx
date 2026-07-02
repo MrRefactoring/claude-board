@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Layers, ChevronDown, X } from 'lucide-react';
-import type { Template, TemplateVariable } from '../../lib/types';
-import { useTranslation } from '../../i18n/I18nProvider';
+import type { Template, TemplateVariable } from '@/lib/types';
+import { useTranslation } from '@/i18n/I18nProvider';
 
 interface Props {
   templates: Template[];

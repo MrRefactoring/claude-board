@@ -12,14 +12,14 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react';
-import { api } from '../../lib/api';
-import type { Webhook, WebhookEventType } from '../../lib/types';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { useCrudResource } from '../../hooks/useCrudResource';
-import ModalShell from '../../components/ModalShell';
-import EmptyState from '../../components/EmptyState';
-import Spinner from '../../components/Spinner';
-import InlineDeleteConfirm from '../../components/InlineDeleteConfirm';
+import { api } from '@/lib/api';
+import type { Webhook, WebhookEventType } from '@/lib/types';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { useCrudResource } from '@/hooks/useCrudResource';
+import ModalShell from '@/components/ModalShell';
+import EmptyState from '@/components/EmptyState';
+import Spinner from '@/components/Spinner';
+import InlineDeleteConfirm from '@/components/InlineDeleteConfirm';
 
 // The API models `Webhook.events` as a raw JSON string, but the desktop/HTTP
 // payloads deliver `events` already parsed into an array. This view type mirrors

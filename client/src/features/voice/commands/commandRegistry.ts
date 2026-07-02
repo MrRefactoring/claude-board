@@ -3,7 +3,7 @@
  * Commands register themselves at import time.
  */
 
-import type { Task, Project, TaskStatus } from '../../../lib/types';
+import type { Task, Project, TaskStatus } from '@/lib/types';
 
 /** A parsed user intent — a command/conversational id plus the cleaned text. */
 export interface Intent {

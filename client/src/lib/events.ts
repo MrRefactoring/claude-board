@@ -1,4 +1,4 @@
-import type { Task, Project, Snippet, Template, Role, Attachment } from './types';
+import type { Task, Project, Snippet, Template, Role, Attachment } from '@/lib/types';
 
 /**
  * Every realtime event the app listens for, mapped to its payload type.

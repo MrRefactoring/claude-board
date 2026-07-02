@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { formatTokens, formatMs } from '../../lib/formatters';
-import { useTranslation } from '../../i18n/I18nProvider';
-import type { Task } from '../../lib/types';
+import { formatTokens, formatMs } from '@/lib/formatters';
+import { useTranslation } from '@/i18n/I18nProvider';
+import type { Task } from '@/lib/types';
 
 interface TimelineEdge {
   from: number;

@@ -17,11 +17,11 @@ import {
   Play,
   Hash,
 } from 'lucide-react';
-import { api } from '../../lib/api';
-import { IS_TAURI, tauriListen } from '../../lib/tauriEvents';
-import { formatTokens } from '../../lib/formatters';
-import { useTranslation } from '../../i18n/I18nProvider';
-import type { AppEventMap } from '../../lib/events';
+import { api } from '@/lib/api';
+import { IS_TAURI, tauriListen } from '@/lib/tauriEvents';
+import { formatTokens } from '@/lib/formatters';
+import { useTranslation } from '@/i18n/I18nProvider';
+import type { AppEventMap } from '@/lib/events';
 
 interface AgentInfo {
   taskId: number;

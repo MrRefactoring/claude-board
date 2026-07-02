@@ -1,8 +1,8 @@
-import { registerCommand } from './commandRegistry';
-import type { CommandContext, CommandResult } from './commandRegistry';
-import { extractTaskType, extractPriority, priorityLabel } from '../intent/entityExtractors';
-import { t } from '../i18n/t';
-import { CREATE_TASK_PATTERNS, SKIP_PATTERN } from '../i18n/patterns';
+import { registerCommand } from '@/features/voice/commands/commandRegistry';
+import type { CommandContext, CommandResult } from '@/features/voice/commands/commandRegistry';
+import { extractTaskType, extractPriority, priorityLabel } from '@/features/voice/intent/entityExtractors';
+import { t } from '@/features/voice/i18n/t';
+import { CREATE_TASK_PATTERNS, SKIP_PATTERN } from '@/features/voice/i18n/patterns';
 
 const FLOWS = {
   TITLE: 'create:title',

@@ -25,13 +25,13 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 import Avatar from 'boring-avatars';
-import { AVATAR_VARIANTS, AVATAR_COLORS } from '../../lib/constants';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { api } from '../../lib/api';
-import { IS_TAURI } from '../../lib/tauriEvents';
-import { useGitRepoStatus } from '../../lib/useGitRepoStatus';
-import { useModels } from '../../lib/useModels';
-import type { Project, Model } from '../../lib/types';
+import { AVATAR_VARIANTS, AVATAR_COLORS } from '@/lib/constants';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { api } from '@/lib/api';
+import { IS_TAURI } from '@/lib/tauriEvents';
+import { useGitRepoStatus } from '@/lib/useGitRepoStatus';
+import { useModels } from '@/lib/useModels';
+import type { Project, Model } from '@/lib/types';
 
 type AvatarVariant = 'marble' | 'beam' | 'pixel' | 'sunset' | 'ring' | 'bauhaus' | 'geometric' | 'abstract';
 

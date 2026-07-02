@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { Mic, X } from 'lucide-react';
-import { useVoiceAssistant } from './VoiceAssistantProvider';
-import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
-import { t } from './i18n/t';
-import ChatPanel from './components/ChatPanel';
+import { useVoiceAssistant } from '@/features/voice/VoiceAssistantProvider';
+import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
+import { t } from '@/features/voice/i18n/t';
+import ChatPanel from '@/features/voice/components/ChatPanel';
 
 /**
  * Slim UI shell — floating mic FAB + chat panel.

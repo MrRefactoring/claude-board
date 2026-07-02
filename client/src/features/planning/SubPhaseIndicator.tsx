@@ -1,4 +1,4 @@
-import { SUB_PHASES } from './planningConstants';
+import { SUB_PHASES } from '@/features/planning/planningConstants';
 
 interface SubPhaseIndicatorProps {
   planPhase: string;

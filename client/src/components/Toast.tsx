@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle, XCircle, Info } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { Toast as ToastItem, ToastType } from '../lib/types';
+import type { Toast as ToastItem, ToastType } from '@/lib/types';
 
 const STYLES: Record<ToastType, string> = {
   success: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',

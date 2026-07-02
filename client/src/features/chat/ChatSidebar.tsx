@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import type { KeyboardEvent } from 'react';
 import { X, Send, Loader2, Bot, User, Trash2, Sparkles } from 'lucide-react';
 import MDEditor from '@uiw/react-md-editor';
-import { api } from '../../lib/api';
-import { IS_TAURI } from '../../lib/tauriEvents';
+import { api } from '@/lib/api';
+import { IS_TAURI } from '@/lib/tauriEvents';
 
 interface Props {
   projectId: number;

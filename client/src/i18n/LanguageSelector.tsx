@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Globe } from 'lucide-react';
-import { useTranslation } from './I18nProvider';
+import { useTranslation } from '@/i18n/I18nProvider';
 
 /**
  * Reusable language selector dropdown.

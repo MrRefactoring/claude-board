@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Terminal } from 'lucide-react';
-import { api } from '../../lib/api';
-import { useTranslation } from '../../i18n/I18nProvider';
+import { api } from '@/lib/api';
+import { useTranslation } from '@/i18n/I18nProvider';
 
 interface Props {
   onClose: () => void;

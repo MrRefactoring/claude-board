@@ -24,11 +24,11 @@ import {
   Blocks,
   PenLine,
 } from 'lucide-react';
-import { api } from '../../lib/api';
-import { tauriListen } from '../../lib/tauriEvents';
-import type { AppEventMap } from '../../lib/events';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { MarkdownContent } from '../tasks/MarkdownContent';
+import { api } from '@/lib/api';
+import { tauriListen } from '@/lib/tauriEvents';
+import type { AppEventMap } from '@/lib/events';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { MarkdownContent } from '@/features/tasks/MarkdownContent';
 
 type ScanPhase = 'idle' | 'scanning' | 'preview' | 'saved' | 'error';
 

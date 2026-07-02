@@ -1,5 +1,5 @@
 import { listen as tauriListenRaw } from '@tauri-apps/api/event';
-import type { AppEventMap } from './events';
+import type { AppEventMap } from '@/lib/events';
 
 const IS_TAURI = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
 

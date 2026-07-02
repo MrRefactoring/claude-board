@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { Mic, MicOff, Send, Trash2, Volume2, VolumeX, Keyboard, Globe } from 'lucide-react';
-import AudioVisualizer from './AudioVisualizer';
-import CommandHints from './CommandHints';
-import { VOICE_LANGUAGES } from '../VoiceAssistantProvider';
-import type { VoiceContextValue } from '../VoiceAssistantProvider';
-import { t } from '../i18n/t';
+import AudioVisualizer from '@/features/voice/components/AudioVisualizer';
+import CommandHints from '@/features/voice/components/CommandHints';
+import { VOICE_LANGUAGES } from '@/features/voice/VoiceAssistantProvider';
+import type { VoiceContextValue } from '@/features/voice/VoiceAssistantProvider';
+import { t } from '@/features/voice/i18n/t';
 
 type ChatPanelProps = VoiceContextValue;
 

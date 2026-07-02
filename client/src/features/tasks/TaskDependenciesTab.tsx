@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { X, Plus } from 'lucide-react';
-import type { Task, TaskStatus } from '../../lib/types';
-import { api } from '../../lib/api';
-import { STATUS_COLORS } from './taskDetailHelpers';
-import type { TaskDependencies } from './taskDetailHelpers';
-import { COLUMNS } from '../../lib/constants';
-import { useTranslation } from '../../i18n/I18nProvider';
-import InlineDeleteConfirm from '../../components/InlineDeleteConfirm';
+import type { Task, TaskStatus } from '@/lib/types';
+import { api } from '@/lib/api';
+import { STATUS_COLORS } from '@/features/tasks/taskDetailHelpers';
+import type { TaskDependencies } from '@/features/tasks/taskDetailHelpers';
+import { COLUMNS } from '@/lib/constants';
+import { useTranslation } from '@/i18n/I18nProvider';
+import InlineDeleteConfirm from '@/components/InlineDeleteConfirm';
 
 interface Props {
   task: Task;

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { Lightbulb, Download, X, Loader2 } from 'lucide-react';
-import { api } from '../../lib/api';
-import type { TranslateFn } from '../../lib/types';
+import { api } from '@/lib/api';
+import type { TranslateFn } from '@/lib/types';
 
 const DISMISSED_KEY = 'dismissed_suggestions';
 

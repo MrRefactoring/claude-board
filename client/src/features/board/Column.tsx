@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, memo } from 'react';
 import type { DragEvent } from 'react';
-import TaskCard from './TaskCard';
-import { useTranslation } from '../../i18n/I18nProvider';
-import type { Task } from '../../lib/types';
+import TaskCard from '@/features/board/TaskCard';
+import { useTranslation } from '@/i18n/I18nProvider';
+import type { Task } from '@/lib/types';
 
 interface ColumnDef {
   id: string;

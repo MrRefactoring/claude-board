@@ -1,4 +1,4 @@
-import locales from './locales';
+import locales from '@/features/voice/i18n/locales';
 
 /**
  * Translate a key for the given language, with optional interpolation.

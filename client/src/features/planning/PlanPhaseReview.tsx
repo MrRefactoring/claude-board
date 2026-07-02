@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
 import type { ComponentType, Dispatch, SetStateAction } from 'react';
 import { Clock, ChevronDown, ChevronRight, Brain, ListChecks, Trash2, Terminal, GitBranch } from 'lucide-react';
-import { TYPE_COLORS } from '../../lib/constants';
-import { PRIORITY_COLORS } from './planningConstants';
-import { PRIORITY_LABELS } from '../../lib/constants';
-import { formatElapsed, computeWaves } from './planningHelpers';
-import type { PlanProposal, PlanDependency, PlanLog, PlanStats } from './planningHelpers';
-import type { TranslateFn } from '../../lib/types';
-import { PlanLogFeed } from './PlanLogFeed';
-import DependencyGraphRaw from '../board/DependencyGraph';
+import { TYPE_COLORS } from '@/lib/constants';
+import { PRIORITY_COLORS } from '@/features/planning/planningConstants';
+import { PRIORITY_LABELS } from '@/lib/constants';
+import { formatElapsed, computeWaves } from '@/features/planning/planningHelpers';
+import type { PlanProposal, PlanDependency, PlanLog, PlanStats } from '@/features/planning/planningHelpers';
+import type { TranslateFn } from '@/lib/types';
+import { PlanLogFeed } from '@/features/planning/PlanLogFeed';
+import DependencyGraphRaw from '@/features/board/DependencyGraph';
 import MDEditor from '@uiw/react-md-editor';
 
 interface DagTask {

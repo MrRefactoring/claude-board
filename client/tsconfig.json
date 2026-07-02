@@ -25,9 +25,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
 
-    /* Incremental interop — KEEP during migration, flip off in Phase 9 */
-    "allowJs": true,
-    "checkJs": false,
+    /* Migration complete — the tree is 100% TS, so JS interop is off. */
+    "allowJs": false,
 
     /* Strictness */
     "strict": true,

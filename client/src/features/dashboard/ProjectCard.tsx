@@ -1,11 +1,11 @@
 import { Cpu, Coins, Clock, CheckCircle2, Activity, Layers } from 'lucide-react';
 import type { ComponentProps, MouseEvent } from 'react';
 import Avatar from 'boring-avatars';
-import { formatTokens, formatTimeAgo as timeAgo } from '../../lib/formatters';
-import { AVATAR_COLORS } from '../../lib/constants';
-import type { TranslateFn } from '../../lib/types';
-import { MiniStatusBar } from './MiniStatusBar';
-import type { ProjectSummary } from './dashboardHelpers';
+import { formatTokens, formatTimeAgo as timeAgo } from '@/lib/formatters';
+import { AVATAR_COLORS } from '@/lib/constants';
+import type { TranslateFn } from '@/lib/types';
+import { MiniStatusBar } from '@/features/dashboard/MiniStatusBar';
+import type { ProjectSummary } from '@/features/dashboard/dashboardHelpers';
 
 interface ProjectCardProps {
   project: ProjectSummary;

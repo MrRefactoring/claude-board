@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { getAllCommands } from '../commands/commandRegistry';
-import type { Task, Project } from '../../../lib/types';
-import '../commands/index';
+import { getAllCommands } from '@/features/voice/commands/commandRegistry';
+import type { Task, Project } from '@/lib/types';
+import '@/features/voice/commands/index';
 
 describe('English-only validation', () => {
   it('all command hints are in English', () => {
@@ -34,7 +34,7 @@ describe('English-only validation', () => {
   });
 
   it('useVoiceInput defaults to en-US', async () => {
-    const mod = await import('../../../hooks/useVoiceInput');
+    const mod = await import('@/hooks/useVoiceInput');
     // Check the source has en-US default
     expect(mod.useVoiceInput.toString()).toContain('en-US');
   });

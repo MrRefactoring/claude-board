@@ -25,12 +25,12 @@ import {
   Loader2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { api } from '../../lib/api';
-import type { Model, TranslateFn } from '../../lib/types';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { IS_TAURI } from '../../lib/tauriEvents';
-import { EFFORT_OPTIONS } from '../../lib/constants';
-import { useModels, refreshModels } from '../../lib/useModels';
+import { api } from '@/lib/api';
+import type { Model, TranslateFn } from '@/lib/types';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { IS_TAURI } from '@/lib/tauriEvents';
+import { EFFORT_OPTIONS } from '@/lib/constants';
+import { useModels, refreshModels } from '@/lib/useModels';
 
 type SettingValue = boolean | string;
 

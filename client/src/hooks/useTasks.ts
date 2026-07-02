@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { api } from '../lib/api';
-import { socket } from '../lib/socket';
-import { tauriListen, IS_TAURI } from '../lib/tauriEvents';
-import { pendingUpdates } from './useTaskHandlers';
-import type { Task, Project, AddToast } from '../lib/types';
-import type { AppEventMap } from '../lib/events';
+import { api } from '@/lib/api';
+import { socket } from '@/lib/socket';
+import { tauriListen, IS_TAURI } from '@/lib/tauriEvents';
+import { pendingUpdates } from '@/hooks/useTaskHandlers';
+import type { Task, Project, AddToast } from '@/lib/types';
+import type { AppEventMap } from '@/lib/events';
 
 export function useTasks(currentProject: Project | null, addToast?: AddToast) {
   const [tasks, setTasks] = useState<Task[]>([]);

@@ -1,5 +1,5 @@
 import { Hash } from 'lucide-react';
-import { getTagColor } from '../../lib/constants';
+import { getTagColor } from '@/lib/constants';
 
 type TagSize = 'xs' | 'sm';
 

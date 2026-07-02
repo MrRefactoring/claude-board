@@ -15,19 +15,19 @@ import {
   Coins,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { api } from '../../lib/api';
-import { formatTokens } from '../../lib/formatters';
-import type { Project, TranslateFn } from '../../lib/types';
-import { useTranslation } from '../../i18n/I18nProvider';
-import LanguageSelector from '../../i18n/LanguageSelector';
-import { IS_TAURI, IS_MACOS } from '../../lib/tauriEvents';
-import ClaudeManager from '../claude-manager/ClaudeManager';
-import { ProjectCard } from './ProjectCard';
-import { ProjectListRow } from './ProjectListRow';
-import { ClaudeUsageCard } from './ClaudeUsageCard';
-import { SuggestionBanner, filterDismissed, type Suggestion } from './SuggestionBanner';
-import { StarBanner } from './StarBanner';
-import type { ProjectSummary } from './dashboardHelpers';
+import { api } from '@/lib/api';
+import { formatTokens } from '@/lib/formatters';
+import type { Project, TranslateFn } from '@/lib/types';
+import { useTranslation } from '@/i18n/I18nProvider';
+import LanguageSelector from '@/i18n/LanguageSelector';
+import { IS_TAURI, IS_MACOS } from '@/lib/tauriEvents';
+import ClaudeManager from '@/features/claude-manager/ClaudeManager';
+import { ProjectCard } from '@/features/dashboard/ProjectCard';
+import { ProjectListRow } from '@/features/dashboard/ProjectListRow';
+import { ClaudeUsageCard } from '@/features/dashboard/ClaudeUsageCard';
+import { SuggestionBanner, filterDismissed, type Suggestion } from '@/features/dashboard/SuggestionBanner';
+import { StarBanner } from '@/features/dashboard/StarBanner';
+import type { ProjectSummary } from '@/features/dashboard/dashboardHelpers';
 
 type DashTab = 'projects' | 'claude-manager';
 

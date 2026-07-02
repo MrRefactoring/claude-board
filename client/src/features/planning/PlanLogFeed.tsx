@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { CheckCircle2, AlertCircle, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
-import { getToolIcon, getToolColor } from './planningHelpers';
-import type { PlanLog } from './planningHelpers';
+import { getToolIcon, getToolColor } from '@/features/planning/planningHelpers';
+import type { PlanLog } from '@/features/planning/planningHelpers';
 
 interface PlanLogFeedProps {
   logs: PlanLog[];

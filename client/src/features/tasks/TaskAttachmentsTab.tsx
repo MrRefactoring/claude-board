@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { FileText, Trash2 } from 'lucide-react';
-import type { Attachment } from '../../lib/types';
-import { api } from '../../lib/api';
-import { useTranslation } from '../../i18n/I18nProvider';
-import InlineDeleteConfirm from '../../components/InlineDeleteConfirm';
+import type { Attachment } from '@/lib/types';
+import { api } from '@/lib/api';
+import { useTranslation } from '@/i18n/I18nProvider';
+import InlineDeleteConfirm from '@/components/InlineDeleteConfirm';
 
 interface Props {
   attachments: Attachment[];

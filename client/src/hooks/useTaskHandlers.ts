@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { api } from '../lib/api';
-import { emitStatusTransition } from '../features/board/StatusTransitionContext';
-import type { Task, Project, TaskStatus, AddToast, TranslateFn, ConfirmState } from '../lib/types';
+import { api } from '@/lib/api';
+import { emitStatusTransition } from '@/features/board/StatusTransitionContext';
+import type { Task, Project, TaskStatus, AddToast, TranslateFn, ConfirmState } from '@/lib/types';
 
 // Track in-flight status updates to prevent socket events from overriding optimistic state
 export const pendingUpdates = new Set<number>();

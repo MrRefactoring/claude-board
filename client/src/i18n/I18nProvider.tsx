@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { api } from '../lib/api';
-import type { TranslateFn } from '../lib/types';
-import en from './locales/en';
-import tr from './locales/tr';
+import { api } from '@/lib/api';
+import type { TranslateFn } from '@/lib/types';
+import en from '@/i18n/locales/en';
+import tr from '@/i18n/locales/tr';
 
 /**
  * To add a new language:

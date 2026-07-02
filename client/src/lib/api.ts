@@ -10,7 +10,7 @@ import type {
   Attachment,
   ActivityEntry,
   Model,
-} from './types';
+} from '@/lib/types';
 
 // Detect Tauri environment
 const IS_TAURI = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;

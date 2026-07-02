@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getAllCommands } from '../commands/commandRegistry';
-import '../commands/index';
+import { getAllCommands } from '@/features/voice/commands/commandRegistry';
+import '@/features/voice/commands/index';
 
 const helpCmd = getAllCommands().find((c) => c.id === 'help')!;
 const cancelCmd = getAllCommands().find((c) => c.id === 'cancel')!;

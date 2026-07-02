@@ -4,8 +4,8 @@
  * Supports multi-language conversational intents.
  */
 
-import { CONFIRM_PATTERNS, DENY_PATTERNS } from '../i18n/patterns';
-import type { Intent, VoiceCommand } from '../commands/commandRegistry';
+import { CONFIRM_PATTERNS, DENY_PATTERNS } from '@/features/voice/i18n/patterns';
+import type { Intent, VoiceCommand } from '@/features/voice/commands/commandRegistry';
 
 const CONVERSATIONAL: { id: string; patterns: RegExp[] }[] = [
   { id: 'confirm', patterns: CONFIRM_PATTERNS },

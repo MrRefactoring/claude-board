@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Zap } from 'lucide-react';
-import { api } from '../../lib/api';
-import { formatTokens } from '../../lib/formatters';
-import type { TranslateFn } from '../../lib/types';
-import { MODEL_COLORS } from './dashboardConstants';
-import { normalizeModelName } from './dashboardHelpers';
+import { api } from '@/lib/api';
+import { formatTokens } from '@/lib/formatters';
+import type { TranslateFn } from '@/lib/types';
+import { MODEL_COLORS } from '@/features/dashboard/dashboardConstants';
+import { normalizeModelName } from '@/features/dashboard/dashboardHelpers';
 
 interface ClaudeUsageSummary {
   tasks_with_usage?: number;

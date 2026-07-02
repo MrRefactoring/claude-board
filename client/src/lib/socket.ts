@@ -1,5 +1,5 @@
 import { io } from 'socket.io-client';
-import type { AppEventMap } from './events';
+import type { AppEventMap } from '@/lib/events';
 
 /**
  * Minimal socket surface shared by both transports: the real Socket.IO client
@@ -11,6 +11,7 @@ export interface AppSocket {
   on<K extends keyof AppEventMap>(event: K, callback: (payload: AppEventMap[K]) => void): void;
   on(event: 'connect' | 'disconnect', callback: () => void): void;
   off<K extends keyof AppEventMap>(event: K, callback?: (payload: AppEventMap[K]) => void): void;
+  off(event: 'connect' | 'disconnect', callback?: () => void): void;
   emit(...args: unknown[]): void;
 }
 

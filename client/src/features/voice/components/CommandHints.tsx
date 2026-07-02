@@ -1,8 +1,8 @@
 /**
  * Shows clickable command suggestion chips when assistant is idle.
  */
-import { t } from '../i18n/t';
-import type { VoiceCommand } from '../commands/commandRegistry';
+import { t } from '@/features/voice/i18n/t';
+import type { VoiceCommand } from '@/features/voice/commands/commandRegistry';
 
 interface CommandHintsProps {
   commands: VoiceCommand[];

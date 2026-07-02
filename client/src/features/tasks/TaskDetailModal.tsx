@@ -12,21 +12,21 @@ import {
   Link2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { TagList } from '../board/TagBadge';
-import type { Task, TaskStatus, Attachment } from '../../lib/types';
-import { api } from '../../lib/api';
-import { COLUMNS } from '../../lib/constants';
-import { useTranslation } from '../../i18n/I18nProvider';
-import SessionReplay from '../replay/SessionReplay';
-import { TYPE_COLORS, STATUS_COLORS } from './taskDetailHelpers';
-import type { TaskDetail, TaskDependencies } from './taskDetailHelpers';
-import { MarkdownContent } from './MarkdownContent';
-import { TaskOverviewTab } from './TaskOverviewTab';
-import { TaskGitTab } from './TaskGitTab';
-import { TaskTestTab } from './TaskTestTab';
-import { TaskAttachmentsTab } from './TaskAttachmentsTab';
-import { TaskRevisionsTab } from './TaskRevisionsTab';
-import { TaskDependenciesTab } from './TaskDependenciesTab';
+import { TagList } from '@/features/board/TagBadge';
+import type { Task, TaskStatus, Attachment } from '@/lib/types';
+import { api } from '@/lib/api';
+import { COLUMNS } from '@/lib/constants';
+import { useTranslation } from '@/i18n/I18nProvider';
+import SessionReplay from '@/features/replay/SessionReplay';
+import { TYPE_COLORS, STATUS_COLORS } from '@/features/tasks/taskDetailHelpers';
+import type { TaskDetail, TaskDependencies } from '@/features/tasks/taskDetailHelpers';
+import { MarkdownContent } from '@/features/tasks/MarkdownContent';
+import { TaskOverviewTab } from '@/features/tasks/TaskOverviewTab';
+import { TaskGitTab } from '@/features/tasks/TaskGitTab';
+import { TaskTestTab } from '@/features/tasks/TaskTestTab';
+import { TaskAttachmentsTab } from '@/features/tasks/TaskAttachmentsTab';
+import { TaskRevisionsTab } from '@/features/tasks/TaskRevisionsTab';
+import { TaskDependenciesTab } from '@/features/tasks/TaskDependenciesTab';
 
 interface Props {
   task: Task;

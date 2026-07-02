@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Task } from '../lib/types';
+import type { Task } from '@/lib/types';
 
 type SplitMode = 'vertical' | 'horizontal' | null;
 

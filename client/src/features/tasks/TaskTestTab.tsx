@@ -1,7 +1,7 @@
 import { CircleCheck, CircleX, CircleAlert, CircleMinus } from 'lucide-react';
-import { parseTestReport, getCheckStatusColors, getCheckCardBorder } from './taskDetailHelpers';
-import type { TaskDetail } from './taskDetailHelpers';
-import { useTranslation } from '../../i18n/I18nProvider';
+import { parseTestReport, getCheckStatusColors, getCheckCardBorder } from '@/features/tasks/taskDetailHelpers';
+import type { TaskDetail } from '@/features/tasks/taskDetailHelpers';
+import { useTranslation } from '@/i18n/I18nProvider';
 
 function StatusIcon({ s }: { s?: string }) {
   if (s === 'pass') return <CircleCheck size={14} className="text-emerald-400" />;

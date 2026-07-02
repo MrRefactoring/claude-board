@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api } from './api';
-import type { Model } from './types';
+import { api } from '@/lib/api';
+import type { Model } from '@/lib/types';
 
 // Mirrors src-tauri/src/commands/models.rs `default_seed_models()` — used as a
 // transient fallback before the backend list arrives (or in web-only mode).

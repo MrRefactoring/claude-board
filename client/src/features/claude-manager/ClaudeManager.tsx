@@ -27,8 +27,8 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { api } from '../../lib/api';
-import { useTranslation } from '../../i18n/I18nProvider';
+import { api } from '@/lib/api';
+import { useTranslation } from '@/i18n/I18nProvider';
 
 // ─── Local shapes for the Tauri-only payloads this component reads ───
 // The api methods below return Promise<unknown>; these interfaces describe only

@@ -1,11 +1,11 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Clock, Zap, Terminal, Hash, ChevronDown, ChevronRight, Brain } from 'lucide-react';
-import { formatElapsed } from './planningHelpers';
-import type { PlanLog, PlanStats } from './planningHelpers';
-import type { TranslateFn } from '../../lib/types';
-import { formatTokens } from '../../lib/formatters';
-import { PlanLogFeed } from './PlanLogFeed';
-import { SubPhaseIndicator } from './SubPhaseIndicator';
+import { formatElapsed } from '@/features/planning/planningHelpers';
+import type { PlanLog, PlanStats } from '@/features/planning/planningHelpers';
+import type { TranslateFn } from '@/lib/types';
+import { formatTokens } from '@/lib/formatters';
+import { PlanLogFeed } from '@/features/planning/PlanLogFeed';
+import { SubPhaseIndicator } from '@/features/planning/SubPhaseIndicator';
 import MDEditor from '@uiw/react-md-editor';
 
 function MdPreview({ content }: { content: string }) {

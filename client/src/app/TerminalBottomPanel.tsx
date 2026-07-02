@@ -1,7 +1,7 @@
 import { Columns2, Rows2, PanelLeftClose } from 'lucide-react';
-import LiveTerminal from '../features/terminal/LiveTerminal';
-import type { Task } from '../lib/types';
-import type { useTerminalTabs } from '../hooks/useTerminalTabs';
+import LiveTerminal from '@/features/terminal/LiveTerminal';
+import type { Task } from '@/lib/types';
+import type { useTerminalTabs } from '@/hooks/useTerminalTabs';
 
 interface TerminalBottomPanelProps {
   terminal: ReturnType<typeof useTerminalTabs>;

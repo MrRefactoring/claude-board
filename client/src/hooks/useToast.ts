@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { TOAST_TIMEOUT_MS } from '../lib/constants';
-import type { Toast, ToastType } from '../lib/types';
+import { TOAST_TIMEOUT_MS } from '@/lib/constants';
+import type { Toast, ToastType } from '@/lib/types';
 
 export function useToast() {
   const [toasts, setToasts] = useState<Toast[]>([]);

@@ -2,11 +2,11 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { CSSProperties } from 'react';
 import { Swords, Trophy, Skull, Zap, Heart, Flame } from 'lucide-react';
 import Avatar from 'boring-avatars';
-import { AVATAR_COLORS } from '../../lib/constants';
-import { formatTokens } from '../../lib/formatters';
-import { IS_TAURI, tauriListen } from '../../lib/tauriEvents';
-import { api } from '../../lib/api';
-import type { Task } from '../../lib/types';
+import { AVATAR_COLORS } from '@/lib/constants';
+import { formatTokens } from '@/lib/formatters';
+import { IS_TAURI, tauriListen } from '@/lib/tauriEvents';
+import { api } from '@/lib/api';
+import type { Task } from '@/lib/types';
 
 // ─── Local shapes ───
 interface Attack {

@@ -17,7 +17,7 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { Task, Project, TaskStatus } from '../../lib/types';
+import type { Task, Project, TaskStatus } from '@/lib/types';
 
 const STATUS_ICONS: Record<string, LucideIcon> = {
   backlog: Clock,

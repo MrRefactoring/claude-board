@@ -1,11 +1,11 @@
 import { Zap } from 'lucide-react';
 import type { ComponentProps, MouseEvent } from 'react';
 import Avatar from 'boring-avatars';
-import { formatTokens } from '../../lib/formatters';
-import { AVATAR_COLORS } from '../../lib/constants';
-import type { TranslateFn } from '../../lib/types';
-import { MiniStatusBar } from './MiniStatusBar';
-import type { ProjectSummary } from './dashboardHelpers';
+import { formatTokens } from '@/lib/formatters';
+import { AVATAR_COLORS } from '@/lib/constants';
+import type { TranslateFn } from '@/lib/types';
+import { MiniStatusBar } from '@/features/dashboard/MiniStatusBar';
+import type { ProjectSummary } from '@/features/dashboard/dashboardHelpers';
 
 interface ProjectListRowProps {
   project: ProjectSummary;

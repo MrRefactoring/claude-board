@@ -9,16 +9,22 @@ import {
   type ReactNode,
   type Dispatch,
 } from 'react';
-import { useVoiceInput } from '../../hooks/useVoiceInput';
-import { speak } from './engine/ttsEngine';
-import { playStartBeep, playStopBeep } from './engine/soundEffects';
-import { startAudioCapture, stopAudioCapture, getAnalyser } from './engine/sttEngine';
-import { detectIntent } from './intent/intentParser';
-import { resolveCommand, getAllCommands } from './commands/commandRegistry';
-import type { CommandResult, CommandRefs, CommandHandlers, TaskDraft, VoiceCommand } from './commands/commandRegistry';
-import { t } from './i18n/t';
-import type { Task, Project } from '../../lib/types';
-import './commands/index'; // register all commands
+import { useVoiceInput } from '@/hooks/useVoiceInput';
+import { speak } from '@/features/voice/engine/ttsEngine';
+import { playStartBeep, playStopBeep } from '@/features/voice/engine/soundEffects';
+import { startAudioCapture, stopAudioCapture, getAnalyser } from '@/features/voice/engine/sttEngine';
+import { detectIntent } from '@/features/voice/intent/intentParser';
+import { resolveCommand, getAllCommands } from '@/features/voice/commands/commandRegistry';
+import type {
+  CommandResult,
+  CommandRefs,
+  CommandHandlers,
+  TaskDraft,
+  VoiceCommand,
+} from '@/features/voice/commands/commandRegistry';
+import { t } from '@/features/voice/i18n/t';
+import type { Task, Project } from '@/lib/types';
+import '@/features/voice/commands/index'; // register all commands
 
 // ─── Types ───
 export interface Message {

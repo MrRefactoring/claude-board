@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { detectIntent } from '../intent/intentParser';
-import { getAllCommands } from '../commands/commandRegistry';
-import '../commands/index';
+import { detectIntent } from '@/features/voice/intent/intentParser';
+import { getAllCommands } from '@/features/voice/commands/commandRegistry';
+import '@/features/voice/commands/index';
 
 const commands = getAllCommands();
 

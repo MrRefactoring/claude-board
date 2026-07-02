@@ -17,18 +17,18 @@ import {
   AlertTriangle,
   FlaskConical,
 } from 'lucide-react';
-import { formatDuration, formatTokens } from '../../lib/formatters';
+import { formatDuration, formatTokens } from '@/lib/formatters';
 import {
   PRIORITY_COLORS as priorityColors,
   TYPE_COLORS as typeColors,
   MODEL_COLORS as modelColors,
   COLUMNS,
-} from '../../lib/constants';
-import { useStatusTransition } from './StatusTransitionContext';
-import StatusTransitionEffect from './StatusTransitionEffect';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { TagList } from './TagBadge';
-import type { Task, TaskType } from '../../lib/types';
+} from '@/lib/constants';
+import { useStatusTransition } from '@/features/board/StatusTransitionContext';
+import StatusTransitionEffect from '@/features/board/StatusTransitionEffect';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { TagList } from '@/features/board/TagBadge';
+import type { Task, TaskType } from '@/lib/types';
 
 interface BoardTask extends Task {
   tags?: string | string[] | null;

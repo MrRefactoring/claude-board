@@ -32,11 +32,11 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { api, notifyError } from '../../lib/api';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { tauriListen } from '../../lib/tauriEvents';
-import type { AppEventMap } from '../../lib/events';
-import type { Task, Project, TranslateFn } from '../../lib/types';
+import { api, notifyError } from '@/lib/api';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { tauriListen } from '@/lib/tauriEvents';
+import type { AppEventMap } from '@/lib/events';
+import type { Task, Project, TranslateFn } from '@/lib/types';
 
 // ─── Local domain shapes ───
 // The GSD roadmap is served over Tauri-only IPC commands that return `Promise<unknown>`

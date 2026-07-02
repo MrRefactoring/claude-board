@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { extractTaskType, extractPriority, extractModel, priorityLabel } from '../intent/entityExtractors';
+import {
+  extractTaskType,
+  extractPriority,
+  extractModel,
+  priorityLabel,
+} from '@/features/voice/intent/entityExtractors';
 
 describe('entityExtractors', () => {
   describe('extractTaskType', () => {

@@ -16,20 +16,20 @@ import {
   Code,
   CheckCircle2,
 } from 'lucide-react';
-import { socket } from '../../lib/socket';
-import { tauriListen, IS_TAURI } from '../../lib/tauriEvents';
-import { api } from '../../lib/api';
-import { useTranslation } from '../../i18n/I18nProvider';
-import type { Task } from '../../lib/types';
+import { socket } from '@/lib/socket';
+import { tauriListen, IS_TAURI } from '@/lib/tauriEvents';
+import { api } from '@/lib/api';
+import { useTranslation } from '@/i18n/I18nProvider';
+import type { Task } from '@/lib/types';
 
-import { fmtTokens, groupToolEntries } from './terminalHelpers';
-import type { LogLine, LogMeta } from './terminalHelpers';
-import { ToolCard } from './ToolCard';
-import { ClaudeText } from './ClaudeText';
-import { SystemLine } from './SystemLine';
-import { TurnSeparator } from './TurnSeparator';
-import { ActivityIndicator } from './ActivityIndicator';
-import { ElapsedTime } from './ElapsedTime';
+import { fmtTokens, groupToolEntries } from '@/features/terminal/terminalHelpers';
+import type { LogLine, LogMeta } from '@/features/terminal/terminalHelpers';
+import { ToolCard } from '@/features/terminal/ToolCard';
+import { ClaudeText } from '@/features/terminal/ClaudeText';
+import { SystemLine } from '@/features/terminal/SystemLine';
+import { TurnSeparator } from '@/features/terminal/TurnSeparator';
+import { ActivityIndicator } from '@/features/terminal/ActivityIndicator';
+import { ElapsedTime } from '@/features/terminal/ElapsedTime';
 
 interface LiveTerminalProps {
   task: Task;

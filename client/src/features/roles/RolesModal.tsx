@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Plus, Pencil, Trash2, Shield, Globe } from 'lucide-react';
-import { api } from '../../lib/api';
-import type { Role } from '../../lib/types';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { useCrudResource } from '../../hooks/useCrudResource';
-import ModalShell from '../../components/ModalShell';
-import EmptyState from '../../components/EmptyState';
-import Spinner from '../../components/Spinner';
-import InlineDeleteConfirm from '../../components/InlineDeleteConfirm';
+import { api } from '@/lib/api';
+import type { Role } from '@/lib/types';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { useCrudResource } from '@/hooks/useCrudResource';
+import ModalShell from '@/components/ModalShell';
+import EmptyState from '@/components/EmptyState';
+import Spinner from '@/components/Spinner';
+import InlineDeleteConfirm from '@/components/InlineDeleteConfirm';
 
 const ROLE_COLORS = [
   '#6B7280',

@@ -12,8 +12,8 @@ import {
   AlertTriangle,
   Zap,
 } from 'lucide-react';
-import { api } from '../../lib/api';
-import { useTranslation } from '../../i18n/I18nProvider';
+import { api } from '@/lib/api';
+import { useTranslation } from '@/i18n/I18nProvider';
 
 const STATUS_LABELS = { backlog: 'Backlog', in_progress: 'In Progress', testing: 'Testing', done: 'Done' };
 const STATUS_COLORS = { backlog: '#918678', in_progress: '#f59e0b', testing: '#DA7756', done: '#34d399' };

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Play, Pause, Wrench, FileText, AlertCircle, Cpu, Clock } from 'lucide-react';
-import { api } from '../../lib/api';
-import { IS_TAURI } from '../../lib/tauriEvents';
+import { api } from '@/lib/api';
+import { IS_TAURI } from '@/lib/tauriEvents';
 
 const EVENT_COLORS = {
   tool_call: { bg: 'bg-blue-500', dot: 'bg-blue-400', text: 'text-blue-300', icon: Wrench },

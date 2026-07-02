@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { Brain } from 'lucide-react';
-import { getToolIcon, getToolColor } from './terminalConstants';
-import { basename } from './terminalHelpers';
-import type { LogLine } from './terminalHelpers';
+import { getToolIcon, getToolColor } from '@/features/terminal/terminalConstants';
+import { basename } from '@/features/terminal/terminalHelpers';
+import type { LogLine } from '@/features/terminal/terminalHelpers';
 
 interface ActivityIndicatorProps {
   logs: LogLine[];

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Terminal as TerminalIcon, Columns3, Rows3, Pause, Play, Trash2, ArrowDown, Activity } from 'lucide-react';
-import { socket } from '../../lib/socket';
-import { tauriListen, IS_TAURI } from '../../lib/tauriEvents';
-import { TYPE_COLORS } from '../../lib/constants';
-import type { Task, TaskType } from '../../lib/types';
+import { socket } from '@/lib/socket';
+import { tauriListen, IS_TAURI } from '@/lib/tauriEvents';
+import { TYPE_COLORS } from '@/lib/constants';
+import type { Task, TaskType } from '@/lib/types';
 
 const MAX_LOGS = 3000;
 const TRIM_TO = Math.floor(MAX_LOGS * 0.7);

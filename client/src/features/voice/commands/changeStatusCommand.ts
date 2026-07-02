@@ -1,8 +1,8 @@
-import { registerCommand } from './commandRegistry';
-import type { CommandContext, CommandResult } from './commandRegistry';
-import type { TaskStatus } from '../../../lib/types';
-import { t } from '../i18n/t';
-import { CHANGE_STATUS_PATTERNS, STATUS_PATTERNS } from '../i18n/patterns';
+import { registerCommand } from '@/features/voice/commands/commandRegistry';
+import type { CommandContext, CommandResult } from '@/features/voice/commands/commandRegistry';
+import type { TaskStatus } from '@/lib/types';
+import { t } from '@/features/voice/i18n/t';
+import { CHANGE_STATUS_PATTERNS, STATUS_PATTERNS } from '@/features/voice/i18n/patterns';
 
 const STATUS_NEXT: Partial<Record<TaskStatus, TaskStatus>> = {
   backlog: 'in_progress',

@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import { X, Sparkles, ChevronDown, ChevronRight, Settings2, Mic, MicOff } from 'lucide-react';
-import { useVoiceInput } from '../../hooks/useVoiceInput';
-import { useTranslation } from '../../i18n/I18nProvider';
-import { TASK_TYPE_OPTIONS, PRIORITY_OPTIONS, EFFORT_OPTIONS } from '../../lib/constants';
-import { useModels } from '../../lib/useModels';
-import { api } from '../../lib/api';
-import { IS_TAURI } from '../../lib/tauriEvents';
-import type { Task, Template, Role, TemplateVariable, Model } from '../../lib/types';
-import type { TaskDependencies } from './taskDetailHelpers';
-import TemplateSelector from './TemplateSelector';
-import TaskOptionsPanel from './TaskOptionsPanel';
-import TokenEstimate from './TokenEstimate';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
+import { useTranslation } from '@/i18n/I18nProvider';
+import { TASK_TYPE_OPTIONS, PRIORITY_OPTIONS, EFFORT_OPTIONS } from '@/lib/constants';
+import { useModels } from '@/lib/useModels';
+import { api } from '@/lib/api';
+import { IS_TAURI } from '@/lib/tauriEvents';
+import type { Task, Template, Role, TemplateVariable, Model } from '@/lib/types';
+import type { TaskDependencies } from '@/features/tasks/taskDetailHelpers';
+import TemplateSelector from '@/features/tasks/TemplateSelector';
+import TaskOptionsPanel from '@/features/tasks/TaskOptionsPanel';
+import TokenEstimate from '@/features/tasks/TokenEstimate';
 
 const TASK_TYPES = TASK_TYPE_OPTIONS;
 const PRIORITIES = PRIORITY_OPTIONS;

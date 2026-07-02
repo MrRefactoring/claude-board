@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { resolveCommand, getAllCommands } from '../commands/commandRegistry';
+import { resolveCommand, getAllCommands } from '@/features/voice/commands/commandRegistry';
 
 // Commands auto-register via barrel import
-import '../commands/index';
+import '@/features/voice/commands/index';
 
 describe('commandRegistry', () => {
   it('registers all built-in commands', () => {

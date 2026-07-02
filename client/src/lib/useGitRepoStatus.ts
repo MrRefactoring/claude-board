@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from './api';
+import { api } from '@/lib/api';
 
 export interface GitRepoStatus {
   isRepo: boolean;

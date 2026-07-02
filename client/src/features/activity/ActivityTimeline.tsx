@@ -13,8 +13,8 @@ import {
   Activity,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { api } from '../../lib/api';
-import { useTranslation } from '../../i18n/I18nProvider';
+import { api } from '@/lib/api';
+import { useTranslation } from '@/i18n/I18nProvider';
 
 interface EventConfig {
   icon: LucideIcon;

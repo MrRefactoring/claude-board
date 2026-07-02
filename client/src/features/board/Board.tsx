@@ -14,22 +14,22 @@ import {
   Map,
   Terminal,
 } from 'lucide-react';
-import Column from './Column';
-import ListView from './ListView';
-const PipelineView = lazy(() => import('./PipelineView'));
-const OrchestrationView = lazy(() => import('./OrchestrationView'));
-const AnalyticsView = lazy(() => import('./AnalyticsView'));
-import { COLUMNS, MODELS, MODEL_COLORS, MODEL_DOT_COLORS, MODEL_BG_ACTIVE, getTagColor } from '../../lib/constants';
-import { notifyError } from '../../lib/api';
-import { IS_TAURI } from '../../lib/tauriEvents';
-import GitHubIssuesPanel from './GitHubIssuesPanel';
-import ErrorBoundary from '../../components/ErrorBoundary';
-const RoadmapView = lazy(() => import('../roadmap/RoadmapView'));
-const ProjectTerminal = lazy(() => import('../terminal/ProjectTerminal'));
-import { useTranslation } from '../../i18n/I18nProvider';
-import { parseTags } from './TagBadge';
-import { api } from '../../lib/api';
-import type { Task, Project } from '../../lib/types';
+import Column from '@/features/board/Column';
+import ListView from '@/features/board/ListView';
+const PipelineView = lazy(() => import('@/features/board/PipelineView'));
+const OrchestrationView = lazy(() => import('@/features/board/OrchestrationView'));
+const AnalyticsView = lazy(() => import('@/features/board/AnalyticsView'));
+import { COLUMNS, MODELS, MODEL_COLORS, MODEL_DOT_COLORS, MODEL_BG_ACTIVE, getTagColor } from '@/lib/constants';
+import { notifyError } from '@/lib/api';
+import { IS_TAURI } from '@/lib/tauriEvents';
+import GitHubIssuesPanel from '@/features/board/GitHubIssuesPanel';
+import ErrorBoundary from '@/components/ErrorBoundary';
+const RoadmapView = lazy(() => import('@/features/roadmap/RoadmapView'));
+const ProjectTerminal = lazy(() => import('@/features/terminal/ProjectTerminal'));
+import { useTranslation } from '@/i18n/I18nProvider';
+import { parseTags } from '@/features/board/TagBadge';
+import { api } from '@/lib/api';
+import type { Task, Project } from '@/lib/types';
 
 interface BoardTask extends Task {
   tags?: string | string[] | null;

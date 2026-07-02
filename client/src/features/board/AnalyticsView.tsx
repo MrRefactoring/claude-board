@@ -14,10 +14,10 @@ import {
   Layers,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { api } from '../../lib/api';
-import { formatTokens } from '../../lib/formatters';
-import { useTranslation } from '../../i18n/I18nProvider';
-import type { Task } from '../../lib/types';
+import { api } from '@/lib/api';
+import { formatTokens } from '@/lib/formatters';
+import { useTranslation } from '@/i18n/I18nProvider';
+import type { Task } from '@/lib/types';
 
 interface AnalyticsTask extends Task {
   retry_count?: number;

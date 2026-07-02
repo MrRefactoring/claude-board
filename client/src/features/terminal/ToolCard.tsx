@@ -1,8 +1,8 @@
 import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Timer } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { getToolIcon, getToolColor } from './terminalConstants';
-import { fmtTime, fmtMs, shortenPath } from './terminalHelpers';
-import type { LogLine, LogMeta, ToolInput } from './terminalHelpers';
+import { getToolIcon, getToolColor } from '@/features/terminal/terminalConstants';
+import { fmtTime, fmtMs, shortenPath } from '@/features/terminal/terminalHelpers';
+import type { LogLine, LogMeta, ToolInput } from '@/features/terminal/terminalHelpers';
 
 interface ToolCardProps {
   call: LogLine | null;

@@ -13,10 +13,10 @@ import {
   AlertTriangle,
   RotateCcw,
 } from 'lucide-react';
-import { formatTokens } from '../../lib/formatters';
-import { api } from '../../lib/api';
-import { IS_TAURI } from '../../lib/tauriEvents';
-import type { Task } from '../../lib/types';
+import { formatTokens } from '@/lib/formatters';
+import { api } from '@/lib/api';
+import { IS_TAURI } from '@/lib/tauriEvents';
+import type { Task } from '@/lib/types';
 
 interface Bottleneck {
   taskId: number;

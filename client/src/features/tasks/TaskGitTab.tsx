@@ -9,11 +9,11 @@ import {
   ChevronRight,
   FileDiff,
 } from 'lucide-react';
-import type { Task } from '../../lib/types';
-import { api } from '../../lib/api';
-import { getDiffLineClass } from './taskDetailHelpers';
-import type { TaskDetail } from './taskDetailHelpers';
-import { useTranslation } from '../../i18n/I18nProvider';
+import type { Task } from '@/lib/types';
+import { api } from '@/lib/api';
+import { getDiffLineClass } from '@/features/tasks/taskDetailHelpers';
+import type { TaskDetail } from '@/features/tasks/taskDetailHelpers';
+import { useTranslation } from '@/i18n/I18nProvider';
 
 interface Props {
   d: TaskDetail;

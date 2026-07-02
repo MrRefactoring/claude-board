@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react';
-import type { TranslateFn } from '../../lib/types';
-import { STEPS } from './planningConstants';
-import { getStepIndex } from './planningHelpers';
+import type { TranslateFn } from '@/lib/types';
+import { STEPS } from '@/features/planning/planningConstants';
+import { getStepIndex } from '@/features/planning/planningHelpers';
 
 interface StepIndicatorProps {
   phase: string;

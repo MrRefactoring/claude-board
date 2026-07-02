@@ -17,10 +17,10 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Avatar from 'boring-avatars';
-import { formatTokens } from '../../lib/formatters';
-import { MODEL_COSTS, AVATAR_COLORS } from '../../lib/constants';
-import { IS_TAURI, tauriListen } from '../../lib/tauriEvents';
-import type { Task } from '../../lib/types';
+import { formatTokens } from '@/lib/formatters';
+import { MODEL_COSTS, AVATAR_COLORS } from '@/lib/constants';
+import { IS_TAURI, tauriListen } from '@/lib/tauriEvents';
+import type { Task } from '@/lib/types';
 
 interface AgentTask extends Task {
   agent_name?: string;
