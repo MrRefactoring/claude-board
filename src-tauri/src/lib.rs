@@ -322,6 +322,7 @@ pub fn run() {
             commands::roles::create_role,
             commands::roles::update_role,
             commands::roles::delete_role,
+            commands::roles::get_agent_suggestions,
             // Auth
             commands::auth::get_auth_status,
             commands::auth::enable_auth,

@@ -110,8 +110,21 @@ export interface Role {
   description?: string;
   prompt?: string;
   color?: string;
+  // Reusable-agent config: pinned model, tool allow-list (comma-separated), and
+  // a task-type affinity hint (comma-separated task types this agent is good at).
+  model?: string;
+  allowed_tools?: string;
+  task_type_affinity?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+/** A recurring ad-hoc config the app suggests saving as a reusable agent (role). */
+export interface AgentSuggestion {
+  model: string;
+  task_type: string;
+  count: number;
+  sample_titles: string[];
 }
 
 /** A webhook event type identifier, e.g. 'task:completed'. */

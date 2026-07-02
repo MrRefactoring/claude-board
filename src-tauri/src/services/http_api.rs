@@ -32,6 +32,7 @@ pub async fn start_server(port: u16) {
         .route("/api/tasks/{id}/dependencies", post(add_task_dependency_handler))
         .route("/api/tasks/{id}/comments", get(list_task_comments).post(post_task_comment))
         .route("/api/tasks/{id}/pr-intent", post(set_pr_intent_handler))
+        .route("/api/projects/{project_id}/roles", get(list_project_roles))
         .route("/api/projects/{project_id}/tasks/bulk", post(create_tasks_bulk))
         // Stats
         .route("/api/projects/{pid}/stats", get(project_stats))
@@ -195,6 +196,13 @@ async fn set_pr_intent_handler(Path(id): Path<i64>, Json(b): Json<PrIntentBody>)
     let value = b.auto_pr.map(|v| if v { 1 } else { 0 });
     db::tasks::set_auto_pr(&db, id, value);
     (StatusCode::OK, Json(serde_json::json!({"id": id, "auto_pr": value}))).into_response()
+}
+
+// ─── Reusable agents (roles) ───
+
+/// GET /api/projects/{project_id}/roles — lets the chat/decompose pick an agent by id.
+async fn list_project_roles(Path(project_id): Path<i64>) -> Json<serde_json::Value> {
+    Json(to_json(&db::roles::get_by_project(&db::get_db(), project_id)))
 }
 
 // ─── Bulk decompose ───

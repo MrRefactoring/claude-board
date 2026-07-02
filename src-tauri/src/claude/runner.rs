@@ -1437,10 +1437,21 @@ pub fn start(
         template.as_ref(),
         Some(project),
     );
-    let model = task.model.as_deref().unwrap_or("sonnet");
+    // Reusable-agent config: a role can pin a model / restrict tools; the task's
+    // own model always wins, and a role tool-list overrides the project default.
+    let model = task
+        .model
+        .as_deref()
+        .or_else(|| role.as_ref().and_then(|r| r.model.as_deref()))
+        .unwrap_or("sonnet");
     let effort = task.thinking_effort.as_deref().unwrap_or("medium");
     let permission_mode = project.permission_mode.as_deref().unwrap_or("auto-accept");
-    let allowed_tools = project.allowed_tools.as_deref().unwrap_or("");
+    let allowed_tools = role
+        .as_ref()
+        .and_then(|r| r.allowed_tools.as_deref())
+        .filter(|s| !s.is_empty())
+        .or(project.allowed_tools.as_deref())
+        .unwrap_or("");
 
     // Snapshot baseline usage
     if let Some(current) = tasks::get_by_id(&db, task_id) {

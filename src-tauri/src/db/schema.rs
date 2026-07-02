@@ -602,6 +602,23 @@ pub fn run_migrations(conn: &Connection) {
             "auto_pr",
             "ALTER TABLE tasks ADD COLUMN auto_pr INTEGER",
         ),
+        // Reusable agents live on the roles table: a role can pin a model, restrict
+        // the tool allow-list, and declare which task types it's good at.
+        (
+            "roles",
+            "model",
+            "ALTER TABLE roles ADD COLUMN model TEXT",
+        ),
+        (
+            "roles",
+            "allowed_tools",
+            "ALTER TABLE roles ADD COLUMN allowed_tools TEXT",
+        ),
+        (
+            "roles",
+            "task_type_affinity",
+            "ALTER TABLE roles ADD COLUMN task_type_affinity TEXT",
+        ),
     ];
 
     for (table, col, sql) in migrations {

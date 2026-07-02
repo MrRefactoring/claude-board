@@ -1,3 +1,4 @@
+pub mod agent_recurrence;
 pub mod github;
 pub mod github_sync;
 pub mod gsd;

@@ -10,6 +10,10 @@ pub struct Role {
     pub description: Option<String>,
     pub prompt: Option<String>,
     pub color: Option<String>,
+    // Reusable-agent config (all nullable; late columns → `.ok().flatten()`).
+    pub model: Option<String>,
+    pub allowed_tools: Option<String>,
+    pub task_type_affinity: Option<String>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
 }
@@ -19,6 +23,9 @@ fn row_to(row: &rusqlite::Row) -> rusqlite::Result<Role> {
         id: row.get("id")?, project_id: row.get("project_id")?,
         name: row.get("name")?, description: row.get("description")?,
         prompt: row.get("prompt")?, color: row.get("color")?,
+        model: row.get("model").ok().flatten(),
+        allowed_tools: row.get("allowed_tools").ok().flatten(),
+        task_type_affinity: row.get("task_type_affinity").ok().flatten(),
         created_at: row.get("created_at")?, updated_at: row.get("updated_at")?,
     })
 }
@@ -58,11 +65,16 @@ pub fn get_by_id(db: &DbPool, id: i64) -> Option<Role> {
     stmt.query_row(params![id], row_to).ok()
 }
 
-pub fn create(db: &DbPool, pid: Option<i64>, name: &str, description: &str, prompt: &str, color: &str) -> i64 {
+#[allow(clippy::too_many_arguments)]
+pub fn create(
+    db: &DbPool, pid: Option<i64>, name: &str, description: &str, prompt: &str, color: &str,
+    model: Option<&str>, allowed_tools: Option<&str>, task_type_affinity: Option<&str>,
+) -> i64 {
     let conn = db.lock();
     match conn.execute(
-        "INSERT INTO roles (project_id,name,description,prompt,color) VALUES (?1,?2,?3,?4,?5)",
-        params![pid, name, description, prompt, color],
+        "INSERT INTO roles (project_id,name,description,prompt,color,model,allowed_tools,task_type_affinity) \
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+        params![pid, name, description, prompt, color, model, allowed_tools, task_type_affinity],
     ) {
         Ok(_) => {},
         Err(e) => { log::error!("create: {}", e); return 0; }
@@ -70,11 +82,16 @@ pub fn create(db: &DbPool, pid: Option<i64>, name: &str, description: &str, prom
     conn.last_insert_rowid()
 }
 
-pub fn update(db: &DbPool, id: i64, name: &str, description: &str, prompt: &str, color: &str) {
+#[allow(clippy::too_many_arguments)]
+pub fn update(
+    db: &DbPool, id: i64, name: &str, description: &str, prompt: &str, color: &str,
+    model: Option<&str>, allowed_tools: Option<&str>, task_type_affinity: Option<&str>,
+) {
     let conn = db.lock();
     if let Err(e) = conn.execute(
-        "UPDATE roles SET name=?1,description=?2,prompt=?3,color=?4,updated_at=datetime('now','localtime') WHERE id=?5",
-        params![name, description, prompt, color, id],
+        "UPDATE roles SET name=?1,description=?2,prompt=?3,color=?4,model=?5,allowed_tools=?6,\
+         task_type_affinity=?7,updated_at=datetime('now','localtime') WHERE id=?8",
+        params![name, description, prompt, color, model, allowed_tools, task_type_affinity, id],
     ) { log::error!("update: {}", e); }
 }
 

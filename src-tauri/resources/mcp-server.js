@@ -31,7 +31,7 @@ async function api(path, options = {}) {
 
 const server = new McpServer({
   name: 'claude-board',
-  version: '4.2.0',
+  version: '4.3.0',
 });
 
 // ─── list_projects ───
@@ -58,6 +58,22 @@ server.tool(
     const lines = tasks.map(
       (t) =>
         `[${t.task_key || '#' + t.id}] ${t.title} — status: ${t.status}, type: ${t.task_type}, model: ${t.model || 'sonnet'}${t.is_running ? ' (RUNNING)' : ''}`,
+    );
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
+  },
+);
+
+// ─── list_agents ───
+server.tool(
+  'list_agents',
+  'List reusable agents (roles) for a project. Each has an id, a persona, an optional pinned model, and a task-type affinity. Pass its id as role_id to create_task/decompose to run a task as that agent.',
+  { project_id: z.number().describe('Project ID') },
+  async ({ project_id }) => {
+    const roles = (await api(`/api/projects/${project_id}/roles`)) || [];
+    if (roles.length === 0) return { content: [{ type: 'text', text: 'No agents defined for this project.' }] };
+    const lines = roles.map(
+      (r) =>
+        `#${r.id} ${r.name}${r.model ? ` [${r.model}]` : ''}${r.task_type_affinity ? ` — good at: ${r.task_type_affinity}` : ''}${r.description ? ` — ${r.description}` : ''}`,
     );
     return { content: [{ type: 'text', text: lines.join('\n') }] };
   },

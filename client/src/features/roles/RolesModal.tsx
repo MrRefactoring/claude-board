@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import { Plus, Pencil, Trash2, Shield, Globe } from 'lucide-react';
+import { Plus, Pencil, Trash2, Shield, Globe, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
-import type { Role } from '@/lib/types';
+import type { Role, AgentSuggestion } from '@/lib/types';
+import { MODELS } from '@/lib/constants';
 import { useTranslation } from '@/i18n/I18nProvider';
 import { useCrudResource } from '@/hooks/useCrudResource';
 import ModalShell from '@/components/ModalShell';
@@ -34,12 +35,24 @@ function RoleForm({ role, onSave, onCancel }: RoleFormProps) {
   const [description, setDescription] = useState(role?.description || '');
   const [prompt, setPrompt] = useState(role?.prompt || '');
   const [color, setColor] = useState(role?.color || '#6B7280');
+  const [model, setModel] = useState(role?.model || '');
+  const [allowedTools, setAllowedTools] = useState(role?.allowed_tools || '');
+  const [taskTypeAffinity, setTaskTypeAffinity] = useState(role?.task_type_affinity || '');
   const [isGlobal, setIsGlobal] = useState((role?.project_id as number | null | undefined) === null);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onSave({ name: name.trim(), description: description.trim(), prompt: prompt.trim(), color, global: isGlobal });
+    onSave({
+      name: name.trim(),
+      description: description.trim(),
+      prompt: prompt.trim(),
+      color,
+      model: model || undefined,
+      allowed_tools: allowedTools.trim() || undefined,
+      task_type_affinity: taskTypeAffinity.trim() || undefined,
+      global: isGlobal,
+    });
   };
 
   return (
@@ -73,6 +86,47 @@ function RoleForm({ role, onSave, onCancel }: RoleFormProps) {
           rows={5}
           placeholder="You are a senior backend developer with deep expertise in Node.js and PostgreSQL..."
           className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-claude resize-y"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-surface-400 mb-1 block">
+            Model <span className="text-surface-600 font-normal">- pinned</span>
+          </label>
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-claude"
+          >
+            <option value="">Inherit from task</option>
+            {MODELS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-surface-400 mb-1 block">
+            Good at <span className="text-surface-600 font-normal">- task types</span>
+          </label>
+          <input
+            value={taskTypeAffinity}
+            onChange={(e) => setTaskTypeAffinity(e.target.value)}
+            placeholder="e.g. bugfix, refactor"
+            className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-claude"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="text-xs text-surface-400 mb-1 block">
+          Allowed tools <span className="text-surface-600 font-normal ml-1">- comma-separated; blank = all</span>
+        </label>
+        <input
+          value={allowedTools}
+          onChange={(e) => setAllowedTools(e.target.value)}
+          placeholder="e.g. Read, Edit, Bash, mcp__claude-board__*"
+          className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-claude font-mono text-xs"
         />
       </div>
       <div>
@@ -158,6 +212,25 @@ function RoleItem({ role, onEdit, onDelete, isGlobal }: RoleItemProps) {
       </div>
       {role.description && <p className="text-xs text-surface-400 mb-1">{role.description}</p>}
       {role.prompt && <p className="text-xs text-surface-500 whitespace-pre-wrap line-clamp-2">{role.prompt}</p>}
+      {(role.model || role.task_type_affinity || role.allowed_tools) && (
+        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+          {role.model && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300 font-medium">
+              {role.model}
+            </span>
+          )}
+          {role.task_type_affinity && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300">
+              {role.task_type_affinity}
+            </span>
+          )}
+          {role.allowed_tools && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-700/60 text-surface-400 font-mono">
+              tools ×{role.allowed_tools.split(',').filter(Boolean).length}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -178,13 +251,39 @@ export default function RolesModal({ projectId, projectName, onClose }: Props) {
     remove: api.deleteRole,
   });
 
+  const [suggestions, setSuggestions] = useState<AgentSuggestion[]>([]);
+  const [prefill, setPrefill] = useState<Partial<Role> | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .getAgentSuggestions(projectId)
+      .then((s) => {
+        if (active) setSuggestions(s);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [projectId, crud.items.length]);
+
+  const startFromSuggestion = (s: AgentSuggestion) => {
+    setPrefill({
+      name: `${s.task_type} specialist`,
+      description: `Auto-suggested from ${s.count} recurring ${s.task_type} tasks`,
+      model: s.model,
+      task_type_affinity: s.task_type,
+    });
+    crud.setEditing('new');
+  };
+
   const projectRoles = crud.items.filter((r) => (r.project_id as number | null | undefined) !== null);
   const globalRoles = crud.items.filter((r) => (r.project_id as number | null | undefined) === null);
 
   return (
     <ModalShell
       title={t('roles.title')}
-      subtitle={`${projectName} — assign personas to tasks`}
+      subtitle={`${projectName} — reusable agents & personas`}
       icon={Shield}
       onClose={onClose}
     >
@@ -234,16 +333,60 @@ export default function RolesModal({ projectId, projectName, onClose }: Props) {
                   {crud.editing === 'new' ? 'New Role' : `Edit: ${crud.editing.name}`}
                 </h3>
                 <RoleForm
-                  role={crud.editing === 'new' ? null : crud.editing}
-                  onSave={crud.handleSave}
-                  onCancel={() => crud.setEditing(null)}
+                  role={crud.editing === 'new' ? (prefill as Role | null) : crud.editing}
+                  onSave={(data) => {
+                    setPrefill(null);
+                    crud.handleSave(data);
+                  }}
+                  onCancel={() => {
+                    setPrefill(null);
+                    crud.setEditing(null);
+                  }}
                 />
+              </div>
+            )}
+
+            {!crud.editing && suggestions.length > 0 && (
+              <div className="mb-3">
+                <div className="text-[10px] font-semibold text-surface-500 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                  <Sparkles size={10} className="text-amber-400" /> Suggested agents
+                </div>
+                <div className="space-y-1.5">
+                  {suggestions.map((s) => (
+                    <div
+                      key={`${s.model}-${s.task_type}`}
+                      className="flex items-center justify-between gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-xs text-surface-200">
+                          <span className="font-medium capitalize">{s.task_type}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300">
+                            {s.model}
+                          </span>
+                          <span className="text-[10px] text-surface-500">×{s.count}</span>
+                        </div>
+                        {s.sample_titles.length > 0 && (
+                          <p className="text-[10px] text-surface-500 truncate mt-0.5">{s.sample_titles.join(' · ')}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => startFromSuggestion(s)}
+                        className="flex-shrink-0 px-2 py-1 text-[11px] font-medium bg-amber-500/15 text-amber-300 rounded-md hover:bg-amber-500/25 transition-colors"
+                      >
+                        Save agent
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
             {!crud.editing && (
               <button
-                onClick={() => crud.setEditing('new')}
+                onClick={() => {
+                  setPrefill(null);
+                  crud.setEditing('new');
+                }}
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-dashed border-surface-700 text-xs text-surface-400 hover:text-claude hover:border-claude/50 transition-colors"
               >
                 <Plus size={14} /> {t('roles.addRole')}

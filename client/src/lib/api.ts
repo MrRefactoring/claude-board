@@ -11,6 +11,7 @@ import type {
   ActivityEntry,
   Model,
   TaskComment,
+  AgentSuggestion,
 } from '@/lib/types';
 
 // Detect Tauri environment
@@ -215,6 +216,8 @@ const coreApi = {
   updateRole: (id: number, data: Partial<Role>): Promise<Role> =>
     call('update_role', 'PUT', `/api/roles/${id}`, { id, ...data }, data),
   deleteRole: (id: number): Promise<void> => call('delete_role', 'DELETE', `/api/roles/${id}`, { id }),
+  getAgentSuggestions: (projectId: number): Promise<AgentSuggestion[]> =>
+    call('get_agent_suggestions', 'GET', `/api/projects/${projectId}/agent-suggestions`, { projectId }),
 
   // ─── Webhooks ───
   getWebhooks: (projectId: number): Promise<Webhook[]> =>
