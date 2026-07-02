@@ -16,6 +16,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatTokens } from '@/lib/formatters';
+import DailyBarChart from '@/components/charts/DailyBarChart';
 import { useTranslation } from '@/i18n/I18nProvider';
 import type { Task } from '@/lib/types';
 
@@ -121,10 +122,10 @@ function BarChart({ data, colorMap, maxVal }: BarChartProps) {
   const max = maxVal || Math.max(...data.map((d) => d.value), 1);
   return (
     <div className="space-y-2">
-      {data.map((item, i) => {
+      {data.map((item) => {
         const pct = (item.value / max) * 100;
         return (
-          <div key={i}>
+          <div key={item.key}>
             <div className="flex items-center justify-between mb-0.5">
               <div className="flex items-center gap-2">
                 <div
@@ -154,45 +155,16 @@ function BarChart({ data, colorMap, maxVal }: BarChartProps) {
 }
 
 function CostTimeline({ data }: { data: CostDatum[] }) {
-  if (data.length === 0)
-    return <div className="text-[10px] text-surface-600 text-center py-4">No data in the last 14 days</div>;
-  const maxCost = Math.max(...data.map((d) => d.cost || 0), 0.001);
-
   return (
-    <div>
-      <div className="flex items-end gap-1 h-28">
-        {data.map((item, i) => {
-          const costPct = ((item.cost || 0) / maxCost) * 100;
-          const day = new Date(item.day);
-          const label = day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          return (
-            <div
-              key={i}
-              className="flex-1 flex flex-col items-center gap-0.5 group"
-              title={`${label}: $${(item.cost || 0).toFixed(3)} | ${formatTokens(item.tokens || 0)} tokens | ${item.tasks} tasks`}
-            >
-              <span className="text-[8px] text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                ${(item.cost || 0).toFixed(2)}
-              </span>
-              <div className="w-full flex-1 flex items-end">
-                <div
-                  className="w-full rounded-t bg-gradient-to-t from-emerald-600 to-emerald-400 hover:from-emerald-500 hover:to-emerald-300 transition-colors"
-                  style={{ height: `${Math.max(costPct, 8)}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex justify-between mt-1.5">
-        <span className="text-[9px] text-surface-500">
-          {new Date(data[0].day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        </span>
-        <span className="text-[9px] text-surface-500">
-          {new Date(data[data.length - 1].day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        </span>
-      </div>
-    </div>
+    <DailyBarChart
+      data={data}
+      getValue={(d) => d.cost || 0}
+      color="#34d399"
+      emptyText="No data in the last 14 days"
+      formatTooltip={(d) =>
+        `${new Date(d.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: $${(d.cost || 0).toFixed(3)} | ${formatTokens(d.tokens || 0)} tokens | ${d.tasks} tasks`
+      }
+    />
   );
 }
 

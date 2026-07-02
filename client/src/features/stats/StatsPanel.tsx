@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useTranslation } from '@/i18n/I18nProvider';
+import DailyBarChart from '@/components/charts/DailyBarChart';
 
 const STATUS_LABELS = { backlog: 'Backlog', in_progress: 'In Progress', testing: 'Testing', done: 'Done' };
 const STATUS_COLORS = { backlog: '#918678', in_progress: '#f59e0b', testing: '#DA7756', done: '#34d399' };
@@ -153,44 +154,17 @@ function BarChart({ data, colorMap, labelMap, maxVal }: BarChartProps) {
 }
 
 function TimelineChart({ data }: { data: TimelinePoint[] }) {
-  if (data.length === 0)
-    return <div className="text-[10px] text-surface-600 text-center py-4">No completions in the last 14 days</div>;
-  const max = Math.max(...data.map((d) => d.count), 1);
   return (
-    <div>
-      <div className="flex items-end gap-0.5 h-24">
-        {data.map((item, i) => {
-          const pct = (item.count / max) * 100;
-          const day = new Date(item.day);
-          const label = day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          return (
-            <div
-              key={i}
-              className="flex-1 flex flex-col items-center gap-1 group"
-              title={`${label}: ${item.count} tasks`}
-            >
-              <span className="text-[8px] text-surface-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                {item.count}
-              </span>
-              <div className="w-full flex-1 flex items-end">
-                <div
-                  className="w-full rounded-t bg-claude hover:bg-claude-light transition-colors"
-                  style={{ height: `${Math.max(pct, 8)}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex justify-between mt-1.5">
-        <span className="text-[9px] text-surface-500">
-          {new Date(data[0].day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        </span>
-        <span className="text-[9px] text-surface-500">
-          {new Date(data[data.length - 1].day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        </span>
-      </div>
-    </div>
+    <DailyBarChart
+      data={data}
+      getValue={(d) => d.count}
+      color="#DA7756"
+      height={96}
+      emptyText="No completions in the last 14 days"
+      formatTooltip={(d) =>
+        `${new Date(d.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${d.count} tasks`
+      }
+    />
   );
 }
 
