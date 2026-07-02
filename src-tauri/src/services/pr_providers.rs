@@ -217,6 +217,124 @@ pub fn create_pr(provider: PrProvider, ctx: &PrCreateContext) -> PrCreateOutcome
     }
 }
 
+#[derive(Debug)]
+pub enum PrMergeOutcome {
+    Merged {
+        provider: PrProvider,
+    },
+    CliMissing {
+        provider: PrProvider,
+        install_url: &'static str,
+    },
+    NotAuthenticated {
+        provider: PrProvider,
+        login_hint: &'static str,
+    },
+    Failed {
+        provider: PrProvider,
+        error: String,
+    },
+    Skipped {
+        reason: String,
+    },
+}
+
+/// Merge the PR/MR behind `pr_url` with a merge commit (mirrors the local
+/// auto_merge `--no-ff` style). The local branch is never deleted — it lives
+/// in the task's persistent worktree.
+pub fn merge_pr(provider: PrProvider, working_dir: &str, pr_url: &str) -> PrMergeOutcome {
+    match provider {
+        PrProvider::None | PrProvider::Unknown => {
+            return PrMergeOutcome::Skipped {
+                reason: "No PR provider configured/detected for this project".into(),
+            };
+        }
+        _ => {}
+    }
+    if !cli_available(provider) {
+        return PrMergeOutcome::CliMissing {
+            provider,
+            install_url: provider.install_url().unwrap_or(""),
+        };
+    }
+
+    let mut cmd = match provider {
+        PrProvider::GitHub => {
+            let mut c = silent_cmd("gh");
+            c.args(["pr", "merge", pr_url, "--merge"]);
+            c
+        }
+        PrProvider::GitLab => {
+            // glab wants the MR id, not the URL.
+            let Some(id) = trailing_number(pr_url) else {
+                return PrMergeOutcome::Failed {
+                    provider,
+                    error: format!("Could not extract MR id from {}", pr_url),
+                };
+            };
+            let mut c = silent_cmd("glab");
+            c.args(["mr", "merge", &id, "--yes"]);
+            c
+        }
+        PrProvider::AzureDevOps => {
+            let Some(id) = trailing_number(pr_url) else {
+                return PrMergeOutcome::Failed {
+                    provider,
+                    error: format!("Could not extract PR id from {}", pr_url),
+                };
+            };
+            let mut c = silent_cmd("az");
+            c.args(["repos", "pr", "update", "--id", &id, "--status", "completed"]);
+            c
+        }
+        PrProvider::Gitea => {
+            let Some(id) = trailing_number(pr_url) else {
+                return PrMergeOutcome::Failed {
+                    provider,
+                    error: format!("Could not extract PR index from {}", pr_url),
+                };
+            };
+            let mut c = silent_cmd("tea");
+            c.args(["pr", "merge", &id]);
+            c
+        }
+        _ => unreachable!(),
+    };
+    cmd.current_dir(working_dir);
+
+    match cmd.output() {
+        Ok(o) if o.status.success() => PrMergeOutcome::Merged { provider },
+        Ok(o) => {
+            let stderr = String::from_utf8_lossy(&o.stderr).to_string();
+            if looks_like_auth_error(&stderr) {
+                PrMergeOutcome::NotAuthenticated {
+                    provider,
+                    login_hint: provider.login_hint().unwrap_or(""),
+                }
+            } else {
+                PrMergeOutcome::Failed {
+                    provider,
+                    error: stderr.trim().to_string(),
+                }
+            }
+        }
+        Err(e) => PrMergeOutcome::Failed {
+            provider,
+            error: e.to_string(),
+        },
+    }
+}
+
+/// Extract the trailing numeric path segment of a PR/MR URL
+/// (".../merge_requests/123", ".../pullrequest/45", ".../pulls/7").
+fn trailing_number(url: &str) -> Option<String> {
+    url.trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .filter(|seg| !seg.is_empty() && seg.chars().all(|c| c.is_ascii_digit()))
+        .map(|s| s.to_string())
+}
+
 fn looks_like_auth_error(stderr: &str) -> bool {
     let s = stderr.to_ascii_lowercase();
     s.contains("not authenticated")
@@ -556,6 +674,21 @@ mod tests {
         assert_eq!(PrProvider::from_setting("none"), Some(PrProvider::None));
         assert_eq!(PrProvider::from_setting("auto"), None);
         assert_eq!(PrProvider::from_setting(""), None);
+    }
+
+    #[test]
+    fn extracts_trailing_number() {
+        assert_eq!(
+            trailing_number("https://gitlab.com/g/p/-/merge_requests/123"),
+            Some("123".to_string())
+        );
+        assert_eq!(
+            trailing_number("https://dev.azure.com/o/p/_git/r/pullrequest/45/"),
+            Some("45".to_string())
+        );
+        assert_eq!(trailing_number("https://github.com/o/r/pull/7"), Some("7".to_string()));
+        assert_eq!(trailing_number("https://example.com/no-number"), None);
+        assert_eq!(trailing_number(""), None);
     }
 
     #[test]

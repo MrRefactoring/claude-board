@@ -72,41 +72,72 @@ pub fn get_child_ids(db: &DbPool, task_id: i64) -> Vec<i64> {
     result
 }
 
-/// Check if ALL parent dependencies of a task are met, respecting condition_type.
-/// - "always" / "on_success": parent must be done or testing
+/// Shared condition-aware "is this dependency met" SQL predicate; `parent` is
+/// the alias of the joined blocker row. A blocker only counts as complete once
+/// ACCEPTED (done) — not at testing: its PR is merged into the base branch
+/// only on done, so a dependent started earlier would branch off a base
+/// without the blocker's code.
+/// - "always" / "on_success": parent must be done
 /// - "on_failure": parent must have failed (status = 'failed')
+/// - "on_any": parent finished either way (done or failed)
+fn dep_met_predicate(parent: &str) -> String {
+    format!(
+        "CASE COALESCE(td.condition_type, 'always')
+             WHEN 'on_failure' THEN
+                 {p}.status = 'failed'
+             WHEN 'on_any' THEN
+                 {p}.status IN ('done', 'failed')
+             ELSE
+                 {p}.status = 'done'
+         END",
+        p = parent
+    )
+}
+
+/// Check if ALL parent dependencies of a task are met, respecting condition_type.
 pub fn are_all_parents_met(db: &DbPool, task_id: i64) -> bool {
     let conn = db.lock();
-
-    // Count unmet dependencies using condition-aware logic:
-    // "always" or "on_success" → parent.status IN ('done','testing')
-    // "on_failure" → parent failed: status='failed'
     let unmet: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM task_dependencies td
-         JOIN tasks t ON t.id = td.depends_on_id
-         WHERE td.task_id = ?1
-         AND NOT (
-             CASE COALESCE(td.condition_type, 'always')
-                 WHEN 'on_failure' THEN
-                     t.status = 'failed'
-                 WHEN 'on_any' THEN
-                     t.status IN ('done', 'testing', 'failed')
-                 ELSE
-                     t.status IN ('done', 'testing')
-             END
-         )",
+        &format!(
+            "SELECT COUNT(*) FROM task_dependencies td
+             JOIN tasks t ON t.id = td.depends_on_id
+             WHERE td.task_id = ?1
+             AND NOT ({})",
+            dep_met_predicate("t")
+        ),
         params![task_id],
         |r| r.get(0),
     ).unwrap_or(0);
     unmet == 0
 }
 
+/// Unmet blockers of a task: (id, title) pairs, for actionable error messages.
+pub fn get_unmet_parents(db: &DbPool, task_id: i64) -> Vec<(i64, String)> {
+    let conn = db.lock();
+    let mut stmt = match conn.prepare(&format!(
+        "SELECT t.id, t.title FROM task_dependencies td
+         JOIN tasks t ON t.id = td.depends_on_id
+         WHERE td.task_id = ?1
+         AND NOT ({})
+         ORDER BY t.id",
+        dep_met_predicate("t")
+    )) {
+        Ok(s) => s,
+        Err(_) => return vec![],
+    };
+    let result = match stmt.query_map(params![task_id], |r| Ok((r.get(0)?, r.get(1)?))) {
+        Ok(rows) => rows.flatten().collect(),
+        Err(_) => vec![],
+    };
+    result
+}
+
 /// Get all backlog tasks in a project that have all dependencies met (ready to run).
-/// Supports conditional dependencies: always/on_success require parent done/testing,
-/// on_failure requires parent to have exhausted retries.
+/// Same condition semantics as `DEP_MET_PREDICATE` (blockers must be done,
+/// not merely testing — see the comment there).
 pub fn get_ready_tasks(db: &DbPool, project_id: i64) -> Vec<Task> {
     let conn = db.lock();
-    let mut stmt = match conn.prepare(
+    let mut stmt = match conn.prepare(&format!(
         "SELECT t.* FROM tasks t
          LEFT JOIN projects p ON p.id = t.project_id
          WHERE t.project_id = ?1 AND t.status = 'backlog'
@@ -117,21 +148,13 @@ pub fn get_ready_tasks(db: &DbPool, project_id: i64) -> Vec<Task> {
              SELECT 1 FROM task_dependencies td
              JOIN tasks parent ON parent.id = td.depends_on_id
              WHERE td.task_id = t.id
-             AND NOT (
-                 CASE COALESCE(td.condition_type, 'always')
-                     WHEN 'on_failure' THEN
-                         parent.status = 'failed'
-                     WHEN 'on_any' THEN
-                         parent.status IN ('done', 'testing', 'failed')
-                     ELSE
-                         parent.status IN ('done', 'testing')
-                 END
-             )
+             AND NOT ({})
          )
          ORDER BY
              (SELECT COUNT(*) FROM task_dependencies cd WHERE cd.depends_on_id = t.id) DESC,
-             t.priority DESC, t.queue_position ASC, t.id ASC"
-    ) {
+             t.priority DESC, t.queue_position ASC, t.id ASC",
+        dep_met_predicate("parent")
+    )) {
         Ok(s) => s,
         Err(_) => return vec![],
     };

@@ -387,6 +387,23 @@ struct StatusBody {
 
 async fn change_status(Path(id): Path<i64>, Json(body): Json<StatusBody>) -> impl IntoResponse {
     let db = db::get_db();
+    // Dependency gate — same rule as the UI path (commands/tasks.rs): a task
+    // cannot start while any blocker is not yet accepted (done).
+    if body.status == "in_progress" {
+        let unmet = db::dependencies::get_unmet_parents(&db, id);
+        if let Some((blocker_id, blocker_title)) = unmet.first() {
+            return (
+                StatusCode::CONFLICT,
+                Json(serde_json::json!({
+                    "error": format!(
+                        "Blocked by task #{}: \"{}\" — it must be completed (done) first",
+                        blocker_id, blocker_title
+                    )
+                })),
+            )
+                .into_response();
+        }
+    }
     tasks::update_status(&db, id, &body.status);
     // Keep GSD roadmap (DB + ROADMAP.md) in sync when task status is changed
     // via the MCP HTTP bridge. No AppHandle here → UI refresh is skipped but

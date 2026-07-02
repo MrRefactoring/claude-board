@@ -572,6 +572,93 @@ pub fn auto_create_pr_public(
     auto_create_pr(task, working_dir, project, db, app);
 }
 
+/// Merge the task's open PR (created at the Testing stage). Called when the
+/// task reaches Done — accepting a task merges its PR. A failed merge never
+/// blocks the Done transition: the PR stays open for a manual merge and the
+/// error is surfaced via task log + notification.
+pub fn merge_task_pr(
+    task: &tasks::Task,
+    working_dir: &str,
+    project: &projects::Project,
+    db: &DbPool,
+    app: &AppHandle,
+) {
+    use crate::services::pr_providers::{self, PrMergeOutcome};
+
+    let Some(pr_url) = task.pr_url.as_deref().filter(|u| !u.is_empty()) else {
+        return;
+    };
+    let provider =
+        pr_providers::detect_remote_provider(working_dir, project.pr_provider.as_deref());
+    let (msg, log_type) = match pr_providers::merge_pr(provider, working_dir, pr_url) {
+        PrMergeOutcome::Merged { provider } => {
+            crate::db::comments::add(
+                db,
+                task.id,
+                "agent",
+                Some(provider.display_name()),
+                &format!("Merged the pull request: {}", pr_url),
+                Some(pr_url),
+            );
+            activity::add(
+                db,
+                task.project_id,
+                Some(task.id),
+                "pr_merged",
+                &format!("PR merged: {}", task.title),
+                None,
+            );
+            (
+                format!("PR merged on {}: {}", provider.display_name(), pr_url),
+                "success",
+            )
+        }
+        PrMergeOutcome::Skipped { reason } => {
+            (format!("PR merge skipped: {}", reason), "info")
+        }
+        PrMergeOutcome::CliMissing {
+            provider,
+            install_url,
+        } => (
+            format!(
+                "PR merge failed: {} CLI not installed ({}). PR left open: {}",
+                provider.display_name(),
+                install_url,
+                pr_url
+            ),
+            "error",
+        ),
+        PrMergeOutcome::NotAuthenticated {
+            provider,
+            login_hint,
+        } => (
+            format!(
+                "PR merge failed: {} CLI not authenticated (run `{}`). PR left open: {}",
+                provider.display_name(),
+                login_hint,
+                pr_url
+            ),
+            "error",
+        ),
+        PrMergeOutcome::Failed { provider, error } => (
+            format!(
+                "PR merge failed on {}: {}. PR left open: {}",
+                provider.display_name(),
+                error,
+                pr_url
+            ),
+            "error",
+        ),
+    };
+    log::info!("Task {}: {}", task.id, msg);
+    tasks::add_log(db, task.id, &msg, log_type, None);
+    app.emit(
+        "task:log",
+        &serde_json::json!({"taskId": task.id, "message": msg, "logType": log_type}),
+    )
+    .ok();
+}
+
 /// Auto-create a PR/MR for the task's branch if auto_pr is enabled and no PR
 /// exists yet. Provider (GitHub / GitLab / Azure DevOps / Gitea) is detected
 /// from the project's `pr_provider` setting or the origin URL.
@@ -1269,6 +1356,16 @@ fn handle_process_lifecycle(
             emit_task_updated(db, app, task_id);
             crate::services::gsd::apply_task_status_cascade(db, Some(app), task_id);
 
+            // Open the PR as soon as the task enters review (Testing) so the
+            // user can inspect it during acceptance; accepting the task (Done)
+            // merges it. Idempotent — skipped when a PR already exists.
+            if let (Some(t), Some(proj)) = (
+                tasks::get_by_id(db, task_id),
+                projects::get_by_id(db, project_id),
+            ) {
+                auto_create_pr_public(&t, working_dir, &proj, db, app);
+            }
+
             // Auto-test: if enabled, start verification — don't cascade yet
             let project = projects::get_by_id(db, project_id);
             let should_auto_test = project
@@ -1352,6 +1449,8 @@ fn handle_process_lifecycle(
                     ) {
                         auto_create_pr_public(&done_task, working_dir, &proj, db, app);
                         let after_pr = tasks::get_by_id(db, task_id).unwrap_or(done_task.clone());
+                        // Auto-approve reaches Done → merge the PR, same as manual acceptance.
+                        merge_task_pr(&after_pr, working_dir, &proj, db, app);
                         cleanup_task_branch(&after_pr, project_working_dir, &proj, db);
 
                         if proj.github_sync_enabled.unwrap_or(0) == 1 {
@@ -2081,9 +2180,10 @@ After all checks, you MUST output this exact JSON block as your final output:
                             ) {
                                 // Auto-create PR from worktree dir (where commits live)
                                 auto_create_pr_public(&done_task, &effective_dir, &proj, &db, &app);
-                                // Cleanup worktree + feature branch using project root dir
                                 let after_pr =
                                     tasks::get_by_id(&db, task_id).unwrap_or(done_task.clone());
+                                // Auto-test pass reaches Done → merge the PR, same as manual acceptance.
+                                merge_task_pr(&after_pr, &effective_dir, &proj, &db, &app);
                                 cleanup_task_branch(&after_pr, &project_working_dir, &proj, &db);
 
                                 // Auto-close linked GitHub issue

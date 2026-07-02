@@ -104,6 +104,25 @@ pub fn change_task_status(app: AppHandle, id: i64, status: String, mcp_port: u16
         return Err(format!("Invalid transition: {} -> {}", from, to));
     }
 
+    // ── Dependency gate: a task blocked by another task cannot start until
+    // every blocker is accepted (done). The auto-queue already enforces this
+    // (get_ready_tasks); this closes the manual-start bypass. ──
+    if to == TaskStatus::InProgress && from != TaskStatus::InProgress {
+        let unmet = db::dependencies::get_unmet_parents(&db, id);
+        if let Some((blocker_id, blocker_title)) = unmet.first() {
+            return Err(format!(
+                "Blocked by task #{}: \"{}\" — it must be completed (done) first{}",
+                blocker_id,
+                blocker_title,
+                if unmet.len() > 1 {
+                    format!(" (+{} more blockers)", unmet.len() - 1)
+                } else {
+                    String::new()
+                }
+            ));
+        }
+    }
+
     // ── Apply status in DB ──
     tq::update_status(&db, id, to.as_str());
 
@@ -126,6 +145,19 @@ pub fn change_task_status(app: AppHandle, id: i64, status: String, mcp_port: u16
 
     if to == TaskStatus::Testing && from == TaskStatus::InProgress {
         tq::pause_timer(&db, id);
+    }
+
+    // Entering review (Testing) opens the PR so it can be inspected during
+    // acceptance; approving the task (Done) merges it. Idempotent — skipped
+    // when the task already has a PR or auto_pr is off.
+    if to == TaskStatus::Testing && from != TaskStatus::Testing {
+        if let Some(project) = pq::get_by_id(&db, task.project_id) {
+            if let Some(fresh) = tq::get_by_id(&db, id) {
+                let pr_dir =
+                    runner::get_task_worktree(id).unwrap_or_else(|| project.working_dir.clone());
+                runner::auto_create_pr_public(&fresh, &pr_dir, &project, &db, &app);
+            }
+        }
     }
 
     if to == TaskStatus::Done {
@@ -163,8 +195,11 @@ pub fn change_task_status(app: AppHandle, id: i64, status: String, mcp_port: u16
         queue::start_next_queued(&db, &app, task.project_id);
     }
 
-    // Cascade when approving: AwaitingApproval -> Done unblocks dependents
-    if from == TaskStatus::AwaitingApproval && to == TaskStatus::Done {
+    // Cascade when approving: reaching Done unblocks dependents (blockers only
+    // count as met once done, so the testing->done acceptance must cascade too)
+    if to == TaskStatus::Done
+        && (from == TaskStatus::AwaitingApproval || from == TaskStatus::Testing)
+    {
         queue::on_task_completed(&db, &app, task.project_id, id);
     }
 
@@ -186,9 +221,14 @@ fn execute_done_side_effects(db: &crate::db::DbPool, app: &AppHandle, id: i64, t
         let fresh_task = tq::get_by_id(db, id).unwrap_or(task.clone());
         // Use worktree dir for PR creation (where commits live), fall back to project dir
         let pr_dir = runner::get_task_worktree(id).unwrap_or_else(|| project.working_dir.clone());
+        // Fallback for tasks that skipped the Testing stage — normally the PR
+        // already exists (opened when the task entered review).
         runner::auto_create_pr_public(&fresh_task, &pr_dir, &project, db, app);
         let after_pr = tq::get_by_id(db, id).unwrap_or(fresh_task.clone());
-        // Cleanup uses project root (manages worktrees and branches)
+        // Accepting the task merges its PR (failure never blocks Done —
+        // the PR stays open and the error lands in the task log).
+        runner::merge_task_pr(&after_pr, &pr_dir, &project, db, app);
+        // Branch handling uses project root (manages worktrees and branches)
         runner::cleanup_task_branch(&after_pr, &project.working_dir, &project, db);
 
         // Auto-close linked GitHub issue
