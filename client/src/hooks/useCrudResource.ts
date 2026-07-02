@@ -11,6 +11,10 @@ interface CrudConfig<T> {
   remove: (id: number) => Promise<void>;
 }
 
+// Stable fallback — `data ?? []` would return a new array identity every render
+// until the query resolves, re-triggering any effect that depends on `items`.
+const EMPTY: never[] = [];
+
 /** Generic list+edit+delete state for the entity editor modals, backed by the query cache. */
 export function useCrudResource<T extends { id: number }>({
   projectId,
@@ -25,7 +29,7 @@ export function useCrudResource<T extends { id: number }>({
   const [deleting, setDeleting] = useState<T | null>(null);
 
   const { data, isLoading: loading } = useQuery({ queryKey, queryFn: () => getAll(projectId) });
-  const items = data ?? [];
+  const items: T[] = data ?? EMPTY;
 
   const reload = useCallback(() => queryClient.invalidateQueries({ queryKey }), [queryClient, queryKey]);
 

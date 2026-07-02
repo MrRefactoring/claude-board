@@ -1,7 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
-import type { Project } from '@/lib/types';
+import type { Project, Task } from '@/lib/types';
+
+// Stable fallback: `data ?? []` would mint a fresh array every render while the
+// query is disabled, and anything with `tasks` in an effect dep array would
+// re-run each render (infinite setState loop via useTerminalTabs).
+const NO_TASKS: Task[] = [];
 
 /**
  * Task list for the current project, backed by the query cache.
@@ -14,5 +19,5 @@ export function useTasks(currentProject: Project | null) {
     queryFn: () => api.getTasks(projectId!),
     enabled: projectId !== null,
   });
-  return { tasks: data ?? [] };
+  return { tasks: data ?? NO_TASKS };
 }

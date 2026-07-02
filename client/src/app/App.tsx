@@ -18,12 +18,17 @@ import { I18nProvider, useTranslation } from '@/i18n/I18nProvider';
 import OnboardingTour, { useOnboarding } from '@/features/onboarding/OnboardingTour';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import CommandPalette from '@/features/command-palette/CommandPalette';
-import type { Task } from '@/lib/types';
+import type { Task, Template, Role } from '@/lib/types';
 
 interface UpdateInfo {
   version?: string;
   status?: string;
 }
+
+// Stable fallbacks — a `= []` destructuring default would mint a new array
+// every render while the queries are disabled (no project selected).
+const NO_TEMPLATES: Template[] = [];
+const NO_ROLES: Role[] = [];
 
 function AppInner() {
   const { t } = useTranslation();
@@ -45,12 +50,12 @@ function AppInner() {
   const currentProjectId = currentProject?.id ?? null;
   // Freshness: entity events invalidate these (useRealtimeSync), plus ModalHost
   // invalidates on modal close as a transport-independent fallback.
-  const { data: templates = [] } = useQuery({
+  const { data: templates = NO_TEMPLATES } = useQuery({
     queryKey: queryKeys.templates(currentProjectId ?? -1),
     queryFn: () => api.getTemplates(currentProjectId!),
     enabled: currentProjectId !== null,
   });
-  const { data: roles = [] } = useQuery({
+  const { data: roles = NO_ROLES } = useQuery({
     queryKey: queryKeys.roles(currentProjectId ?? -1),
     queryFn: () => api.getRoles(currentProjectId!),
     enabled: currentProjectId !== null,

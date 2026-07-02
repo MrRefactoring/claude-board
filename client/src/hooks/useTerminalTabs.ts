@@ -11,14 +11,22 @@ export function useTerminalTabs(tasks: Task[]) {
   const [splitMode, setSplitMode] = useState<SplitMode>(null);
   const [splitTabId, setSplitTabId] = useState<number | null>(null);
 
-  // Keep tabs in sync with task data
+  // Keep tabs in sync with task data. Must return `prev` when nothing changed:
+  // an always-new array here + an unstable `tasks` identity = infinite loop.
   useEffect(() => {
-    setTabs((prev) =>
-      prev.map((tab) => {
+    setTabs((prev) => {
+      if (prev.length === 0) return prev;
+      let changed = false;
+      const next = prev.map((tab) => {
         const updated = tasks.find((t) => t.id === tab.id);
-        return updated ? { ...tab, ...updated } : tab;
-      }),
-    );
+        if (updated && updated !== tab) {
+          changed = true;
+          return { ...tab, ...updated };
+        }
+        return tab;
+      });
+      return changed ? next : prev;
+    });
   }, [tasks]);
 
   const openTab = useCallback((task: Task) => {
