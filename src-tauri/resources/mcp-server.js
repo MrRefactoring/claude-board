@@ -22,14 +22,39 @@ const TASK_ID = process.env.CLAUDE_BOARD_TASK_ID ? Number(process.env.CLAUDE_BOA
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function api(path, options = {}) {
-  // eslint-disable-next-line no-undef
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+  const method = options.method || 'GET';
+  const doFetch = () =>
+    // eslint-disable-next-line no-undef
+    fetch(`${BASE_URL}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    });
+
+  let res;
+  try {
+    res = await doFetch();
+  } catch {
+    // Network-level failure (e.g. the backend is restarting in dev mode) —
+    // retry once after a short pause. Never retry non-2xx responses.
+    await sleep(300);
+    try {
+      res = await doFetch();
+    } catch (e2) {
+      throw new Error(
+        `${method} ${path} failed: Claude Board backend unreachable at ${BASE_URL} ` +
+          `(possibly restarting): ${e2?.cause?.code || e2?.message || e2}`,
+      );
+    }
+  }
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `API error: ${res.status}`);
+    const body = await res.text().catch(() => '');
+    let detail = body;
+    try {
+      detail = JSON.parse(body).error || body;
+    } catch {
+      /* non-JSON body — use as-is */
+    }
+    throw new Error(`${method} ${path} → ${res.status}${detail ? `: ${detail}` : ` ${res.statusText}`}`);
   }
   return res.json();
 }
