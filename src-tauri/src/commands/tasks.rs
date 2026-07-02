@@ -666,3 +666,30 @@ pub fn get_agent_activity(project_id: i64) -> serde_json::Value {
         "conflicts": conflicts,
     })
 }
+
+// ─── Task comments / work-log ───
+
+#[tauri::command]
+pub fn get_task_comments(id: i64) -> Vec<crate::db::comments::TaskComment> {
+    db::comments::get_by_task(&db::get_db(), id)
+}
+
+#[tauri::command]
+pub fn add_task_comment(
+    app: AppHandle,
+    task_id: i64,
+    body: String,
+    author_name: Option<String>,
+) -> Result<crate::db::comments::TaskComment, String> {
+    let db = db::get_db();
+    let cid = db::comments::add(&db, task_id, "user", author_name.as_deref(), &body, None);
+    if cid <= 0 {
+        return Err("Failed to add comment".into());
+    }
+    let comment = db::comments::get_by_task(&db, task_id)
+        .into_iter()
+        .find(|c| c.id == cid)
+        .ok_or("Comment not found after insert")?;
+    app.emit("comment:created", &serde_json::json!({"taskId": task_id, "comment": comment})).ok();
+    Ok(comment)
+}

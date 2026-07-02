@@ -10,6 +10,7 @@ import type {
   Attachment,
   ActivityEntry,
   Model,
+  TaskComment,
 } from '@/lib/types';
 
 // Detect Tauri environment
@@ -116,6 +117,16 @@ const coreApi = {
   getRevisions: (id: number): Promise<TaskRevision[]> =>
     call('get_revisions', 'GET', `/api/tasks/${id}/revisions`, { id }),
   getTaskDetail: (id: number): Promise<unknown> => call('get_task_detail', 'GET', `/api/tasks/${id}/detail`, { id }),
+  getTaskComments: (id: number): Promise<TaskComment[]> =>
+    call('get_task_comments', 'GET', `/api/tasks/${id}/comments`, { id }),
+  addTaskComment: (taskId: number, body: string, authorName?: string | null): Promise<TaskComment> =>
+    call(
+      'add_task_comment',
+      'POST',
+      `/api/tasks/${taskId}/comments`,
+      { taskId, body, authorName: authorName || null },
+      { body, author_type: 'user' },
+    ),
 
   // ─── Planning ───
   startPlanning: (projectId: number, data: Record<string, unknown>): Promise<unknown> =>

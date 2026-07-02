@@ -193,6 +193,24 @@ server.tool(
   },
 );
 
+// ─── add_task_comment ───
+server.tool(
+  'add_task_comment',
+  'Post a work-log comment on a task — what you did, decisions you made, or a link to a PR you opened. Leave a trail of your work so the human can follow along.',
+  {
+    task_id: z.number().describe('Task ID to comment on'),
+    body: z.string().describe('Comment text (markdown supported)'),
+    pr_url: z.string().optional().describe('Optional link to a pull request'),
+  },
+  async ({ task_id, body, pr_url }) => {
+    await api(`/api/tasks/${task_id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ body, pr_url: pr_url || null, author_type: 'agent' }),
+    });
+    return { content: [{ type: 'text', text: `Comment posted on task #${task_id}.` }] };
+  },
+);
+
 // ─── update_task ───
 server.tool(
   'update_task',

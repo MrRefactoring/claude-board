@@ -10,6 +10,7 @@ import {
   FlaskConical,
   Layers,
   Link2,
+  MessageSquare,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { TagList } from '@/features/board/TagBadge';
@@ -27,6 +28,7 @@ import { TaskTestTab } from '@/features/tasks/TaskTestTab';
 import { TaskAttachmentsTab } from '@/features/tasks/TaskAttachmentsTab';
 import { TaskRevisionsTab } from '@/features/tasks/TaskRevisionsTab';
 import { TaskDependenciesTab } from '@/features/tasks/TaskDependenciesTab';
+import { TaskCommentsTab } from '@/features/tasks/TaskCommentsTab';
 
 interface Props {
   task: Task;
@@ -115,6 +117,7 @@ export default function TaskDetailModal({ task, onClose, onStatusChange }: Props
       { id: 'attachments', label: t('detail.files'), icon: Paperclip, show: hasAttachments },
       { id: 'revisions', label: t('detail.revisions'), icon: RotateCcw, show: hasRevisions },
       { id: 'dependencies', label: t('detail.dependencies') || 'Dependencies', icon: Link2, always: true },
+      { id: 'comments', label: t('detail.comments') || 'Comments', icon: MessageSquare, always: true },
       { id: 'replay', label: t('detail.replay'), icon: Activity, always: true },
     ] as TabDef[]
   ).filter((tab) => tab.always || tab.show);
@@ -241,6 +244,8 @@ export default function TaskDetailModal({ task, onClose, onStatusChange }: Props
                   setAddDepDirection={setAddDepDirection}
                 />
               )}
+
+              {activeTab === 'comments' && <TaskCommentsTab taskId={task.id} />}
 
               {activeTab === 'replay' && (
                 <div className="h-80 -mx-5 -mb-4">

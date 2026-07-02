@@ -30,6 +30,7 @@ pub async fn start_server(port: u16) {
         .route("/api/tasks/{id}/logs", get(task_logs))
         .route("/api/tasks/{id}/revisions", get(task_revisions))
         .route("/api/tasks/{id}/dependencies", post(add_task_dependency_handler))
+        .route("/api/tasks/{id}/comments", get(list_task_comments).post(post_task_comment))
         .route("/api/projects/{project_id}/tasks/bulk", post(create_tasks_bulk))
         // Stats
         .route("/api/projects/{pid}/stats", get(project_stats))
@@ -145,6 +146,37 @@ async fn add_task_dependency_handler(Path(id): Path<i64>, Json(body): Json<AddDe
     match dependencies::add_dependency(&db, id, body.depends_on_id, body.condition_type.as_deref()) {
         Ok(_) => Json(serde_json::json!({"ok": true, "task_id": id, "depends_on_id": body.depends_on_id})).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e.to_string()}))).into_response(),
+    }
+}
+
+// ─── Comments ───
+
+async fn list_task_comments(Path(id): Path<i64>) -> Json<serde_json::Value> {
+    Json(to_json(&db::comments::get_by_task(&db::get_db(), id)))
+}
+
+#[derive(Deserialize)]
+struct CommentBody {
+    body: String,
+    author_type: Option<String>,
+    author_name: Option<String>,
+    pr_url: Option<String>,
+}
+
+/// POST /api/tasks/{id}/comments — used by the MCP add_task_comment tool.
+async fn post_task_comment(Path(id): Path<i64>, Json(b): Json<CommentBody>) -> impl IntoResponse {
+    let db = db::get_db();
+    let cid = db::comments::add(
+        &db, id,
+        b.author_type.as_deref().unwrap_or("agent"),
+        b.author_name.as_deref(),
+        &b.body,
+        b.pr_url.as_deref(),
+    );
+    if cid > 0 {
+        (StatusCode::CREATED, Json(serde_json::json!({"id": cid, "task_id": id}))).into_response()
+    } else {
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }
 

@@ -613,6 +613,16 @@ fn auto_create_pr(
                 Some(&url),
                 task.diff_stat.as_deref(),
             );
+            // Leave a work-log comment with the PR link (req #6 ↔ #4).
+            let provider_name = provider.display_name().to_string();
+            crate::db::comments::add(
+                db,
+                task.id,
+                "agent",
+                Some(provider_name.as_str()),
+                &format!("Opened a pull request: {}", url),
+                Some(&url),
+            );
             let msg = format!("Auto-PR created on {}: {}", provider.display_name(), url);
             tasks::add_log(db, task.id, &msg, "success", None);
             app.emit("task:log", &serde_json::json!({"taskId": task.id, "message": msg.clone(), "logType": "success"})).ok();

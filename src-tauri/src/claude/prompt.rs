@@ -119,7 +119,10 @@ pub fn build_prompt(
     parts.push("- **change_task_status** — Move tasks between statuses".into());
     parts.push("- **get_task_detail** — Get full details of any task".into());
     parts.push("- **list_task_summary** — Get a grouped summary of all tasks".into());
-    parts.push(format!("Use these tools when the task description asks you to plan, break down work, or manage tasks. The current project_id is {}.", project_id));
+    parts.push("- **add_dependency** — Order work so one task waits for another (task_id depends on depends_on_id)".into());
+    parts.push("- **decompose** — If you uncover a larger scope, create an epic/story/task tree with dependencies in one call".into());
+    parts.push(format!("- **add_task_comment** — Leave a work-log comment on this task (task_id: {}). When you finish, post a short summary of what you did; if you opened a pull request, include its URL via pr_url.", task.id));
+    parts.push(format!("Use these tools when the task description asks you to plan, break down work, or manage tasks — and always leave a brief add_task_comment work-log when you complete this task. The current project_id is {}.", project_id));
 
     parts.push("\n## Instructions".into());
     parts.push(format!("- Task type: {}", task.task_type.as_deref().unwrap_or("feature")));
