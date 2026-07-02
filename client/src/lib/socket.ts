@@ -34,6 +34,7 @@ if (IS_TAURI) {
         'task:log',
         'task:attachments',
         'task:attachmentDeleted',
+        'comment:created',
         'project:created',
         'project:updated',
         'project:deleted',

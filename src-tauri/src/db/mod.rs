@@ -15,6 +15,7 @@ pub mod settings;
 pub mod workflows;
 pub mod roadmap;
 pub mod custom_models;
+pub mod comments;
 
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;

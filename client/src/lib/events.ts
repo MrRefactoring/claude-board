@@ -1,4 +1,4 @@
-import type { Task, Project, Snippet, Template, Role, Attachment } from '@/lib/types';
+import type { Task, Project, Snippet, Template, Role, Attachment, TaskComment } from '@/lib/types';
 
 /**
  * Every realtime event the app listens for, mapped to its payload type.
@@ -23,6 +23,7 @@ export interface AppEventMap {
   'task:log': unknown;
   'task:attachments': { taskId: number; attachments: Attachment[] };
   'task:attachmentDeleted': { taskId: number; id: number };
+  'comment:created': { taskId: number; comment: TaskComment };
 
   'project:created': Project;
   'project:updated': Project;

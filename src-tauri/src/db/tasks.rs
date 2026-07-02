@@ -51,6 +51,11 @@ pub struct Task {
     pub deleted_at: Option<String>,
     pub agent_name: Option<String>,
     pub phase_plan_id: Option<i64>,
+    // AI orchestration: Jira-style hierarchy level (epic|story|task|subtask) + estimation,
+    // and a per-task PR intent override (None = inherit project.auto_pr).
+    pub task_level: Option<String>,
+    pub story_points: Option<i64>,
+    pub auto_pr: Option<i64>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
     #[serde(default)]
@@ -124,6 +129,9 @@ pub fn row_to_task(row: &rusqlite::Row) -> rusqlite::Result<Task> {
         deleted_at: row.get("deleted_at").ok().flatten(),
         agent_name: row.get("agent_name").ok().flatten(),
         phase_plan_id: row.get("phase_plan_id").ok().flatten(),
+        task_level: row.get("task_level").ok().flatten(),
+        story_points: row.get("story_points").ok().flatten(),
+        auto_pr: row.get("auto_pr").ok().flatten(),
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
         is_running: false,
@@ -592,6 +600,33 @@ pub fn set_parent_task_id(db: &DbPool, task_id: i64, parent_id: i64) {
     let conn = db.lock();
     if let Err(e) = conn.execute("UPDATE tasks SET parent_task_id=?1 WHERE id=?2", params![parent_id, task_id]) {
         log::error!("set_parent_task_id: {}", e);
+    }
+}
+
+// ─── AI orchestration: hierarchy level, estimation, per-task PR intent ───
+
+#[allow(dead_code)]
+pub fn set_task_level(db: &DbPool, task_id: i64, level: &str) {
+    let conn = db.lock();
+    if let Err(e) = conn.execute("UPDATE tasks SET task_level=?1 WHERE id=?2", params![level, task_id]) {
+        log::error!("set_task_level: {}", e);
+    }
+}
+
+#[allow(dead_code)]
+pub fn set_story_points(db: &DbPool, task_id: i64, points: Option<i64>) {
+    let conn = db.lock();
+    if let Err(e) = conn.execute("UPDATE tasks SET story_points=?1 WHERE id=?2", params![points, task_id]) {
+        log::error!("set_story_points: {}", e);
+    }
+}
+
+/// Per-task PR intent override. `None` clears it (inherit project.auto_pr).
+#[allow(dead_code)]
+pub fn set_auto_pr(db: &DbPool, task_id: i64, auto_pr: Option<i64>) {
+    let conn = db.lock();
+    if let Err(e) = conn.execute("UPDATE tasks SET auto_pr=?1 WHERE id=?2", params![auto_pr, task_id]) {
+        log::error!("set_auto_pr: {}", e);
     }
 }
 

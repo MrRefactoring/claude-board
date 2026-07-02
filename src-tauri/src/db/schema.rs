@@ -583,6 +583,25 @@ pub fn run_migrations(conn: &Connection) {
             "pr_provider",
             "ALTER TABLE projects ADD COLUMN pr_provider TEXT DEFAULT 'auto'",
         ),
+        // AI orchestration: Jira-style hierarchy (epic/story/task/subtask). The tree
+        // edges reuse the existing parent_task_id column; task_level is orthogonal to
+        // task_type (which keeps its CHECK constraint), so no table recreate is needed.
+        (
+            "tasks",
+            "task_level",
+            "ALTER TABLE tasks ADD COLUMN task_level TEXT DEFAULT 'task'",
+        ),
+        (
+            "tasks",
+            "story_points",
+            "ALTER TABLE tasks ADD COLUMN story_points INTEGER",
+        ),
+        // Per-task PR intent override (NULL = inherit project.auto_pr)
+        (
+            "tasks",
+            "auto_pr",
+            "ALTER TABLE tasks ADD COLUMN auto_pr INTEGER",
+        ),
     ];
 
     for (table, col, sql) in migrations {
@@ -873,6 +892,26 @@ pub fn run_migrations(conn: &Connection) {
     conn.execute_batch(
         "INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_id)
          SELECT id, depends_on FROM tasks WHERE depends_on IS NOT NULL",
+    )
+    .ok();
+
+    // Task comments / work-log: user- and agent-authored notes, optional PR link.
+    // Created at the very end of run_migrations, after any `tasks` table recreation,
+    // so the FK target is stable.
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS task_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            author_type TEXT DEFAULT 'user',
+            author_name TEXT,
+            body TEXT NOT NULL,
+            pr_url TEXT,
+            created_at DATETIME DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_task_comments_task ON task_comments(task_id);
+    ",
     )
     .ok();
 

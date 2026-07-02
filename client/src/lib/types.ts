@@ -26,6 +26,10 @@ export type TaskStatus = 'backlog' | 'in_progress' | 'testing' | 'done' | 'faile
 
 export type TaskType = 'feature' | 'bugfix' | 'refactor' | 'docs' | 'test' | 'chore';
 
+/** Jira-style hierarchy level. `epic`/`story` are containers (they roll up from
+ *  their children and are not executed by agents); `task`/`subtask` are leaves. */
+export type TaskLevel = 'epic' | 'story' | 'task' | 'subtask';
+
 export interface Task {
   id: number;
   project_id: number;
@@ -60,6 +64,13 @@ export interface Task {
   diff_stat?: string;
   role_id?: number;
   task_key?: string;
+  /** Parent in the epic→story→task→subtask tree (raw DB column). */
+  parent_task_id?: number;
+  /** Hierarchy level; defaults to `task` when absent. */
+  task_level?: TaskLevel;
+  story_points?: number;
+  /** Per-task PR intent override (0/1); absent/undefined = inherit project.auto_pr. */
+  auto_pr?: number;
   created_at?: string;
   updated_at?: string;
   /** Computed at runtime, not persisted. */
@@ -134,6 +145,17 @@ export interface TaskRevision {
   task_id: number;
   revision_number: number;
   feedback: string;
+  created_at?: string;
+}
+
+/** A task comment / work-log entry, authored by the user or an agent. */
+export interface TaskComment {
+  id: number;
+  task_id: number;
+  author_type?: 'user' | 'agent';
+  author_name?: string;
+  body: string;
+  pr_url?: string;
   created_at?: string;
 }
 
