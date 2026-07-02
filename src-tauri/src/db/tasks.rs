@@ -605,7 +605,6 @@ pub fn set_parent_task_id(db: &DbPool, task_id: i64, parent_id: i64) {
 
 // ─── AI orchestration: hierarchy level, estimation, per-task PR intent ───
 
-#[allow(dead_code)]
 pub fn set_task_level(db: &DbPool, task_id: i64, level: &str) {
     let conn = db.lock();
     if let Err(e) = conn.execute("UPDATE tasks SET task_level=?1 WHERE id=?2", params![level, task_id]) {
@@ -613,7 +612,6 @@ pub fn set_task_level(db: &DbPool, task_id: i64, level: &str) {
     }
 }
 
-#[allow(dead_code)]
 pub fn set_story_points(db: &DbPool, task_id: i64, points: Option<i64>) {
     let conn = db.lock();
     if let Err(e) = conn.execute("UPDATE tasks SET story_points=?1 WHERE id=?2", params![points, task_id]) {
@@ -622,7 +620,6 @@ pub fn set_story_points(db: &DbPool, task_id: i64, points: Option<i64>) {
 }
 
 /// Per-task PR intent override. `None` clears it (inherit project.auto_pr).
-#[allow(dead_code)]
 pub fn set_auto_pr(db: &DbPool, task_id: i64, auto_pr: Option<i64>) {
     let conn = db.lock();
     if let Err(e) = conn.execute("UPDATE tasks SET auto_pr=?1 WHERE id=?2", params![auto_pr, task_id]) {

@@ -31,7 +31,7 @@ async function api(path, options = {}) {
 
 const server = new McpServer({
   name: 'claude-board',
-  version: '4.0.0',
+  version: '4.1.0',
 });
 
 // ─── list_projects ───
@@ -81,8 +81,20 @@ server.tool(
     acceptance_criteria: z.string().optional().describe('Definition of done — what must be true when task completes'),
     parent_task_id: z.number().optional().describe('Parent task ID — creates a sub-task linked to the parent. The parent will wait for all sub-tasks to complete before finishing.'),
     tags: z.array(z.string()).optional().describe('Tags/labels for the task (e.g. ["backend", "security"])'),
+    task_level: z
+      .enum(['epic', 'story', 'task', 'subtask'])
+      .optional()
+      .describe('Jira-style hierarchy level. epic/story are containers that roll up from their children and are NOT executed; task/subtask are the executable leaves. Defaults to task.'),
+    story_points: z.number().optional().describe('Estimation in story points'),
+    role_id: z.number().optional().describe('Assign a saved agent/role (its persona, model and tools) to this task'),
+    auto_pr: z
+      .number()
+      .min(0)
+      .max(1)
+      .optional()
+      .describe('Per-task PR intent: 1 = open a PR when done, 0 = do not. Omit to inherit the project setting.'),
   },
-  async ({ project_id, title, description, task_type, priority, model, acceptance_criteria, parent_task_id, tags }) => {
+  async ({ project_id, title, description, task_type, priority, model, acceptance_criteria, parent_task_id, tags, task_level, story_points, role_id, auto_pr }) => {
     const task = await api(`/api/projects/${project_id}/tasks`, {
       method: 'POST',
       body: JSON.stringify({
@@ -94,6 +106,10 @@ server.tool(
         acceptance_criteria: acceptance_criteria || '',
         parent_task_id: parent_task_id || null,
         tags: tags ? JSON.stringify(tags) : '[]',
+        task_level: task_level || null,
+        story_points: story_points ?? null,
+        role_id: role_id ?? null,
+        auto_pr: auto_pr ?? null,
       }),
     });
     const parentInfo = parent_task_id ? ` (sub-task of #${parent_task_id})` : '';
@@ -104,6 +120,75 @@ server.tool(
           text: `Task created: ${task.task_key || '#' + task.id} — "${task.title}" (${task.task_type}, ${task.model}, priority: ${task.priority})${parentInfo}`,
         },
       ],
+    };
+  },
+);
+
+// ─── add_dependency ───
+server.tool(
+  'add_dependency',
+  'Add a dependency edge so a task waits for another to finish. `task_id` only becomes ready once `depends_on_id` is done. Use this to order work in the right sequence.',
+  {
+    task_id: z.number().describe('The task that should wait'),
+    depends_on_id: z.number().describe('The task that must complete first'),
+    condition_type: z
+      .enum(['always', 'on_success', 'on_failure', 'on_any'])
+      .optional()
+      .describe('When the dependency is satisfied. Default: always (parent must reach done/testing).'),
+  },
+  async ({ task_id, depends_on_id, condition_type }) => {
+    await api(`/api/tasks/${task_id}/dependencies`, {
+      method: 'POST',
+      body: JSON.stringify({ depends_on_id, condition_type: condition_type || null }),
+    });
+    return { content: [{ type: 'text', text: `Task #${task_id} now depends on #${depends_on_id}.` }] };
+  },
+);
+
+// ─── decompose ───
+server.tool(
+  'decompose',
+  'Atomically create a whole hierarchy of tasks (epic → story → task → subtask) with parent links and dependency edges in a single call. Use this to break a goal into a runnable plan. Nodes are created in array order; reference hierarchy parents and dependency edges by array index. Only task/subtask leaves are executed by agents — epic/story containers roll up from their children.',
+  {
+    project_id: z.number().describe('Project ID to create the tasks in'),
+    nodes: z
+      .array(
+        z.object({
+          title: z.string(),
+          description: z.string().optional(),
+          task_type: z.enum(['feature', 'bugfix', 'refactor', 'docs', 'test', 'chore']).optional(),
+          priority: z.number().min(0).max(3).optional(),
+          model: z.enum(['haiku', 'sonnet', 'opus']).optional(),
+          acceptance_criteria: z.string().optional(),
+          task_level: z.enum(['epic', 'story', 'task', 'subtask']).optional(),
+          story_points: z.number().optional(),
+          role_id: z.number().optional().describe('Assign a saved agent/role'),
+          tags: z.array(z.string()).optional(),
+          parent: z.number().optional().describe('Index (into nodes) of this node hierarchy parent'),
+        }),
+      )
+      .describe('The tasks to create, in order'),
+    edges: z
+      .array(z.tuple([z.number(), z.number()]))
+      .optional()
+      .describe('Dependency edges as [parentIndex, childIndex]: the child waits for the parent'),
+  },
+  async ({ project_id, nodes, edges }) => {
+    const payload = {
+      nodes: nodes.map((n) => ({
+        ...n,
+        tags: n.tags ? JSON.stringify(n.tags) : undefined,
+      })),
+      edges: edges || [],
+    };
+    const res = await api(`/api/projects/${project_id}/tasks/bulk`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const created = res.tasks || [];
+    const lines = created.map((t) => `[${t.task_key || '#' + t.id}] ${t.title} (${t.task_level || 'task'})`);
+    return {
+      content: [{ type: 'text', text: `Created ${created.length} tasks:\n${lines.join('\n')}` }],
     };
   },
 );
