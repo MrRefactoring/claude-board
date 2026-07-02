@@ -15,7 +15,6 @@ src-tauri/target/
 # Claude
 .claude/
 .mcp.json
-CLAUDE.md
 .planning/
 
 # OS
@@ -31,4 +30,4 @@ src-tauri/keys/
 scripts/
 # vault-bridge
 .vault.json
-
+.idea

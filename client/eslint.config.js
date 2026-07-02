@@ -1,3 +1,4 @@
+import eslintReact from '@eslint-react/eslint-plugin';
 import prettier from 'eslint-config-prettier';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
@@ -17,10 +18,13 @@ export default tseslint.config(
     },
     plugins: {
       'react-hooks': reactHooks,
+      '@eslint-react': eslintReact,
     },
     rules: {
       'react-hooks/exhaustive-deps': 'warn',
       'react-hooks/rules-of-hooks': 'error',
+      '@eslint-react/no-missing-key': 'error',
+      '@eslint-react/no-array-index-key': 'warn',
       'no-debugger': 'error',
       'no-duplicate-case': 'error',
       'no-empty': ['warn', { allowEmptyCatch: true }],
