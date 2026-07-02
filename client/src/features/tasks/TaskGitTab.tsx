@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  GitBranch,
   GitCommit,
   GitPullRequest,
   ExternalLink,
@@ -31,8 +32,9 @@ export function TaskGitTab({ d, detail, task, hasGit }: Props) {
   const [autoPr, setAutoPr] = useState<number | null | undefined>(task.auto_pr);
 
   const setIntent = (value: boolean | null) => {
+    const prev = autoPr;
     setAutoPr(value === null ? null : value ? 1 : 0);
-    api.setTaskAutoPr(task.id, value).catch(() => {});
+    api.setTaskAutoPr(task.id, value).catch(() => setAutoPr(prev));
   };
 
   const intents: { v: boolean | null; label: string }[] = [
@@ -70,6 +72,20 @@ export function TaskGitTab({ d, detail, task, hasGit }: Props) {
         </div>
       </div>
 
+      {/* Feature branch — where the task's commits live. Shown so the branch is
+          findable/mergeable even when there's no PR (it is never auto-deleted). */}
+      {task.branch_name && (
+        <div className="flex items-center gap-2 bg-surface-800/40 rounded-lg px-3 py-2.5 text-sm">
+          <GitBranch size={14} className="text-violet-400 flex-shrink-0" />
+          <code className="font-mono text-xs text-surface-200 truncate">{task.branch_name}</code>
+          {!d.pr_url && (
+            <span className="ml-auto text-[10px] text-surface-500 flex-shrink-0">
+              {t('detail.branchKept')}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Pull Request */}
       {d.pr_url && (
         <a
@@ -92,8 +108,8 @@ export function TaskGitTab({ d, detail, task, hasGit }: Props) {
             {t('detail.commits')} ({commits.length})
           </h3>
           <div className="space-y-1">
-            {commits.map((c, i) => (
-              <div key={i} className="flex items-start gap-2 bg-surface-800/40 rounded-lg px-3 py-2 text-xs group">
+            {commits.map((c) => (
+              <div key={c.short} className="flex items-start gap-2 bg-surface-800/40 rounded-lg px-3 py-2 text-xs group">
                 <code className="text-amber-400/80 font-mono text-[10px] mt-0.5 flex-shrink-0">{c.short}</code>
                 <div className="flex-1 min-w-0">
                   <p className="text-surface-200 truncate">{c.message}</p>
@@ -123,26 +139,16 @@ export function TaskGitTab({ d, detail, task, hasGit }: Props) {
           <div className="bg-surface-800/40 rounded-lg px-4 py-3 font-mono text-[11px] leading-relaxed overflow-x-auto max-h-[200px] overflow-y-auto">
             {detail.diff_stat.split('\n').map((line, i) => {
               const isSummary = line.includes('file') && line.includes('changed');
+              // git --stat bars are a trailing run of '+' then '-'.
+              const [, head = line, plus = '', minus = ''] = line.match(/^(.*?)(\+*)(-*)$/) ?? [];
               return (
                 <div
                   key={i}
                   className={`whitespace-pre ${isSummary ? 'text-surface-300 font-semibold border-t border-surface-700/50 pt-2 mt-1' : 'text-surface-400'}`}
                 >
-                  {line.split('').map((ch, j) => {
-                    if (ch === '+')
-                      return (
-                        <span key={j} className="text-emerald-400">
-                          {ch}
-                        </span>
-                      );
-                    if (ch === '-' && !isSummary)
-                      return (
-                        <span key={j} className="text-red-400">
-                          {ch}
-                        </span>
-                      );
-                    return ch;
-                  })}
+                  {head}
+                  {plus && <span className="text-emerald-400">{plus}</span>}
+                  {minus && (isSummary ? minus : <span className="text-red-400">{minus}</span>)}
                 </div>
               );
             })}

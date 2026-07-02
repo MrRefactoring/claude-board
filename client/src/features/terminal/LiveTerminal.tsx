@@ -15,12 +15,15 @@ import {
   Minimize2,
   Code,
   CheckCircle2,
+  ShieldQuestion,
+  Check,
+  Ban,
 } from 'lucide-react';
 import { socket } from '@/lib/socket';
 import { tauriListen, IS_TAURI } from '@/lib/tauriEvents';
 import { api } from '@/lib/api';
 import { useTranslation } from '@/i18n/I18nProvider';
-import type { Task } from '@/lib/types';
+import type { Task, PendingPermission } from '@/lib/types';
 
 import { fmtTokens, groupToolEntries } from '@/features/terminal/terminalHelpers';
 import type { LogLine, LogMeta } from '@/features/terminal/terminalHelpers';
@@ -67,9 +70,14 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
   const [showSearch, setShowSearch] = useState(false);
   const [expandedTools, setExpandedTools] = useState<Set<number>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
+  const [perms, setPerms] = useState<PendingPermission[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const pausedLogsRef = useRef<LogLine[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // Read via ref inside the log handler so toggling pause doesn't tear down
+  // and recreate the subscription (logs arriving in that gap would be lost).
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
   // ─── Data loading ───
   useEffect(() => {
@@ -91,7 +99,7 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
         created_at: d.created_at,
         meta: d.meta || null,
       };
-      if (paused) {
+      if (pausedRef.current) {
         pausedLogsRef.current.push(entry);
       } else {
         setLogs((prev) => (prev.length > 2000 ? [...prev.slice(-1500), entry] : [...prev, entry]));
@@ -103,7 +111,40 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
       socket.on('task:log', handler);
       return () => socket.off('task:log', handler);
     }
-  }, [task.id, paused]);
+  }, [task.id]);
+
+  // While the task runs, poll for tool-permission requests it raised so the user
+  // can approve (Yes / Always / Deny) — the runner blocks until they decide.
+  useEffect(() => {
+    if (!task.is_running) {
+      setPerms([]);
+      return;
+    }
+    let alive = true;
+    const tick = async () => {
+      try {
+        const all = await api.getPendingPermissions();
+        if (alive) setPerms(all.filter((p) => p.task_id === task.id));
+      } catch {
+        /* transient — retry next tick */
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => {
+      alive = false;
+      clearInterval(iv);
+    };
+  }, [task.is_running, task.id]);
+
+  const resolvePerm = async (id: string, decision: 'allow' | 'deny', remember = false) => {
+    setPerms((prev) => prev.filter((p) => p.id !== id));
+    try {
+      await api.resolvePermission(id, decision, remember);
+    } catch {
+      /* the poll re-surfaces it if the resolve didn't land */
+    }
+  };
 
   const resumeLogs = useCallback(() => {
     setPaused(false);
@@ -406,6 +447,41 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
           <Trash2 size={10} />
         </button>
       </div>
+
+      {/* ═══ Tool-permission requests ═══ */}
+      {perms.length > 0 && (
+        <div className="border-b border-amber-500/30 bg-amber-500/5 px-3 py-2 space-y-2">
+          {perms.map((p) => (
+            <div key={p.id} className="flex items-center gap-2 flex-wrap">
+              <ShieldQuestion size={12} className="text-amber-400 flex-shrink-0" />
+              <span className="text-[11px] text-surface-200">
+                Claude wants <span className="font-mono text-amber-200 break-all">{p.tool_name}</span>
+              </span>
+              <div className="flex items-center gap-1.5 ml-auto">
+                <button
+                  onClick={() => resolvePerm(p.id, 'allow')}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-medium transition-colors"
+                >
+                  <Check size={10} /> Yes
+                </button>
+                <button
+                  onClick={() => resolvePerm(p.id, 'allow', true)}
+                  title="Allow this tool for the rest of the session"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-[10px] font-medium transition-colors"
+                >
+                  <CheckCircle2 size={10} /> Always
+                </button>
+                <button
+                  onClick={() => resolvePerm(p.id, 'deny')}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded text-surface-400 hover:text-surface-200 hover:bg-surface-800 text-[10px] font-medium transition-colors"
+                >
+                  <Ban size={10} /> Deny
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ═══ Content ═══ */}
       <div

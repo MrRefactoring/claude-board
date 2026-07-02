@@ -46,9 +46,9 @@ export function TaskTestTab({ d }: Props) {
 
         {/* Check cards */}
         <div className="space-y-2">
-          {checks.map((check, i) => (
+          {checks.map((check) => (
             <div
-              key={i}
+              key={check.name}
               className={`flex items-start gap-3 px-4 py-3 rounded-lg border ${getCheckCardBorder(check.status)}`}
             >
               <StatusIcon s={check.status} />

@@ -20,6 +20,8 @@ const LOG_COLORS: Record<string, string> = {
 
 /** A log line rendered by the project-wide terminal (built from `task:log` events). */
 interface ProjectLogEntry {
+  /** Monotonic render key — the log buffer is trimmed from the front, so array indexes shift. */
+  id: number;
   taskId?: number;
   task?: Task;
   message?: string;
@@ -27,6 +29,8 @@ interface ProjectLogEntry {
   created_at?: string;
   meta?: { toolName?: string } | null;
 }
+
+let nextLogId = 1;
 
 /** Raw `task:log` event payload (typed `unknown` in AppEventMap). */
 interface TaskLogEvent {
@@ -120,7 +124,7 @@ function TaskPane({ task, logs }: { task: Task; logs: ProjectLogEntry[] }) {
         {logs.length === 0 ? (
           <div className="flex items-center justify-center h-full text-surface-600 text-[10px]">waiting…</div>
         ) : (
-          logs.map((e, i) => <LogLine key={i} entry={e} showTaskBadge={false} />)
+          logs.map((e) => <LogLine key={e.id} entry={e} showTaskBadge={false} />)
         )}
       </div>
     </div>
@@ -178,6 +182,7 @@ export default function ProjectTerminal({ tasks }: { tasks?: Task[] }) {
       const task = d.taskId !== undefined ? tasksByIdRef.current[d.taskId] : undefined;
       if (!task) return; // not a task of this project
       const entry: ProjectLogEntry = {
+        id: nextLogId++,
         taskId: d.taskId,
         task,
         message: d.message || '',
@@ -315,8 +320,8 @@ export default function ProjectTerminal({ tasks }: { tasks?: Task[] }) {
             </div>
           ) : (
             <div className="py-1">
-              {filteredLogs.map((entry, i) => (
-                <LogLine key={i} entry={entry} />
+              {filteredLogs.map((entry) => (
+                <LogLine key={entry.id} entry={entry} />
               ))}
             </div>
           )}
