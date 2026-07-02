@@ -17,7 +17,9 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { STATUS_TEXT_COLORS } from '@/lib/constants';
 import type { Task, Project, TaskStatus } from '@/lib/types';
+import type { ModalName } from '@/store/uiStore';
 
 const STATUS_ICONS: Record<string, LucideIcon> = {
   backlog: Clock,
@@ -28,14 +30,7 @@ const STATUS_ICONS: Record<string, LucideIcon> = {
   awaiting_approval: BadgeCheck,
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  backlog: 'text-surface-400',
-  in_progress: 'text-amber-400',
-  testing: 'text-claude',
-  done: 'text-emerald-400',
-  failed: 'text-red-400',
-  awaiting_approval: 'text-violet-400',
-};
+const STATUS_COLORS = STATUS_TEXT_COLORS;
 
 interface SubAction {
   label: string;
@@ -65,7 +60,7 @@ interface Props {
   onStatusChange?: (task: Task, status: TaskStatus) => void;
   onViewLogs?: (task: Task) => void;
   onViewDetail?: (task: Task) => void;
-  openModal: (type: string, project?: Project | null) => void;
+  openModal: (type: ModalName, project?: Project | null) => void;
 }
 
 export default function CommandPalette({
@@ -144,7 +139,7 @@ export default function CommandPalette({
         label: 'Workflow Templates',
         icon: Workflow,
         category: 'action',
-        action: () => openModal('workflows'),
+        action: () => openModal('templates'),
         hidden: !currentProject,
       },
       {

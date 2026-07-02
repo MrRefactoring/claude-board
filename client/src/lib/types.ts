@@ -127,6 +127,22 @@ export interface AgentSuggestion {
   sample_titles: string[];
 }
 
+/** A pending tool-permission request awaiting a Yes / Always / Deny decision. */
+export interface PendingPermission {
+  id: string;
+  tool_name: string;
+  /** Raw tool input Claude wants to run (opaque). */
+  input: unknown;
+  /** "chat" or "task". */
+  origin: string;
+  /** Set when origin === "task". */
+  task_id: number | null;
+  /** "pending" | "allow" | "deny". */
+  status: string;
+  message: string | null;
+  created_at: number;
+}
+
 /** A webhook event type identifier, e.g. 'task:completed'. */
 export type WebhookEventType = string;
 
@@ -227,8 +243,15 @@ export interface Toast {
 /** Adds a transient toast notification. */
 export type AddToast = (message: string, type?: ToastType) => void;
 
-/** Translation function from the i18n provider: key + optional interpolation params. */
-export type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+/** Known translation keys, derived from the English locale. */
+export type I18nKey = keyof typeof import('@/i18n/locales/en').default;
+
+/**
+ * Translation function from the i18n provider: key + optional interpolation params.
+ * Soft-typed: known keys get IDE autocomplete, while dynamic keys
+ * (e.g. `'status.' + col.id`) stay accepted via `string & {}`.
+ */
+export type TranslateFn = (key: I18nKey | (string & {}), params?: Record<string, string | number>) => string;
 
 /** Payload passed to the global confirm dialog. */
 export interface ConfirmState {

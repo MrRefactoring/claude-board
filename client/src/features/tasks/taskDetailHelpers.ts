@@ -1,21 +1,7 @@
 import type { Task, Commit, TaskRevision, Attachment } from '@/lib/types';
 
-export const TYPE_COLORS: Record<string, string> = {
-  feature: 'bg-blue-500/15 text-blue-400',
-  bugfix: 'bg-red-500/15 text-red-400',
-  refactor: 'bg-purple-500/15 text-purple-400',
-  docs: 'bg-green-500/15 text-green-400',
-  test: 'bg-yellow-500/15 text-yellow-400',
-  chore: 'bg-surface-500/15 text-surface-400',
-};
-
-export const STATUS_COLORS: Record<string, string> = {
-  backlog: 'text-surface-400',
-  in_progress: 'text-amber-400',
-  testing: 'text-claude',
-  done: 'text-emerald-400',
-  failed: 'text-red-400',
-};
+// Shared palette lives in lib/constants — re-exported so existing imports keep working.
+export { TYPE_COLORS, STATUS_TEXT_COLORS as STATUS_COLORS } from '@/lib/constants';
 
 export function getDiffLineClass(line: string): string {
   if (line.startsWith('+++') || line.startsWith('---')) return 'text-surface-300 font-semibold px-4 py-0';

@@ -12,6 +12,7 @@ import type {
   Model,
   TaskComment,
   AgentSuggestion,
+  PendingPermission,
 } from '@/lib/types';
 
 // Detect Tauri environment
@@ -84,7 +85,6 @@ const coreApi = {
   // ─── Projects ───
   getProjects: (): Promise<Project[]> => call('get_projects', 'GET', '/api/projects'),
   getProjectsSummary: (): Promise<Project[]> => call('get_projects_summary', 'GET', '/api/projects/summary'),
-  getProject: (id: number): Promise<Project> => call('get_project', 'GET', `/api/projects/${id}`, { id }),
   createProject: (data: Partial<Project>): Promise<Project> =>
     call('create_project', 'POST', '/api/projects', data, data),
   updateProject: (id: number, data: Partial<Project>): Promise<Project> =>
@@ -94,7 +94,6 @@ const coreApi = {
   // ─── Tasks ───
   getTasks: (projectId: number): Promise<Task[]> =>
     call('get_tasks', 'GET', `/api/projects/${projectId}/tasks`, { projectId }),
-  getTask: (id: number): Promise<Task> => call('get_task', 'GET', `/api/tasks/${id}`, { id }),
   createTask: (projectId: number, data: Partial<Task>): Promise<Task> =>
     call('create_task', 'POST', `/api/projects/${projectId}/tasks`, { projectId, ...data }, data),
   updateTask: (id: number, data: Partial<Task>): Promise<Task> =>
@@ -202,15 +201,12 @@ const coreApi = {
         if (!res.ok) throw new Error('Upload failed');
         return res.json() as Promise<Attachment[]>;
       },
-  getAttachments: (taskId: number): Promise<Attachment[]> =>
-    call('get_attachments', 'GET', `/api/tasks/${taskId}/attachments`, { taskId }),
   deleteAttachment: (id: number): Promise<void> =>
     call('delete_attachment', 'DELETE', `/api/attachments/${id}`, { id }),
 
   // ─── Roles ───
   getRoles: (projectId: number): Promise<Role[]> =>
     call('get_roles', 'GET', `/api/projects/${projectId}/roles`, { projectId }),
-  getGlobalRoles: (): Promise<Role[]> => call('get_global_roles', 'GET', '/api/roles/global'),
   createRole: (projectId: number, data: Partial<Role>): Promise<Role> =>
     call('create_role', 'POST', `/api/projects/${projectId}/roles`, { projectId, ...data }, data),
   updateRole: (id: number, data: Partial<Role>): Promise<Role> =>
@@ -230,14 +226,17 @@ const coreApi = {
   testWebhook: (id: number): Promise<unknown> => call('test_webhook', 'POST', `/api/webhooks/${id}/test`, { id }),
 
   // ─── Auth ───
-  getAuthStatus: (): Promise<unknown> => call('get_auth_status', 'GET', '/api/auth/status'),
-  enableAuth: (): Promise<unknown> => call('enable_auth', 'POST', '/api/auth/enable'),
-  disableAuth: (): Promise<unknown> => call('disable_auth', 'POST', '/api/auth/disable'),
 
   // ─── App Settings ───
   getAppSettings: (): Promise<unknown> => call('get_app_settings', 'GET', '/api/settings'),
   updateAppSettings: (data: Record<string, unknown>): Promise<unknown> =>
     call('update_app_settings', 'PUT', '/api/settings', { data }, data),
+
+  // ─── Tool-permission approval (Yes / Always / Deny) ───
+  getPendingPermissions: (): Promise<PendingPermission[]> =>
+    call('get_pending_permissions', 'GET', '/api/permission/pending'),
+  resolvePermission: (id: string, decision: 'allow' | 'deny', remember = false): Promise<boolean> =>
+    call('resolve_permission', 'POST', `/api/permission/${id}/resolve`, { id, decision, remember }, { decision, remember }),
 
   // ─── Git utilities ───
   checkGitRepo: (path: string): Promise<unknown> =>
@@ -273,8 +272,6 @@ const coreApi = {
       { projectId, issueNumbers },
       { issueNumbers },
     ),
-  githubCloseIssue: (projectId: number, taskId: number): Promise<unknown> =>
-    call('github_close_issue', 'POST', `/api/projects/${projectId}/github/close`, { projectId, taskId }, { taskId }),
 };
 
 // ─── Tauri-only: Claude Manager, roadmap/GSD, MCP, skills, chat ───
@@ -284,7 +281,6 @@ const tauriApi = {
   getProjectGroups: () => tauriCall('get_project_groups'),
   reorderQueue: (projectId: number, taskIds: number[]) => tauriCall('reorder_queue', { projectId, taskIds }),
   reorderTasks: (taskIds: number[]) => tauriCall('reorder_tasks', { taskIds }),
-  setTaskDependency: (id: number, dependsOn: number | null) => tauriCall('set_task_dependency', { id, dependsOn }),
   addDependency: (taskId: number, dependsOnId: number, conditionType?: string | null) =>
     tauriCall('add_task_dependency', {
       taskId: Number(taskId),
@@ -295,10 +291,8 @@ const tauriApi = {
     tauriCall('remove_task_dependency', { taskId: Number(taskId), dependsOnId: Number(dependsOnId) }),
   getTaskDependencies: (taskId: number) => tauriCall('get_task_dependencies', { taskId: Number(taskId) }),
   getTaskEvents: (taskId: number, limit = 500) => tauriCall('get_task_events', { taskId: Number(taskId), limit }),
-  getExecutionWaves: (projectId: number) => tauriCall('get_execution_waves', { projectId }),
   getDependencyGraph: (projectId: number) => tauriCall('get_dependency_graph', { projectId }),
   getPipelineStatus: (projectId: number) => tauriCall('get_pipeline_status', { projectId }),
-  getActiveFileMap: () => tauriCall('get_active_file_map'),
   getAgentActivity: (projectId: number) => tauriCall('get_agent_activity', { projectId }),
   getTaskDiff: (taskId: number) => tauriCall('get_task_diff', { taskId: Number(taskId) }),
   approvePlan: (projectId: number, tasks: unknown, model: string, dependencies: unknown, topic: string) =>
@@ -340,15 +334,6 @@ const tauriApi = {
   fetchGithubSkills: (repoUrl: string, path?: string | null) =>
     tauriCall('fetch_github_skills', { repoUrl, path: path || null }),
   fetchSkillContent: (url: string) => tauriCall('fetch_skill_content', { url }),
-  // ─── Workflow Templates ───
-  getWorkflowTemplates: (projectId: number) => tauriCall('get_workflow_templates', { projectId }),
-  createWorkflowTemplate: (projectId: number, name: string, description: string, steps: unknown) =>
-    tauriCall('create_workflow_template', { projectId, name, description, steps }),
-  updateWorkflowTemplate: (id: number, name: string, description: string, steps: unknown) =>
-    tauriCall('update_workflow_template', { id, name, description, steps }),
-  deleteWorkflowTemplate: (id: number) => tauriCall('delete_workflow_template', { id }),
-  applyWorkflowTemplate: (templateId: number, projectId: number) =>
-    tauriCall('apply_workflow_template', { templateId, projectId }),
   // ─── Circuit Breaker ───
   resetCircuitBreaker: (id: number) => tauriCall('reset_circuit_breaker', { id }),
   // ─── AI Chat ───
@@ -366,13 +351,11 @@ const tauriApi = {
       history: history || null,
     }),
   // ─── Roadmap (GSD) ───
-  getMilestones: (projectId: number) => tauriCall('get_milestones', { projectId }),
   createMilestone: (projectId: number, version: string, title: string, description?: string | null) =>
     tauriCall('create_milestone', { projectId, version, title, description: description || null }),
   updateMilestone: (id: number, version: string, title: string, description: string | null, status: string) =>
     tauriCall('update_milestone', { id, version, title, description: description || null, status }),
   deleteMilestone: (id: number) => tauriCall('delete_milestone', { id }),
-  getPhases: (milestoneId: number) => tauriCall('get_phases', { milestoneId }),
   createPhase: (
     milestoneId: number,
     projectId: number,
@@ -408,7 +391,6 @@ const tauriApi = {
       status,
     }),
   deletePhase: (id: number) => tauriCall('delete_phase', { id }),
-  reorderPhases: (milestoneId: number, phaseIds: number[]) => tauriCall('reorder_phases', { milestoneId, phaseIds }),
   insertPhase: (
     milestoneId: number,
     projectId: number,
@@ -427,7 +409,6 @@ const tauriApi = {
       goal: goal || null,
       successCriteria: successCriteria || null,
     }),
-  getPlans: (phaseId: number) => tauriCall('get_plans', { phaseId }),
   createPlan: (
     phaseId: number,
     planNumber: number,
@@ -442,15 +423,12 @@ const tauriApi = {
       description: description || null,
       waveIndex: waveIndex || null,
     }),
-  updatePlan: (id: number, title: string, description: string | null, status: string) =>
-    tauriCall('update_plan', { id, title, description: description || null, status }),
   deletePlan: (id: number) => tauriCall('delete_plan', { id }),
   linkTaskToPlan: (planId: number, taskId: number, checkpointType?: string | null) =>
     tauriCall('link_task_to_plan', { planId, taskId, checkpointType: checkpointType || null }),
   unlinkTaskFromPlan: (planId: number, taskId: number) => tauriCall('unlink_task_from_plan', { planId, taskId }),
   getPlanTasks: (planId: number) => tauriCall('get_plan_tasks', { planId }),
   getRoadmap: (projectId: number) => tauriCall('get_roadmap', { projectId }),
-  getPhaseProgress: (phaseId: number) => tauriCall('get_phase_progress', { phaseId }),
   updateSuccessCriterion: (phaseId: number, criterionIndex: number, verified: boolean) =>
     tauriCall('update_success_criterion', { phaseId, criterionIndex, verified }),
   planPhase: (projectId: number, phaseId: number, model?: string | null, effort?: string | null) =>
@@ -482,7 +460,6 @@ const tauriApi = {
   gsdGetState: (projectId: number) => tauriCall('gsd_get_state', { projectId }),
   gsdGetProject: (projectId: number) => tauriCall('gsd_get_project', { projectId }),
   gsdGetPhaseDetails: (projectId: number) => tauriCall('gsd_get_phase_details', { projectId }),
-  gsdGetConfig: (projectId: number) => tauriCall('gsd_get_config', { projectId }),
   gsdParsePhasePlans: (projectId: number, phaseNumber: number) =>
     tauriCall('gsd_parse_phase_plans', { projectId, phaseNumber }),
   gsdCreateTasksFromPlans: (projectId: number, phaseNumber: number, phaseTitle: string, autoStart?: boolean) =>

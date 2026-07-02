@@ -14,6 +14,9 @@ export const COLUMNS = [
   },
 ];
 
+/** status → text color class, derived from COLUMNS so the palette lives in one place. */
+export const STATUS_TEXT_COLORS: Record<string, string> = Object.fromEntries(COLUMNS.map((c) => [c.id, c.color]));
+
 // ─── Task types ───
 export const TASK_TYPES = ['feature', 'bugfix', 'refactor', 'docs', 'test', 'chore'];
 
@@ -26,7 +29,7 @@ export const TASK_TYPE_OPTIONS = [
   { value: 'chore', label: 'Chore', color: 'bg-surface-500/20 text-surface-300' },
 ];
 
-export const TYPE_COLORS = {
+export const TYPE_COLORS: Record<string, string> = {
   feature: 'bg-blue-500/15 text-blue-400',
   bugfix: 'bg-red-500/15 text-red-400',
   refactor: 'bg-purple-500/15 text-purple-400',
