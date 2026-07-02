@@ -11,8 +11,9 @@ import {
   Link2,
   ArrowRight,
   Github,
-  Map,
+  Map as MapIcon,
   Terminal,
+  Rows3,
 } from 'lucide-react';
 import Column from '@/features/board/Column';
 import ListView from '@/features/board/ListView';
@@ -60,7 +61,7 @@ const VIEWS = [
   { id: 'pipeline', labelKey: 'board.pipeline', icon: GitBranch },
   { id: 'orchestration', labelKey: 'board.orchestration', icon: Workflow },
   { id: 'analytics', labelKey: 'board.analytics', icon: TrendingUp },
-  { id: 'roadmap', labelKey: 'board.roadmap', icon: Map },
+  { id: 'roadmap', labelKey: 'board.roadmap', icon: MapIcon },
   { id: 'terminal', labelKey: 'board.terminal', icon: Terminal },
 ];
 
@@ -83,6 +84,7 @@ export default function Board({
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [mobileTab, setMobileTab] = useState('backlog');
   const [viewMode, setViewMode] = useState('board');
+  const [groupByEpic, setGroupByEpic] = useState(false);
   const [modelFilter, setModelFilter] = useState<string | null>(null);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
@@ -188,6 +190,70 @@ export default function Board({
     [project?.require_approval],
   );
 
+  // ─── Epic swimlanes ───
+  // Leaf progress within a lane (containers are excluded from the count).
+  const laneRollup = (laneTasks: BoardTask[]) => {
+    const leaves = laneTasks.filter(
+      (t) => t.task_level == null || t.task_level === 'task' || t.task_level === 'subtask',
+    );
+    const done = leaves.filter((t) => t.status === 'done' || t.status === 'testing').length;
+    return { done, total: leaves.length };
+  };
+
+  // Group filtered tasks by their epic ancestor. Epics themselves become lane
+  // headers (not cards); tasks with no epic ancestor fall into a "No epic" lane.
+  const epicLanes = useMemo(() => {
+    if (!groupByEpic) return null;
+    const byId = new Map<number, BoardTask>();
+    for (const t of tasks) byId.set(t.id, t);
+    const epicOf = (t: BoardTask): BoardTask | null => {
+      let cur: BoardTask | undefined = t;
+      const seen = new Set<number>();
+      while (cur) {
+        if (cur.task_level === 'epic') return cur;
+        if (cur.parent_task_id == null || seen.has(cur.id)) break;
+        seen.add(cur.id);
+        cur = byId.get(cur.parent_task_id);
+      }
+      return null;
+    };
+    const laneMap = new Map<number | 'none', { epic: BoardTask | null; tasks: BoardTask[] }>();
+    for (const t of filteredTasks) {
+      if (t.task_level === 'epic' && !laneMap.has(t.id)) laneMap.set(t.id, { epic: t, tasks: [] });
+    }
+    for (const t of filteredTasks) {
+      if (t.task_level === 'epic') continue;
+      const epic = epicOf(t);
+      const key: number | 'none' = epic ? epic.id : 'none';
+      if (!laneMap.has(key)) laneMap.set(key, { epic, tasks: [] });
+      laneMap.get(key)!.tasks.push(t);
+    }
+    return Array.from(laneMap.values());
+  }, [groupByEpic, tasks, filteredTasks]);
+
+  const renderColumn = (col: (typeof COLUMNS)[number], tasksForCol: BoardTask[]) => (
+    <Column
+      key={col.id}
+      column={col}
+      tasks={tasksForCol}
+      draggedTask={draggedTask}
+      onDragStart={setDraggedTask}
+      onDragEnd={() => setDraggedTask(null)}
+      onDrop={() => {
+        if (draggedTask && draggedTask.status !== col.id) onStatusChange(draggedTask.id, col.id);
+        setDraggedTask(null);
+      }}
+      onViewLogs={onViewLogs}
+      onEditTask={onEditTask}
+      onDeleteTask={onDeleteTask}
+      onStatusChange={onStatusChange}
+      onReviewTask={onReviewTask}
+      onViewDetail={onViewDetail}
+      onReorder={handleReorder}
+      onDepDrop={handleDepDrop}
+    />
+  );
+
   return (
     <div className="h-full flex">
       <div className="flex-1 flex flex-col min-w-0">
@@ -210,6 +276,20 @@ export default function Board({
               </button>
             );
           })}
+
+          {/* Group by epic (kanban view only) */}
+          {viewMode === 'board' && (
+            <button
+              onClick={() => setGroupByEpic((v) => !v)}
+              title="Group the board into epic swimlanes"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                groupByEpic ? 'bg-violet-500/15 text-violet-300' : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
+              }`}
+            >
+              <Rows3 size={13} />
+              <span className="hidden sm:inline">Epics</span>
+            </button>
+          )}
 
           {/* Separator */}
           {activeModels.length > 1 && <div className="w-px h-5 bg-surface-700/50 mx-1.5" />}
@@ -389,31 +469,51 @@ export default function Board({
               />
             </div>
 
-            {/* Desktop: all columns side by side */}
-            <div className="hidden md:flex flex-1 gap-4 p-4 overflow-x-auto">
-              {visibleColumns.map((col) => (
-                <Column
-                  key={col.id}
-                  column={col}
-                  tasks={columnTasks(col.id)}
-                  draggedTask={draggedTask}
-                  onDragStart={setDraggedTask}
-                  onDragEnd={() => setDraggedTask(null)}
-                  onDrop={() => {
-                    if (draggedTask && draggedTask.status !== col.id) onStatusChange(draggedTask.id, col.id);
-                    setDraggedTask(null);
-                  }}
-                  onViewLogs={onViewLogs}
-                  onEditTask={onEditTask}
-                  onDeleteTask={onDeleteTask}
-                  onStatusChange={onStatusChange}
-                  onReviewTask={onReviewTask}
-                  onViewDetail={onViewDetail}
-                  onReorder={handleReorder}
-                  onDepDrop={handleDepDrop}
-                />
-              ))}
-            </div>
+            {/* Desktop: grouped into epic swimlanes, or a single columns row */}
+            {groupByEpic && epicLanes ? (
+              <div className="hidden md:flex flex-col flex-1 gap-5 p-4 overflow-y-auto">
+                {epicLanes.length === 0 && <div className="text-xs text-surface-500 px-1">No tasks to group.</div>}
+                {epicLanes.map((lane) => {
+                  const { done, total } = laneRollup(lane.tasks);
+                  return (
+                    <div key={lane.epic ? lane.epic.id : 'none'} className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2 px-1">
+                        {lane.epic ? (
+                          <>
+                            <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300">
+                              Epic
+                            </span>
+                            <span className="text-sm font-medium text-surface-200 truncate">{lane.epic.title}</span>
+                            {lane.epic.task_key && (
+                              <span className="text-[10px] text-surface-500 font-mono">{lane.epic.task_key}</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-sm font-medium text-surface-400">No epic</span>
+                        )}
+                        {total > 0 && (
+                          <span className="text-[10px] text-surface-500 tabular-nums ml-auto">
+                            {done}/{total} done
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-4 overflow-x-auto">
+                        {visibleColumns.map((col) =>
+                          renderColumn(
+                            col,
+                            lane.tasks.filter((t) => (t.status || 'backlog') === col.id),
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="hidden md:flex flex-1 gap-4 p-4 overflow-x-auto">
+                {visibleColumns.map((col) => renderColumn(col, columnTasks(col.id)))}
+              </div>
+            )}
           </>
         )}
 

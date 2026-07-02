@@ -22,6 +22,7 @@ import {
   PRIORITY_COLORS as priorityColors,
   TYPE_COLORS as typeColors,
   MODEL_COLORS as modelColors,
+  LEVEL_COLORS as levelColors,
   COLUMNS,
 } from '@/lib/constants';
 import { useStatusTransition } from '@/features/board/StatusTransitionContext';
@@ -280,6 +281,13 @@ const TaskCard = memo(function TaskCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1">
+              {task.task_level && task.task_level !== 'task' && (
+                <span
+                  className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded ${levelColors[task.task_level] || levelColors.task}`}
+                >
+                  {task.task_level}
+                </span>
+              )}
               <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${typeColors[taskType]}`}>
                 {t('type.' + taskType)}
               </span>
@@ -289,6 +297,11 @@ const TaskCard = memo(function TaskCard({
                 </span>
               )}
               <span className={`text-[9px] ${modelColorClass}`}>{modelDisplay}</span>
+              {task.story_points != null && (
+                <span className="text-[9px] text-surface-400 tabular-nums" title="Story points">
+                  {task.story_points} pts
+                </span>
+              )}
               {(task.revision_count ?? 0) > 0 && (
                 <span
                   className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400"

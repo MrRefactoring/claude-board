@@ -35,6 +35,25 @@ export const TYPE_COLORS = {
   chore: 'bg-surface-500/15 text-surface-400',
 };
 
+// ─── Task hierarchy levels (Jira-style: Epic → Story → Task → Subtask) ───
+// epic/story are containers (roll up from children, not executed); task/subtask
+// are the executable leaves.
+export const TASK_LEVELS = ['epic', 'story', 'task', 'subtask'];
+
+export const TASK_LEVEL_OPTIONS = [
+  { value: 'epic', label: 'Epic', color: 'bg-violet-500/20 text-violet-300' },
+  { value: 'story', label: 'Story', color: 'bg-sky-500/20 text-sky-300' },
+  { value: 'task', label: 'Task', color: 'bg-surface-500/20 text-surface-300' },
+  { value: 'subtask', label: 'Subtask', color: 'bg-surface-600/20 text-surface-400' },
+];
+
+export const LEVEL_COLORS: Record<string, string> = {
+  epic: 'bg-violet-500/15 text-violet-300',
+  story: 'bg-sky-500/15 text-sky-300',
+  task: 'bg-surface-500/15 text-surface-300',
+  subtask: 'bg-surface-600/15 text-surface-400',
+};
+
 // ─── Priority ───
 export const PRIORITY_OPTIONS = [
   { value: 0, label: 'None', style: 'bg-surface-700 text-surface-300' },
