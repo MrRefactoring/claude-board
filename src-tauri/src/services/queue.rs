@@ -154,50 +154,74 @@ pub fn start_next_queued(db: &DbPool, app: &AppHandle, project_id: i64) {
 }
 
 /// Called when a task completes — cascades to start newly unblocked dependents
-/// and checks if parent task's sub-tasks are all done.
+/// and rolls completion up the parent chain (subtask → story → epic).
 pub fn on_task_completed(db: &DbPool, app: &AppHandle, project_id: i64, task_id: i64) {
-    // Check if this task is a sub-task — if so, atomically check if parent can complete
+    // If this task has a parent, walk up the hierarchy completing containers.
     if let Some(task) = tasks::get_by_id(db, task_id) {
         if let Some(parent_id) = task.parent_task_id {
-            // Use transaction to prevent double parent completion from concurrent subtask completions
-            let result = db::with_transaction(db, |conn| {
-                let total: i64 = conn.query_row(
-                    "SELECT COUNT(*) FROM tasks WHERE parent_task_id=?1 AND deleted_at IS NULL", rusqlite::params![parent_id], |r| r.get(0),
-                ).unwrap_or(0);
-                let done: i64 = conn.query_row(
-                    &format!("SELECT COUNT(*) FROM tasks WHERE parent_task_id=?1 AND deleted_at IS NULL AND status IN ('{}','{}')",
-                        TaskStatus::Done.as_str(), TaskStatus::Testing.as_str()),
-                    rusqlite::params![parent_id], |r| r.get(0),
-                ).unwrap_or(0);
-                if total == 0 || done < total { return Ok(false); }
-
-                let awaiting: i64 = conn.query_row(
-                    "SELECT COALESCE(awaiting_subtasks, 0) FROM tasks WHERE id=?1",
-                    rusqlite::params![parent_id], |r| r.get(0),
-                ).unwrap_or(0);
-                if awaiting != 1 { return Ok(false); }
-
-                // Only auto-complete if parent is still in_progress and awaiting
-                conn.execute(
-                    &format!("UPDATE tasks SET awaiting_subtasks=0, status='{}', completed_at=datetime('now','localtime'), updated_at=datetime('now','localtime') WHERE id=?1 AND status='{}'",
-                        TaskStatus::Testing.as_str(), TaskStatus::InProgress.as_str()),
-                    rusqlite::params![parent_id]).map_err(|e| e.to_string())?;
-                Ok(true)
-            });
-
-            if result.unwrap_or(false) {
-                if let Some(parent) = tasks::get_by_id(db, parent_id) {
-                    activity::add(db, project_id, Some(parent_id), "subtasks_completed",
-                        &format!("All sub-tasks completed for: {}", parent.title), None);
-                    app.emit("task:updated", &parent).ok();
-                }
-                log::info!("Parent task {} completed — all sub-tasks done", parent_id);
-            }
+            roll_up_parent(db, app, project_id, parent_id);
         }
     }
     // Reset circuit breaker counter on success
     projects::reset_consecutive_failures(db, project_id);
     start_next_queued(db, app, project_id);
+}
+
+/// Recursively complete a parent once all of its children are done, then walk up
+/// to its own parent. Two cases complete a parent:
+///  - an `epic`/`story` *container* (never executed itself, so it may be in
+///    `backlog`) rolls straight to `done`;
+///  - a leaf task that spawned sub-tasks and is `in_progress` + `awaiting` rolls
+///    to `testing` so it can still be reviewed (the pre-existing behaviour).
+/// Each level runs in its own transaction to avoid double-completion under
+/// concurrent sub-task completions.
+fn roll_up_parent(db: &DbPool, app: &AppHandle, project_id: i64, parent_id: i64) {
+    let completed = db::with_transaction(db, |conn| {
+        let total: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM tasks WHERE parent_task_id=?1 AND deleted_at IS NULL",
+            rusqlite::params![parent_id], |r| r.get(0),
+        ).unwrap_or(0);
+        if total == 0 { return Ok(false); }
+        let done: i64 = conn.query_row(
+            &format!("SELECT COUNT(*) FROM tasks WHERE parent_task_id=?1 AND deleted_at IS NULL AND status IN ('{}','{}')",
+                TaskStatus::Done.as_str(), TaskStatus::Testing.as_str()),
+            rusqlite::params![parent_id], |r| r.get(0),
+        ).unwrap_or(0);
+        if done < total { return Ok(false); }
+
+        let (level, status, awaiting): (Option<String>, String, i64) = conn.query_row(
+            "SELECT task_level, status, COALESCE(awaiting_subtasks,0) FROM tasks WHERE id=?1",
+            rusqlite::params![parent_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        ).map_err(|e| e.to_string())?;
+
+        // Skip if already resolved (idempotent under concurrent completions).
+        if status == TaskStatus::Done.as_str() || status == TaskStatus::Testing.as_str() {
+            return Ok(false);
+        }
+        let is_container = matches!(level.as_deref(), Some("epic") | Some("story"));
+        let is_awaiting_leaf = awaiting == 1 && status == TaskStatus::InProgress.as_str();
+        if !is_container && !is_awaiting_leaf { return Ok(false); }
+
+        let target = if is_container { TaskStatus::Done.as_str() } else { TaskStatus::Testing.as_str() };
+        conn.execute(
+            &format!("UPDATE tasks SET awaiting_subtasks=0, status='{}', completed_at=datetime('now','localtime'), updated_at=datetime('now','localtime') WHERE id=?1", target),
+            rusqlite::params![parent_id]).map_err(|e| e.to_string())?;
+        Ok(true)
+    }).unwrap_or(false);
+
+    if completed {
+        if let Some(parent) = tasks::get_by_id(db, parent_id) {
+            activity::add(db, project_id, Some(parent_id), "subtasks_completed",
+                &format!("All sub-tasks completed for: {}", parent.title), None);
+            app.emit("task:updated", &parent).ok();
+            log::info!("Parent task {} rolled up — all children done", parent_id);
+            // Walk up: this parent may in turn complete its own parent.
+            if let Some(grandparent_id) = parent.parent_task_id {
+                roll_up_parent(db, app, project_id, grandparent_id);
+            }
+        }
+    }
 }
 
 /// Handle task failure: retry up to max, then permanently fail.
