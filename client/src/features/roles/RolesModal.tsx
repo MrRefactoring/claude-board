@@ -6,6 +6,7 @@ import type { Role, AgentSuggestion } from '@/lib/types';
 import { MODELS } from '@/lib/constants';
 import { useTranslation } from '@/i18n/I18nProvider';
 import { useCrudResource } from '@/hooks/useCrudResource';
+import { queryKeys } from '@/lib/queryKeys';
 import ModalShell from '@/components/ModalShell';
 import EmptyState from '@/components/EmptyState';
 import Spinner from '@/components/Spinner';
@@ -245,6 +246,7 @@ export default function RolesModal({ projectId, projectName, onClose }: Props) {
   const { t } = useTranslation();
   const crud = useCrudResource<Role>({
     projectId,
+    queryKey: queryKeys.roles(projectId),
     getAll: api.getRoles,
     create: api.createRole,
     update: api.updateRole,

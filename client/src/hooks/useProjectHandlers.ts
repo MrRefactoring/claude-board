@@ -1,28 +1,21 @@
 import { useCallback } from 'react';
 import { api } from '@/lib/api';
-import type { Project, AddToast, TranslateFn, ConfirmState } from '@/lib/types';
+import { useUIStore } from '@/store/uiStore';
+import type { Project, TranslateFn } from '@/lib/types';
 
 interface UseProjectHandlersOptions {
   currentProject: Project | null;
-  navigateToProject: (project: Project | null) => void;
-  navigateToDashboard: () => void;
-  addToast: AddToast;
   t: TranslateFn;
-  setConfirm: (value: ConfirmState | null) => void;
-  openModal: (name: string, data?: unknown) => void;
-  closeModal: (name: string) => void;
 }
 
-export function useProjectHandlers({
-  currentProject,
-  navigateToProject,
-  navigateToDashboard,
-  addToast,
-  t,
-  setConfirm,
-  openModal,
-  closeModal,
-}: UseProjectHandlersOptions) {
+export function useProjectHandlers({ currentProject, t }: UseProjectHandlersOptions) {
+  // Zustand actions are stable references — safe in useCallback deps.
+  const navigateToProject = useUIStore((s) => s.navigateToProject);
+  const navigateToDashboard = useUIStore((s) => s.navigateToDashboard);
+  const addToast = useUIStore((s) => s.addToast);
+  const setConfirm = useUIStore((s) => s.setConfirm);
+  const openModal = useUIStore((s) => s.openModal);
+  const closeModal = useUIStore((s) => s.closeModal);
   const onCreate = useCallback(
     async (data: Partial<Project>) => {
       const p = await api.createProject(data);

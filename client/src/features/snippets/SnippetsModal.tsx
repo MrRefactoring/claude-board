@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import type { Snippet, TranslateFn } from '@/lib/types';
 import { useTranslation } from '@/i18n/I18nProvider';
 import { useCrudResource } from '@/hooks/useCrudResource';
+import { queryKeys } from '@/lib/queryKeys';
 import ModalShell from '@/components/ModalShell';
 import EmptyState from '@/components/EmptyState';
 import Spinner from '@/components/Spinner';
@@ -83,6 +84,7 @@ export default function SnippetsModal({ projectId, projectName, onClose }: Props
   const { t } = useTranslation();
   const crud = useCrudResource<Snippet>({
     projectId,
+    queryKey: queryKeys.snippets(projectId),
     getAll: api.getSnippets,
     create: api.createSnippet,
     update: api.updateSnippet,

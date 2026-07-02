@@ -7,6 +7,7 @@ import { useTranslation } from '@/i18n/I18nProvider';
 import { TASK_TYPE_OPTIONS, EFFORT_OPTIONS } from '@/lib/constants';
 import { useModels } from '@/lib/useModels';
 import { useCrudResource } from '@/hooks/useCrudResource';
+import { queryKeys } from '@/lib/queryKeys';
 import ModalShell from '@/components/ModalShell';
 import Spinner from '@/components/Spinner';
 import EmptyState from '@/components/EmptyState';
@@ -312,6 +313,7 @@ export default function TemplatesModal({ projectId, projectName, onClose }: Prop
   const { t } = useTranslation();
   const crud = useCrudResource<Template>({
     projectId,
+    queryKey: queryKeys.templates(projectId),
     getAll: api.getTemplates,
     create: api.createTemplate,
     update: api.updateTemplate,

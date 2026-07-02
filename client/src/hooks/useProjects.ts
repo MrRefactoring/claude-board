@@ -1,109 +1,49 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { socket } from '@/lib/socket';
-import { tauriListen, IS_TAURI } from '@/lib/tauriEvents';
-import type { Project } from '@/lib/types';
+import { queryKeys } from '@/lib/queryKeys';
+import { useUIStore } from '@/store/uiStore';
 
+/**
+ * Projects list (query cache; realtime patches come from useRealtimeSync)
+ * plus URL slug resolution. The *selection* lives in the UI store as
+ * `currentProjectId`; `currentProject` here is derived from the list.
+ */
 export function useProjects() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [initialLoad, setInitialLoad] = useState(true);
+  const currentProjectId = useUIStore((s) => s.currentProjectId);
+  const { data, isLoading } = useQuery({ queryKey: queryKeys.projects, queryFn: () => api.getProjects() });
+  const projects = useMemo(() => data ?? [], [data]);
 
-  const loadProjects = useCallback(async (): Promise<Project[]> => {
-    try {
-      const data = await api.getProjects();
-      setProjects(data);
-      return data;
-    } catch (err) {
-      console.error('Failed to load projects:', err);
-      return [];
-    }
-  }, []);
-
-  // Initial load + URL slug resolution
+  // Resolve the URL slug once after the first load (deep link / reload).
+  const [booted, setBooted] = useState(false);
   useEffect(() => {
-    loadProjects().then((data) => {
-      const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
-      if (path && data.length > 0) {
-        const match = data.find((p) => p.slug === path);
-        if (match) {
-          setCurrentProject(match);
-          window.history.replaceState({ slug: match.slug }, '', `/${match.slug}`);
-        }
+    if (isLoading || booted) return;
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    if (path && projects.length > 0) {
+      const match = projects.find((p) => p.slug === path);
+      if (match) {
+        useUIStore.getState().setCurrentProjectId(match.id);
+        window.history.replaceState({ slug: match.slug }, '', `/${match.slug}`);
       }
-      setInitialLoad(false);
-    });
-  }, [loadProjects]);
+    }
+    setBooted(true);
+  }, [isLoading, booted, projects]);
 
   // Browser back/forward
   useEffect(() => {
     const handlePopState = () => {
       const slug = window.location.pathname.replace(/^\/+|\/+$/g, '');
-      if (slug) {
-        const match = projects.find((p) => p.slug === slug);
-        setCurrentProject(match || null);
-      } else {
-        setCurrentProject(null);
-      }
+      const match = slug ? projects.find((p) => p.slug === slug) : undefined;
+      useUIStore.getState().setCurrentProjectId(match?.id ?? null);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [projects]);
 
-  // Socket events — empty deps is intentional: `socket` is a module-level singleton
-  // (never changes) and all handlers use only state setter functions (stable by React guarantee)
-  useEffect(() => {
-    const onCreate = (project: Project) => setProjects((prev) => [...prev, project]);
-    const onUpdate = (project: Project) => {
-      setProjects((prev) => prev.map((p) => (p.id === project.id ? project : p)));
-      setCurrentProject((prev) => (prev?.id === project.id ? project : prev));
-    };
-    const onDelete = ({ id }: { id: number }) => {
-      setProjects((prev) => prev.filter((p) => p.id !== id));
-      setCurrentProject((prev) => {
-        if (prev?.id === id) {
-          window.history.pushState({}, '', '/');
-          return null;
-        }
-        return prev;
-      });
-    };
+  const currentProject = useMemo(
+    () => projects.find((p) => p.id === currentProjectId) ?? null,
+    [projects, currentProjectId],
+  );
 
-    if (IS_TAURI) {
-      const unsubs = [
-        tauriListen('project:created', onCreate),
-        tauriListen('project:updated', onUpdate),
-        tauriListen('project:deleted', onDelete),
-      ];
-      return () => unsubs.forEach((fn) => fn());
-    } else {
-      socket.on('project:created', onCreate);
-      socket.on('project:updated', onUpdate);
-      socket.on('project:deleted', onDelete);
-      return () => {
-        socket.off('project:created', onCreate);
-        socket.off('project:updated', onUpdate);
-        socket.off('project:deleted', onDelete);
-      };
-    }
-  }, []);
-
-  const navigateToProject = useCallback((project: Project | null) => {
-    setCurrentProject(project);
-    if (project) window.history.pushState({ slug: project.slug }, '', `/${project.slug}`);
-  }, []);
-
-  const navigateToDashboard = useCallback(() => {
-    setCurrentProject(null);
-    window.history.pushState({}, '', '/');
-  }, []);
-
-  return {
-    projects,
-    currentProject,
-    initialLoad,
-    navigateToProject,
-    navigateToDashboard,
-    setCurrentProject,
-  };
+  return { projects, currentProject, initialLoad: isLoading || !booted };
 }

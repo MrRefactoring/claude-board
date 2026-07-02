@@ -1,42 +1,43 @@
 import { useCallback } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { emitStatusTransition } from '@/features/board/StatusTransitionContext';
-import type { Task, Project, TaskStatus, AddToast, TranslateFn, ConfirmState } from '@/lib/types';
-
-// Track in-flight status updates to prevent socket events from overriding optimistic state
-export const pendingUpdates = new Set<number>();
+import { pendingUpdates } from '@/hooks/useRealtimeSync';
+import { queryKeys } from '@/lib/queryKeys';
+import { useUIStore } from '@/store/uiStore';
+import type { Task, Project, TaskStatus, TranslateFn } from '@/lib/types';
 
 /** Extra fields the task modal tacks onto the payload before create/update. */
 type TaskFormData = Partial<Task> & { _files?: File[]; _pendingDeps?: number[] };
 
 interface UseTaskHandlersOptions {
   tasks: Task[];
-  setTasks: Dispatch<SetStateAction<Task[]>>;
-  addToast: AddToast;
   t: TranslateFn;
-  setConfirm: (value: ConfirmState | null) => void;
   terminal: { openTab: (task: Task) => void };
-  setSelectedTask: (task: Task | null) => void;
-  setActivePanel: (panel: string) => void;
-  openModal: (name: string, data?: unknown) => void;
-  closeModal: (name: string) => void;
   currentProject: Project | null;
 }
 
-export function useTaskHandlers({
-  tasks,
-  setTasks,
-  addToast,
-  t,
-  setConfirm,
-  terminal,
-  setSelectedTask,
-  setActivePanel,
-  openModal,
-  closeModal,
-  currentProject,
-}: UseTaskHandlersOptions) {
+export function useTaskHandlers({ tasks, t, terminal, currentProject }: UseTaskHandlersOptions) {
+  const queryClient = useQueryClient();
+  const projectId = currentProject?.id ?? null;
+
+  // Optimistic updates write straight into the current project's task cache;
+  // realtime events (useRealtimeSync) keep it fresh from the backend side.
+  const setTasks = useCallback(
+    (updater: (prev: Task[]) => Task[]) => {
+      if (projectId === null) return;
+      queryClient.setQueryData<Task[]>(queryKeys.tasks(projectId), (prev) => updater(prev ?? []));
+    },
+    [queryClient, projectId],
+  );
+
+  // Zustand actions are stable references — safe in useCallback deps.
+  const addToast = useUIStore((s) => s.addToast);
+  const setConfirm = useUIStore((s) => s.setConfirm);
+  const openModal = useUIStore((s) => s.openModal);
+  const closeModal = useUIStore((s) => s.closeModal);
+  const setSelectedTask = useUIStore((s) => s.setSelectedTask);
+  const setActivePanel = useUIStore((s) => s.setActivePanel);
   const onStatusChange = useCallback(
     async (taskId: number, newStatus: TaskStatus) => {
       const task = tasks.find((x) => x.id === taskId);
@@ -239,9 +240,12 @@ export function useTaskHandlers({
       });
       try {
         await api.reorderTasks(orderedIds);
-      } catch {}
+      } catch {
+        // Optimistic reorder failed on the backend — refetch server order.
+        if (projectId !== null) queryClient.invalidateQueries({ queryKey: queryKeys.tasks(projectId) });
+      }
     },
-    [setTasks],
+    [setTasks, projectId, queryClient],
   );
 
   return {

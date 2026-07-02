@@ -1,22 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSocket } from '@/hooks/useSocket';
 import { useProjects } from '@/hooks/useProjects';
 import { useTasks } from '@/hooks/useTasks';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { useTerminalTabs } from '@/hooks/useTerminalTabs';
-import { useToast } from '@/hooks/useToast';
-import { useModalState } from '@/hooks/useModalState';
 import { useTaskHandlers } from '@/hooks/useTaskHandlers';
 import { useProjectHandlers } from '@/hooks/useProjectHandlers';
 import { api, onApiError } from '@/lib/api';
 import { socket } from '@/lib/socket';
+import { queryKeys } from '@/lib/queryKeys';
 import { tauriListen, IS_TAURI, IS_MACOS } from '@/lib/tauriEvents';
+import { useUIStore } from '@/store/uiStore';
 import AppLayout from '@/app/AppLayout';
 import { StatusTransitionProvider } from '@/features/board/StatusTransitionContext';
 import { I18nProvider, useTranslation } from '@/i18n/I18nProvider';
 import OnboardingTour, { useOnboarding } from '@/features/onboarding/OnboardingTour';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import CommandPalette from '@/features/command-palette/CommandPalette';
-import type { Task, Project, Template, Role, ConfirmState } from '@/lib/types';
+import type { Task } from '@/lib/types';
 
 interface UpdateInfo {
   version?: string;
@@ -26,90 +28,36 @@ interface UpdateInfo {
 function AppInner() {
   const { t } = useTranslation();
   const connected = useSocket();
-  const { toasts, addToast } = useToast();
-  const { projects, currentProject, initialLoad, navigateToProject, navigateToDashboard } = useProjects();
-  const { tasks, setTasks } = useTasks(currentProject, addToast);
+  useRealtimeSync();
+  const addToast = useUIStore((s) => s.addToast);
+  const { projects, currentProject, initialLoad } = useProjects();
+  const { tasks } = useTasks(currentProject);
   const terminal = useTerminalTabs(tasks);
 
   // Global API error -> toast
   useEffect(() => onApiError((msg) => addToast(msg, 'error')), [addToast]);
 
-  // ─── Modal state (replaces 12 individual useState) ───
-  const { modals, openModal, closeModal } = useModalState({
-    planning: sessionStorage.getItem('planning:active') === 'true' || null,
-  });
-
   // Onboarding tour
   const { showOnboarding, completeOnboarding } = useOnboarding();
 
-  // UI state
-  const [activePanel, setActivePanel] = useState<string | null>(null);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
-  const [search, setSearch] = useState('');
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
 
-  // ─── Task handlers ───
-  const taskActions = useTaskHandlers({
-    tasks,
-    setTasks,
-    addToast,
-    t,
-    setConfirm,
-    terminal,
-    setSelectedTask,
-    setActivePanel,
-    openModal,
-    closeModal,
-    currentProject,
+  const currentProjectId = currentProject?.id ?? null;
+  // Freshness: entity events invalidate these (useRealtimeSync), plus ModalHost
+  // invalidates on modal close as a transport-independent fallback.
+  const { data: templates = [] } = useQuery({
+    queryKey: queryKeys.templates(currentProjectId ?? -1),
+    queryFn: () => api.getTemplates(currentProjectId!),
+    enabled: currentProjectId !== null,
+  });
+  const { data: roles = [] } = useQuery({
+    queryKey: queryKeys.roles(currentProjectId ?? -1),
+    queryFn: () => api.getRoles(currentProjectId!),
+    enabled: currentProjectId !== null,
   });
 
-  // ─── Project handlers ───
-  const projectActions = useProjectHandlers({
-    currentProject,
-    navigateToProject,
-    navigateToDashboard,
-    addToast,
-    t,
-    setConfirm,
-    openModal,
-    closeModal,
-  });
-
-  // ─── Special modal closers (with side effects) ───
-  const handleClosePlanning = useCallback(() => {
-    sessionStorage.removeItem('planning:active');
-    closeModal('planning');
-  }, [closeModal]);
-
-  const handleOpenPlanning = useCallback(() => {
-    sessionStorage.setItem('planning:active', 'true');
-    openModal('planning');
-  }, [openModal]);
-
-  const handleCloseTemplates = useCallback(() => {
-    closeModal('templates');
-    if (currentProject)
-      api
-        .getTemplates(currentProject.id)
-        .then(setTemplates)
-        .catch((e) => console.error('Failed to load templates:', e));
-  }, [closeModal, currentProject]);
-
-  const handleCloseRoles = useCallback(() => {
-    closeModal('roles');
-    if (currentProject)
-      api
-        .getRoles(currentProject.id)
-        .then(setRoles)
-        .catch((e) => console.error('Failed to load roles:', e));
-  }, [closeModal, currentProject]);
-
-  // Stable ref for openModal (avoids stale closure in Tauri listeners)
-  const openModalRef = useRef(openModal);
-  openModalRef.current = openModal;
+  const taskActions = useTaskHandlers({ tasks, t, terminal, currentProject });
+  const projectActions = useProjectHandlers({ currentProject, t });
 
   // Listen for app updates
   useEffect(() => {
@@ -117,7 +65,7 @@ function AppInner() {
     const unsubs = [
       tauriListen('update:available', (data) => setUpdateInfo(data as UpdateInfo)),
       tauriListen('update:ready', (data) => setUpdateInfo({ ...(data as UpdateInfo), status: 'ready' })),
-      tauriListen('menu:preferences', () => openModalRef.current('appSettings')),
+      tauriListen('menu:preferences', () => useUIStore.getState().openModal('appSettings')),
     ];
     return () => unsubs.forEach((fn) => fn());
   }, []);
@@ -168,8 +116,8 @@ function AppInner() {
       if (task.is_running && !runningIdsRef.current.has(task.id)) {
         runningIdsRef.current.add(task.id);
         terminalRef.current.openTab(task as Task);
-        setSelectedTask(task as Task);
-        setActivePanel('logs');
+        useUIStore.getState().setSelectedTask(task as Task);
+        useUIStore.getState().setActivePanel('logs');
       } else if (!task.is_running) {
         runningIdsRef.current.delete(task.id);
       }
@@ -182,76 +130,65 @@ function AppInner() {
     }
   }, []);
 
-  // Clear panels on project change
+  // Clear panels/search when switching to another project
   useEffect(() => {
-    setActivePanel(null);
-    setSelectedTask(null);
-    setSearch('');
-  }, [currentProject]);
+    const ui = useUIStore.getState();
+    ui.setActivePanel(null);
+    ui.setSelectedTask(null);
+    ui.setSearch('');
+  }, [currentProjectId]);
 
-  // Fetch templates and roles when project changes
-  useEffect(() => {
-    if (!currentProject) {
-      setTemplates([]);
-      setRoles([]);
-      return;
-    }
-    api
-      .getTemplates(currentProject.id)
-      .then(setTemplates)
-      .catch(() => setTemplates([]));
-    api
-      .getRoles(currentProject.id)
-      .then(setRoles)
-      .catch(() => setRoles([]));
-  }, [currentProject]);
-
-  // Command palette
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-
-  // Keyboard shortcuts
+  // Keyboard shortcuts — read state via getState() so the listener binds once.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const ui = useUIStore.getState();
       // Ctrl/Cmd+K — command palette (works everywhere, even in inputs)
       if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        setCommandPaletteOpen((prev) => !prev);
+        ui.setCommandPaletteOpen(!ui.commandPaletteOpen);
         return;
       }
       const target = e.target as HTMLElement | null;
       if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
-      if (e.key === 'n' && !e.ctrlKey && !e.metaKey && currentProject) {
+      if (e.key === 'n' && !e.ctrlKey && !e.metaKey && ui.currentProjectId !== null) {
         e.preventDefault();
-        openModal('task');
+        ui.openModal('task');
       }
       if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         document.getElementById('search-input')?.focus();
       }
       if (e.key === 'Escape') {
-        if (commandPaletteOpen) {
-          setCommandPaletteOpen(false);
-        } else if (modals.task) {
-          closeModal('task');
-        } else if (modals.project) {
-          closeModal('project');
-        } else if (confirm) {
-          confirm.onCancel?.();
-        } else if (activePanel) {
-          setActivePanel(null);
-          setSelectedTask(null);
+        if (ui.commandPaletteOpen) {
+          ui.setCommandPaletteOpen(false);
+        } else if (ui.modals.task) {
+          ui.closeModal('task');
+        } else if (ui.modals.project) {
+          ui.closeModal('project');
+        } else if (ui.confirm) {
+          ui.confirm.onCancel?.();
+        } else if (ui.activePanel) {
+          ui.setActivePanel(null);
+          ui.setSelectedTask(null);
         }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [modals.task, modals.project, confirm, activePanel, currentProject, openModal, closeModal, commandPaletteOpen]);
+  }, []);
 
+  const search = useUIStore((s) => s.search);
   const filteredTasks = useMemo(() => {
     if (!search.trim()) return tasks;
     const q = search.toLowerCase();
     return tasks.filter((t) => t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q));
   }, [tasks, search]);
+
+  const commandPaletteOpen = useUIStore((s) => s.commandPaletteOpen);
+  const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
+  const openModal = useUIStore((s) => s.openModal);
+  const navigateToProject = useUIStore((s) => s.navigateToProject);
+  const navigateToDashboard = useUIStore((s) => s.navigateToDashboard);
 
   if (initialLoad) {
     return (
@@ -294,28 +231,10 @@ function AppInner() {
         tasks={tasks}
         filteredTasks={filteredTasks}
         terminal={terminal}
-        selectedTask={selectedTask}
-        activePanel={activePanel}
-        search={search}
-        toasts={toasts}
-        confirm={confirm}
         templates={templates}
         roles={roles}
-        modals={modals as Record<string, boolean | Task | Project | null>}
-        openModal={openModal}
-        closeModal={closeModal}
-        onClosePlanning={handleClosePlanning}
-        onOpenPlanning={handleOpenPlanning}
-        onCloseTemplates={handleCloseTemplates}
-        onCloseRoles={handleCloseRoles}
-        onSearchChange={setSearch}
-        onSetActivePanel={setActivePanel}
-        onSetSelectedTask={setSelectedTask}
-        onNavigateToProject={navigateToProject}
-        onNavigateToDashboard={navigateToDashboard}
         taskActions={taskActions}
         projectActions={projectActions}
-        onOpenAppSettings={() => openModal('appSettings')}
       />
       <CommandPalette
         open={commandPaletteOpen}

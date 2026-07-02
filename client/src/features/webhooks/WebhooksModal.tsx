@@ -16,6 +16,7 @@ import { api } from '@/lib/api';
 import type { Webhook, WebhookEventType } from '@/lib/types';
 import { useTranslation } from '@/i18n/I18nProvider';
 import { useCrudResource } from '@/hooks/useCrudResource';
+import { queryKeys } from '@/lib/queryKeys';
 import ModalShell from '@/components/ModalShell';
 import EmptyState from '@/components/EmptyState';
 import Spinner from '@/components/Spinner';
@@ -197,6 +198,7 @@ export default function WebhooksModal({ projectId, projectName, onClose }: Props
   const { t } = useTranslation();
   const crud = useCrudResource<WebhookRow>({
     projectId,
+    queryKey: queryKeys.webhooks(projectId),
     getAll: api.getWebhooks as unknown as (projectId: number) => Promise<WebhookRow[]>,
     create: api.createWebhook as unknown as (projectId: number, data: Partial<WebhookRow>) => Promise<WebhookRow>,
     update: api.updateWebhook as unknown as (id: number, data: Partial<WebhookRow>) => Promise<WebhookRow>,
