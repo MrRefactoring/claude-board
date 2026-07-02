@@ -242,12 +242,28 @@ async fn create_tasks_bulk(Path(project_id): Path<i64>, Json(body): Json<BulkBod
     // Pass 1: create every node, remembering ids by index.
     let mut ids: Vec<i64> = Vec::with_capacity(body.nodes.len());
     for n in &body.nodes {
+        let task_type = n.task_type.as_deref().unwrap_or("feature");
+        // Per-task model: an explicit valid alias wins; otherwise auto-pick a tier
+        // by task_type/level/size (same heuristic as the planning pipeline).
+        let task_model = n
+            .model
+            .as_deref()
+            .filter(|m| crate::commands::planning::is_valid_model(m))
+            .map(str::to_string)
+            .unwrap_or_else(|| {
+                crate::commands::planning::suggest_model(
+                    task_type,
+                    n.task_level.as_deref(),
+                    n.story_points,
+                    "sonnet",
+                )
+            });
         let id = tasks::create(&db, project_id, &n.title,
             n.description.as_deref().unwrap_or(""),
             n.priority.unwrap_or(0),
-            n.task_type.as_deref().unwrap_or("feature"),
+            task_type,
             n.acceptance_criteria.as_deref().unwrap_or(""),
-            n.model.as_deref().unwrap_or("sonnet"),
+            &task_model,
             n.thinking_effort.as_deref().unwrap_or("medium"),
             n.role_id,
             n.tags.as_deref(),

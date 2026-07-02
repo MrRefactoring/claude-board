@@ -296,6 +296,11 @@ export default function PlanningModal({ projectId, onClose }: PlanningModalProps
     );
   };
 
+  // Per-task model override; `undefined` clears it back to the auto heuristic.
+  const handleSetProposalModel = (idx: number, m?: string) => {
+    setProposals((prev) => prev.map((p, i) => (i === idx ? { ...p, model: m } : p)));
+  };
+
   const handleApprove = async () => {
     if (proposals.length === 0) return;
     setApproving(true);
@@ -428,6 +433,8 @@ export default function PlanningModal({ projectId, onClose }: PlanningModalProps
               showDag={showDag}
               setShowDag={setShowDag}
               handleRemoveProposal={handleRemoveProposal}
+              handleSetProposalModel={handleSetProposalModel}
+              plannerModel={model}
               t={t}
             />
           )}

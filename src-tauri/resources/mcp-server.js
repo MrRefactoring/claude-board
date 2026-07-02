@@ -31,7 +31,7 @@ async function api(path, options = {}) {
 
 const server = new McpServer({
   name: 'claude-board',
-  version: '4.3.0',
+  version: '4.4.0',
 });
 
 // ─── list_projects ───
@@ -93,7 +93,13 @@ server.tool(
       .default('feature')
       .describe('Task type'),
     priority: z.number().min(0).max(3).optional().default(0).describe('Priority: 0=none, 1=low, 2=medium, 3=high'),
-    model: z.enum(['haiku', 'sonnet', 'opus']).optional().default('sonnet').describe('Claude model to use'),
+    model: z
+      .enum(['haiku', 'sonnet', 'opus'])
+      .optional()
+      .default('sonnet')
+      .describe(
+        'Claude model to run this task. Pick by complexity: opus for architecturally complex / high-risk / large work, haiku for trivial or mechanical work (docs, chore, small edits), sonnet otherwise.',
+      ),
     acceptance_criteria: z.string().optional().describe('Definition of done — what must be true when task completes'),
     parent_task_id: z.number().optional().describe('Parent task ID — creates a sub-task linked to the parent. The parent will wait for all sub-tasks to complete before finishing.'),
     tags: z.array(z.string()).optional().describe('Tags/labels for the task (e.g. ["backend", "security"])'),
@@ -164,7 +170,7 @@ server.tool(
 // ─── decompose ───
 server.tool(
   'decompose',
-  'Atomically create a whole hierarchy of tasks (epic → story → task → subtask) with parent links and dependency edges in a single call. Use this to break a goal into a runnable plan. Nodes are created in array order; reference hierarchy parents and dependency edges by array index. Only task/subtask leaves are executed by agents — epic/story containers roll up from their children.',
+  'Atomically create a whole hierarchy of tasks (epic → story → task → subtask) with parent links and dependency edges in a single call. Use this to break a goal into a runnable plan. Nodes are created in array order; reference hierarchy parents and dependency edges by array index. Only task/subtask leaves are executed by agents — epic/story containers roll up from their children. Set each leaf\'s `model` by complexity (opus for complex/high-risk/large work, haiku for trivial/mechanical work, sonnet otherwise); leaves left without a model get an automatic tier by task_type/size.',
   {
     project_id: z.number().describe('Project ID to create the tasks in'),
     nodes: z
@@ -174,7 +180,10 @@ server.tool(
           description: z.string().optional(),
           task_type: z.enum(['feature', 'bugfix', 'refactor', 'docs', 'test', 'chore']).optional(),
           priority: z.number().min(0).max(3).optional(),
-          model: z.enum(['haiku', 'sonnet', 'opus']).optional(),
+          model: z
+            .enum(['haiku', 'sonnet', 'opus'])
+            .optional()
+            .describe('Model for this leaf by complexity (opus/haiku/sonnet); omit to auto-pick a tier'),
           acceptance_criteria: z.string().optional(),
           task_level: z.enum(['epic', 'story', 'task', 'subtask']).optional(),
           story_points: z.number().optional(),

@@ -256,6 +256,40 @@ pub fn start_planning(
     Ok(serde_json::json!({"planId": plan_id, "status": "started"}))
 }
 
+/// Model aliases the planner may assign per task.
+pub(crate) fn is_valid_model(m: &str) -> bool {
+    matches!(m, "haiku" | "sonnet" | "opus")
+}
+
+/// Deterministic fallback for a task's model when the planner didn't provide a
+/// valid one — mirrors the "Model Selection" guidance in the planning prompt so
+/// the system still auto-picks a sensible tier per task. `default_model` is the
+/// plan-level baseline used for standard/container tasks (the heuristic bumps
+/// trivial work down to haiku and complex work up to opus). Kept in sync with
+/// the TS `suggestModel` helper in the review UI.
+pub(crate) fn suggest_model(
+    task_type: &str,
+    level: Option<&str>,
+    story_points: Option<i64>,
+    default_model: &str,
+) -> String {
+    // Containers aren't executed; model is moot — keep the baseline.
+    if matches!(level, Some("epic") | Some("story")) {
+        return default_model.to_string();
+    }
+    let pts = story_points.unwrap_or(3);
+    if pts >= 8 {
+        return "opus".to_string();
+    }
+    if matches!(task_type, "docs" | "chore") || pts <= 2 {
+        return "haiku".to_string();
+    }
+    if task_type == "refactor" && pts >= 5 {
+        return "opus".to_string();
+    }
+    default_model.to_string()
+}
+
 /// User approved the proposed tasks — create them in DB with optional dependency edges.
 /// Auto-generates a plan tag from the topic for filtering.
 #[tauri::command]
@@ -300,21 +334,36 @@ pub fn approve_plan(
         }
         let tags_json = serde_json::to_string(&task_tags).unwrap_or_else(|_| "[]".into());
 
+        let task_type = t.get("task_type").and_then(|v| v.as_str()).unwrap_or("feature");
+        let level_opt = t.get("level").or_else(|| t.get("task_level")).and_then(|v| v.as_str());
+        let story_points_opt = t.get("story_points").and_then(|v| v.as_i64());
+
+        // Per-task model: the planner's explicit choice wins (if a valid alias);
+        // otherwise the heuristic picks a tier by task_type/level/size, using the
+        // plan-level `model` as the baseline. The plan-level model is no longer
+        // forced onto every task.
+        let task_model = t
+            .get("model")
+            .and_then(|v| v.as_str())
+            .filter(|m| is_valid_model(m))
+            .map(str::to_string)
+            .unwrap_or_else(|| suggest_model(task_type, level_opt, story_points_opt, &model));
+
         let id = tq::create(&db, project_id,
             t.get("title").and_then(|v| v.as_str()).unwrap_or(""),
             t.get("description").and_then(|v| v.as_str()).unwrap_or(""),
             t.get("priority").and_then(|v| v.as_i64()).unwrap_or(0),
-            t.get("task_type").and_then(|v| v.as_str()).unwrap_or("feature"),
+            task_type,
             t.get("acceptance_criteria").and_then(|v| v.as_str()).unwrap_or(""),
-            &model, "medium", None,
+            &task_model, "medium", None,
             Some(&tags_json),
         );
         if id > 0 {
             // Jira-style level (epic|story|task|subtask) + estimation
-            if let Some(level) = t.get("level").or_else(|| t.get("task_level")).and_then(|v| v.as_str()) {
+            if let Some(level) = level_opt {
                 tq::set_task_level(&db, id, level);
             }
-            if let Some(sp) = t.get("story_points").and_then(|v| v.as_i64()) {
+            if let Some(sp) = story_points_opt {
                 tq::set_story_points(&db, id, Some(sp));
             }
         }
@@ -479,7 +528,8 @@ You MUST end your response with exactly one JSON code block in this format:
       "task_type": "feature",
       "priority": 0,
       "acceptance_criteria": "Concrete, verifiable definition of done (e.g. 'The /api/users endpoint returns 401 for unauthenticated requests')",
-      "story_points": 3
+      "story_points": 3,
+      "model": "sonnet"
     }}
   ],
   "dependencies": [[2, 3]]
@@ -495,7 +545,15 @@ You MUST end your response with exactly one JSON code block in this format:
 - **priority**: 0 (highest) to 3 (lowest), following the guidelines above
 - **acceptance_criteria**: Testable condition that proves the task is complete (most important on leaves)
 - **story_points**: Rough size estimate (1, 2, 3, 5, 8, 13…)
+- **model**: The Claude model that should execute this leaf — one of `haiku`, `sonnet`, `opus`. See "Model Selection". Omit on containers (epic/story), which aren't executed.
 - **dependencies**: Array of `[parentIndex, childIndex]` pairs referencing executable leaves. `[2, 3]` means task 3 depends on task 2. Leaves with no dependency edges run in parallel.
+
+### Model Selection
+Assign every executable leaf the cheapest model that can still do the job well — this controls the cost/quality trade-off per task:
+- **opus** — architecturally complex, high-risk, or large work (`story_points ≥ 8`): core algorithms, cross-cutting refactors, security-sensitive or subtle logic.
+- **haiku** — trivial, mechanical, or low-risk work: `docs`, `chore`, simple `test`, small edits, `story_points ≤ 2`.
+- **sonnet** — the default for everything in between (standard features/bugfixes).
+Containers (epic/story) omit `model`.
 
 ### Rules
 - Aim for roughly {} executable leaf tasks, grouped under a small number of epics/stories

@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import type { ComponentType, Dispatch, SetStateAction } from 'react';
 import { Clock, ChevronDown, ChevronRight, Brain, ListChecks, Trash2, Terminal, GitBranch } from 'lucide-react';
-import { TYPE_COLORS } from '@/lib/constants';
+import { TYPE_COLORS, MODEL_COLORS, MODELS } from '@/lib/constants';
 import { PRIORITY_COLORS } from '@/features/planning/planningConstants';
 import { PRIORITY_LABELS } from '@/lib/constants';
-import { formatElapsed, computeWaves } from '@/features/planning/planningHelpers';
+import { formatElapsed, computeWaves, suggestModel } from '@/features/planning/planningHelpers';
 import type { PlanProposal, PlanDependency, PlanLog, PlanStats } from '@/features/planning/planningHelpers';
 import type { TranslateFn } from '@/lib/types';
 import { PlanLogFeed } from '@/features/planning/PlanLogFeed';
@@ -69,6 +69,10 @@ interface PlanPhaseReviewProps {
   showDag: boolean;
   setShowDag: Dispatch<SetStateAction<boolean>>;
   handleRemoveProposal: (idx: number) => void;
+  /** Set (or clear, with undefined) the per-task model override. */
+  handleSetProposalModel: (idx: number, model?: string) => void;
+  /** Plan-level baseline model, used as the fallback tier for standard tasks. */
+  plannerModel: string;
   t: TranslateFn;
 }
 
@@ -87,8 +91,13 @@ export function PlanPhaseReview({
   showDag,
   setShowDag,
   handleRemoveProposal,
+  handleSetProposalModel,
+  plannerModel,
   t,
 }: PlanPhaseReviewProps) {
+  // A leaf (task/subtask, or unset) is executed by an agent, so it carries a model.
+  const isLeaf = (level?: string) => level == null || level === 'task' || level === 'subtask';
+  const effectiveModel = (p: PlanProposal) => p.model ?? suggestModel(p.task_type, p.level, p.story_points, plannerModel);
   // Type breakdown for review summary
   const typeBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -227,6 +236,15 @@ export function PlanPhaseReview({
                           {task.story_points} pts
                         </span>
                       )}
+                      {isLeaf(task.level) && (
+                        <span
+                          className={`text-[10px] font-semibold ${MODEL_COLORS[effectiveModel(task) as keyof typeof MODEL_COLORS] || 'text-surface-400'}`}
+                          title={task.model ? 'Model (manual override)' : 'Model (auto-selected)'}
+                        >
+                          {effectiveModel(task)}
+                          {!task.model && <span className="text-surface-600 font-normal"> auto</span>}
+                        </span>
+                      )}
                     </div>
                     <p className="text-[12px] text-surface-200 font-medium mt-1 leading-snug">{task.title}</p>
                   </div>
@@ -274,6 +292,46 @@ export function PlanPhaseReview({
                         </div>
                       </div>
                     )}
+                    {isLeaf(task.level) && (
+                      <div>
+                        <span className="text-[10px] font-medium text-surface-500 uppercase tracking-wide">Model</span>
+                        <div className="flex items-center gap-1 mt-1">
+                          {MODELS.map((m) => {
+                            const active = task.model === m;
+                            return (
+                              <button
+                                key={m}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSetProposalModel(i, m);
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-medium capitalize transition-colors ${
+                                  active
+                                    ? `bg-surface-700 ${MODEL_COLORS[m as keyof typeof MODEL_COLORS]}`
+                                    : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/60'
+                                }`}
+                              >
+                                {m}
+                              </button>
+                            );
+                          })}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSetProposalModel(i, undefined);
+                            }}
+                            title="Let the system auto-select the model by complexity"
+                            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                              task.model == null
+                                ? 'bg-amber-500/15 text-amber-300'
+                                : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/60'
+                            }`}
+                          >
+                            Auto
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -304,7 +362,7 @@ export function PlanPhaseReview({
                   title: p.title,
                   status: 'backlog',
                   task_key: `#${i + 1}`,
-                  model: null,
+                  model: isLeaf(p.level) ? effectiveModel(p) : null,
                 }))}
                 edges={dependencies.map(([parentIdx, childIdx]) => ({ from: parentIdx, to: childIdx }))}
                 waves={computeWaves(proposals, dependencies)}

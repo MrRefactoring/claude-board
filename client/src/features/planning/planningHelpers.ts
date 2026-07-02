@@ -3,7 +3,7 @@ import { TOOL_ICONS, TOOL_COLORS } from '@/features/planning/planningConstants';
 import type { TaskLevel } from '@/lib/types';
 
 /** A single Claude-proposed task from the planning session. Extra hierarchy
- *  fields (level/parent/story_points) pass straight through to approve_plan. */
+ *  fields (level/parent/story_points/model) pass straight through to approve_plan. */
 export interface PlanProposal {
   title: string;
   description?: string;
@@ -15,6 +15,26 @@ export interface PlanProposal {
   /** Index (into the proposals array) of this item's hierarchy parent. */
   parent?: number;
   story_points?: number;
+  /** Explicit per-task model override (haiku|sonnet|opus). Absent = auto tier. */
+  model?: string;
+}
+
+/** Deterministic per-task model tier — mirrors `suggest_model` in the Rust
+ *  planning pipeline (src-tauri/src/commands/planning.rs) so the review UI shows
+ *  exactly what approve_plan will apply when a task has no explicit model. */
+export function suggestModel(
+  taskType?: string,
+  level?: TaskLevel,
+  storyPoints?: number,
+  baseline: string = 'sonnet',
+): string {
+  // Containers aren't executed; keep the baseline.
+  if (level === 'epic' || level === 'story') return baseline;
+  const pts = storyPoints ?? 3;
+  if (pts >= 8) return 'opus';
+  if (taskType === 'docs' || taskType === 'chore' || pts <= 2) return 'haiku';
+  if (taskType === 'refactor' && pts >= 5) return 'opus';
+  return baseline;
 }
 
 /** Index-based dependency edge: [parentIndex, childIndex]. */
