@@ -336,7 +336,7 @@ const tauriApi = {
   resetCircuitBreaker: (id: number) => tauriCall('reset_circuit_breaker', { id }),
   // ─── AI Chat ───
   chatSend: (projectId: number, message: string, model?: string | null) =>
-    tauriCall('chat_send', { projectId, message, model: model || null }),
+    tauriCall('chat_send', { projectId, message, model: model || null, mcpPort: MCP_PORT }),
   // ─── Roadmap (GSD) ───
   getMilestones: (projectId: number) => tauriCall('get_milestones', { projectId }),
   createMilestone: (projectId: number, version: string, title: string, description?: string | null) =>

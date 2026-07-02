@@ -282,7 +282,10 @@ pub fn approve_plan(
         format!("plan:{}", slug.trim_end_matches('-'))
     }).unwrap_or_else(|| "plan:unnamed".into());
 
-    let mut created = Vec::new();
+    // Pass 1: create every proposed task, tracking ids by array index so that
+    // hierarchy parents and dependency edges (both index-based) resolve correctly
+    // even if an individual create fails.
+    let mut ids_by_index: Vec<i64> = Vec::with_capacity(tasks.len());
     for t in &tasks {
         // Merge plan tag with any proposal-level tags
         let mut task_tags = vec![plan_tag.clone()];
@@ -306,23 +309,52 @@ pub fn approve_plan(
             &model, "medium", None,
             Some(&tags_json),
         );
-        if let Some(task) = tq::get_by_id(&db, id) {
-            app.emit("task:created", &task).ok();
-            created.push(task);
+        if id > 0 {
+            // Jira-style level (epic|story|task|subtask) + estimation
+            if let Some(level) = t.get("level").or_else(|| t.get("task_level")).and_then(|v| v.as_str()) {
+                tq::set_task_level(&db, id, level);
+            }
+            if let Some(sp) = t.get("story_points").and_then(|v| v.as_i64()) {
+                tq::set_story_points(&db, id, Some(sp));
+            }
+        }
+        ids_by_index.push(id);
+    }
+
+    // Pass 2: wire hierarchy parents (`parent` = index into the tasks array).
+    for (i, t) in tasks.iter().enumerate() {
+        if let Some(pidx) = t.get("parent").and_then(|v| v.as_u64()).map(|v| v as usize) {
+            if let (Some(&child_id), Some(&parent_id)) = (ids_by_index.get(i), ids_by_index.get(pidx)) {
+                if child_id > 0 && parent_id > 0 && child_id != parent_id {
+                    tq::set_parent_task_id(&db, child_id, parent_id);
+                    tq::set_awaiting_subtasks(&db, parent_id, true);
+                }
+            }
         }
     }
 
-    // Create dependency edges: each entry is [parentIndex, childIndex] referencing the tasks array
+    // Pass 3: dependency edges — [parentIndex, childIndex] means child depends on parent.
     if let Some(deps) = dependencies {
         for edge in &deps {
             if edge.len() == 2 {
                 let parent_idx = edge[0] as usize;
                 let child_idx = edge[1] as usize;
-                if parent_idx < created.len() && child_idx < created.len() {
-                    let parent_id = created[parent_idx].id;
-                    let child_id = created[child_idx].id;
-                    db::dependencies::add_dependency(&db, child_id, parent_id, None).ok();
+                if let (Some(&parent_id), Some(&child_id)) = (ids_by_index.get(parent_idx), ids_by_index.get(child_idx)) {
+                    if parent_id > 0 && child_id > 0 {
+                        db::dependencies::add_dependency(&db, child_id, parent_id, None).ok();
+                    }
                 }
+            }
+        }
+    }
+
+    // Pass 4: emit + collect the fully-wired tasks last, so the UI receives hierarchy.
+    let mut created = Vec::new();
+    for &id in &ids_by_index {
+        if id > 0 {
+            if let Some(task) = tq::get_by_id(&db, id) {
+                app.emit("task:created", &task).ok();
+                created.push(task);
             }
         }
     }
@@ -411,6 +443,12 @@ Write a brief summary of your findings, then produce the task breakdown as a JSO
 ## Parallel Execution
 Tasks without dependency relationships will be executed in parallel by separate Claude agents. Maximize parallelism by only adding a dependency when one task truly cannot start until another finishes. Independent modules, separate files, and unrelated concerns should be separate parallel tasks.
 
+## Hierarchy
+Structure the work as a Jira-style tree: **Epic → Story → Task → Subtask**.
+- **epic / story** are organizational *containers*. They are NOT executed by an agent; they auto-complete when all their children are done. Keep their descriptions high-level.
+- **task / subtask** are the *executable leaves*. An agent runs each one, so their descriptions must be fully self-contained and implementation-ready. Add a subtask only when a task genuinely needs to be split further.
+Every story belongs to an epic, every task to a story (via the `parent` index). Dependencies connect executable leaves.
+
 ## CRITICAL: Output Format
 You MUST end your response with exactly one JSON code block in this format:
 
@@ -418,32 +456,52 @@ You MUST end your response with exactly one JSON code block in this format:
 {{
   "tasks": [
     {{
-      "title": "Short, imperative task title (e.g. Add user auth middleware)",
-      "description": "Detailed implementation instructions. Include specific file paths, function signatures, and expected behavior. This must be detailed enough for Claude to implement without further clarification.",
-      "task_type": "feature|bugfix|refactor|docs|test|chore",
+      "title": "High-level epic name (e.g. User authentication)",
+      "level": "epic",
+      "description": "One-paragraph summary of the epic's goal.",
+      "task_type": "feature",
+      "priority": 0,
+      "story_points": 13
+    }},
+    {{
+      "title": "Story within the epic (e.g. Login flow)",
+      "level": "story",
+      "parent": 0,
+      "description": "What this story delivers.",
+      "priority": 0,
+      "story_points": 5
+    }},
+    {{
+      "title": "Add user auth middleware",
+      "level": "task",
+      "parent": 1,
+      "description": "Detailed implementation instructions. Include specific file paths, function signatures, and expected behavior. Self-contained enough for Claude to implement without further clarification.",
+      "task_type": "feature",
       "priority": 0,
       "acceptance_criteria": "Concrete, verifiable definition of done (e.g. 'The /api/users endpoint returns 401 for unauthenticated requests')",
-      "checkpoint_type": "auto|human-verify|decision|human-action"
+      "story_points": 3
     }}
   ],
-  "dependencies": [[0, 1], [0, 2], [1, 3]]
+  "dependencies": [[2, 3]]
 }}
 ```
 
 ### Field Reference
 - **title**: Short imperative description (under 80 chars)
-- **description**: Full implementation guide — file paths, logic, edge cases
+- **level**: One of `epic`, `story`, `task`, `subtask`. epic/story are containers (not executed); task/subtask are executed by an agent.
+- **parent**: Index (into the `tasks` array) of this item's hierarchy parent — the epic for a story, the story for a task, the task for a subtask. Omit for top-level epics.
+- **description**: For leaves, a full implementation guide (file paths, logic, edge cases); for containers, a high-level summary.
 - **task_type**: One of `feature`, `bugfix`, `refactor`, `docs`, `test`, `chore`
 - **priority**: 0 (highest) to 3 (lowest), following the guidelines above
-- **acceptance_criteria**: Testable condition that proves the task is complete
-- **checkpoint_type**: One of `auto` (default, fully automated), `human-verify` (AI implements, human verifies), `decision` (human chooses between options), `human-action` (human must perform non-automatable action)
-- **dependencies**: Array of `[parentIndex, childIndex]` pairs. `[0, 1]` means task 1 depends on task 0. Tasks with no dependency edges run in parallel.
+- **acceptance_criteria**: Testable condition that proves the task is complete (most important on leaves)
+- **story_points**: Rough size estimate (1, 2, 3, 5, 8, 13…)
+- **dependencies**: Array of `[parentIndex, childIndex]` pairs referencing executable leaves. `[2, 3]` means task 3 depends on task 2. Leaves with no dependency edges run in parallel.
 
 ### Rules
-- Create {} tasks
-- Every description must be self-contained — assume the implementing agent has no context beyond the task itself and access to the codebase
-- Maximize parallel execution: only add dependency edges where strictly required
-- Each task must be independently executable once its dependencies are complete"#,
+- Aim for roughly {} executable leaf tasks, grouped under a small number of epics/stories
+- Every leaf description must be self-contained — assume the implementing agent has no context beyond the task itself and access to the codebase
+- Only add a dependency edge between leaves where one truly cannot start until another finishes; maximize parallelism
+- Reference `parent` and `dependencies` strictly by array index"#,
         project.name, project.working_dir, topic.trim(),
         if context.is_empty() { String::new() } else { format!("## Additional Context\n{}", context) },
         granularity.to_uppercase(), style, count

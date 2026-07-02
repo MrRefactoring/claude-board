@@ -191,6 +191,11 @@ export default function AppLayout({
               projectId={currentProject.id}
               projectName={currentProject.name}
               onClose={() => closeModal('chat')}
+              onDecompose={(goal) => {
+                // Prefill the planning modal's topic (read once on mount) and open it.
+                if (goal) sessionStorage.setItem('planning:topic', goal);
+                onOpenPlanning();
+              }}
             />
           )}
         </div>

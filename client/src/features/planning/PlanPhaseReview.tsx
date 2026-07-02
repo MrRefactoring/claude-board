@@ -34,6 +34,14 @@ interface DependencyGraphProps {
 // untyped) surface to just the props this preview passes.
 const DependencyGraph = DependencyGraphRaw as unknown as ComponentType<DependencyGraphProps>;
 
+/** Badge styles per Jira-style hierarchy level. */
+const LEVEL_STYLES: Record<string, string> = {
+  epic: 'bg-violet-500/15 text-violet-300',
+  story: 'bg-sky-500/15 text-sky-300',
+  task: 'bg-surface-500/15 text-surface-300',
+  subtask: 'bg-surface-600/15 text-surface-400',
+};
+
 function MdPreview({ content }: { content: string }) {
   if (!content) return null;
   return (
@@ -199,12 +207,24 @@ export function PlanPhaseReview({
                   {/* Center: badges + title */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
+                      {task.level && task.level !== 'task' && (
+                        <span
+                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase ${LEVEL_STYLES[task.level] || LEVEL_STYLES.task}`}
+                        >
+                          {task.level}
+                        </span>
+                      )}
                       <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${typeColor}`}>
                         {task.task_type}
                       </span>
                       {task.priority != null && task.priority > 0 && (
                         <span className={`text-[10px] font-medium ${PRIORITY_COLORS[task.priority]}`}>
                           {PRIORITY_LABELS[task.priority]}
+                        </span>
+                      )}
+                      {task.story_points != null && (
+                        <span className="text-[10px] font-medium text-surface-400 tabular-nums">
+                          {task.story_points} pts
                         </span>
                       )}
                     </div>

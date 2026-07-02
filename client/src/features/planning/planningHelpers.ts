@@ -1,13 +1,20 @@
 import { Code } from 'lucide-react';
 import { TOOL_ICONS, TOOL_COLORS } from '@/features/planning/planningConstants';
+import type { TaskLevel } from '@/lib/types';
 
-/** A single Claude-proposed task from the planning session. */
+/** A single Claude-proposed task from the planning session. Extra hierarchy
+ *  fields (level/parent/story_points) pass straight through to approve_plan. */
 export interface PlanProposal {
   title: string;
   description?: string;
   acceptance_criteria?: string;
   task_type?: string;
   priority?: number;
+  /** Jira-style level; defaults to `task` when absent. */
+  level?: TaskLevel;
+  /** Index (into the proposals array) of this item's hierarchy parent. */
+  parent?: number;
+  story_points?: number;
 }
 
 /** Index-based dependency edge: [parentIndex, childIndex]. */

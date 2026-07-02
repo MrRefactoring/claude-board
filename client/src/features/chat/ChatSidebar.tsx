@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { KeyboardEvent } from 'react';
-import { X, Send, Loader2, Bot, User, Trash2, Sparkles } from 'lucide-react';
+import { X, Send, Loader2, Bot, User, Trash2, Sparkles, ListTree } from 'lucide-react';
 import MDEditor from '@uiw/react-md-editor';
 import { api } from '@/lib/api';
 import { IS_TAURI } from '@/lib/tauriEvents';
@@ -9,6 +9,8 @@ interface Props {
   projectId: number;
   projectName: string;
   onClose: () => void;
+  /** Hand the current input off to the review-first planning flow (Decompose). */
+  onDecompose?: (goal: string) => void;
 }
 
 interface ChatMessage {
@@ -17,7 +19,7 @@ interface ChatMessage {
   isError?: boolean;
 }
 
-export default function ChatSidebar({ projectId, projectName, onClose }: Props) {
+export default function ChatSidebar({ projectId, projectName, onClose, onDecompose }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -56,6 +58,13 @@ export default function ChatSidebar({ projectId, projectName, onClose }: Props) 
       e.preventDefault();
       handleSend();
     }
+  };
+
+  // Hand the typed goal to the review-first planning flow instead of chatting.
+  const handleDecompose = () => {
+    if (!onDecompose || loading) return;
+    onDecompose(input.trim());
+    setInput('');
   };
 
   const clearChat = () => {
@@ -103,15 +112,16 @@ export default function ChatSidebar({ projectId, projectName, onClose }: Props) 
             <div className="w-12 h-12 rounded-2xl bg-claude/10 flex items-center justify-center mb-4">
               <Sparkles size={22} className="text-claude" />
             </div>
-            <h4 className="text-sm font-medium text-surface-300 mb-2">Ask anything about your project</h4>
+            <h4 className="text-sm font-medium text-surface-300 mb-2">Plan and manage with AI</h4>
             <p className="text-xs text-surface-500 mb-4 leading-relaxed">
-              Summarize tasks, analyze progress, get suggestions, or ask about your codebase.
+              Summarize progress, rewrite task descriptions, or describe a goal and click{' '}
+              <span className="text-claude">Decompose into tasks</span> to get a reviewable breakdown.
             </p>
             <div className="space-y-1.5 w-full">
               {[
                 'Summarize the current project status',
+                'Rewrite the description of a task to be clearer',
                 'Which tasks are blocking progress?',
-                'What failed recently and why?',
               ].map((suggestion) => (
                 <button
                   key={suggestion}
@@ -183,6 +193,17 @@ export default function ChatSidebar({ projectId, projectName, onClose }: Props) 
 
       {/* Input */}
       <div className="border-t border-surface-800 p-3 flex-shrink-0">
+        {onDecompose && (
+          <button
+            onClick={handleDecompose}
+            disabled={loading}
+            title="Break the goal in the box into epics, stories and tasks — you review before anything is created"
+            className="w-full mb-2 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-claude bg-claude/10 hover:bg-claude/20 disabled:opacity-40 rounded-lg transition-colors"
+          >
+            <ListTree size={13} />
+            Decompose into tasks
+          </button>
+        )}
         <div className="flex items-end gap-2">
           <textarea
             ref={inputRef}

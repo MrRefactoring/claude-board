@@ -56,7 +56,15 @@ interface PlanningStatus {
 export default function PlanningModal({ projectId, onClose }: PlanningModalProps) {
   const { t } = useTranslation();
   const c = getCache(projectId);
-  const [topic, setTopic] = useState<string>(c.topic);
+  // A goal handed off from the chat's "Decompose" action prefills the topic once.
+  const [topic, setTopic] = useState<string>(() => {
+    const prefill = sessionStorage.getItem('planning:topic');
+    if (prefill) {
+      sessionStorage.removeItem('planning:topic');
+      return prefill;
+    }
+    return c.topic;
+  });
   const [context, setContext] = useState<string>(c.context);
   const [model, setModel] = useState<string>(c.model);
   const [effort, setEffort] = useState<string>(c.effort);
@@ -269,7 +277,17 @@ export default function PlanningModal({ projectId, onClose }: PlanningModalProps
   };
 
   const handleRemoveProposal = (idx: number) => {
-    setProposals((prev) => prev.filter((_, i) => i !== idx));
+    // Drop the proposal and keep hierarchy `parent` indices consistent: an item
+    // parented to the removed node becomes top-level, higher indices shift down.
+    setProposals((prev) =>
+      prev
+        .filter((_, i) => i !== idx)
+        .map((p) => {
+          if (p.parent === undefined) return p;
+          if (p.parent === idx) return { ...p, parent: undefined };
+          return p.parent > idx ? { ...p, parent: p.parent - 1 } : p;
+        }),
+    );
     // Adjust dependency indices: remove edges referencing idx, shift indices above idx
     setDependencies((prev) =>
       prev
