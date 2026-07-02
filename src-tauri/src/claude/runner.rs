@@ -485,6 +485,12 @@ fn scan_git_info(working_dir: &str, task_id: i64, db: &DbPool) {
 /// Delete feature branch (local + remote) and worktree after task completion.
 /// Skips if auto_pr is enabled (branch needed for open PR).
 /// Only acts if task has a branch and branch is not the base branch.
+/// Effective PR intent for a task: the per-task `auto_pr` override wins, falling
+/// back to the project default when the task leaves it unset (NULL = inherit).
+fn effective_auto_pr(task: &tasks::Task, project: &projects::Project) -> i64 {
+    task.auto_pr.unwrap_or_else(|| project.auto_pr.unwrap_or(0))
+}
+
 pub fn cleanup_task_branch(task: &tasks::Task, working_dir: &str, project: &projects::Project) {
     // Always clean up worktree regardless of other settings
     cleanup_task_worktree(task.id, working_dir);
@@ -493,7 +499,7 @@ pub fn cleanup_task_branch(task: &tasks::Task, working_dir: &str, project: &proj
         return;
     }
     // Don't delete branch if auto_pr is on — PR may still be open
-    if project.auto_pr.unwrap_or(0) == 1 {
+    if effective_auto_pr(task, project) == 1 {
         return;
     }
     let branch = match task.branch_name.as_deref() {
@@ -548,7 +554,7 @@ fn auto_create_pr(
 ) {
     use crate::services::pr_providers::{self, PrCreateContext, PrCreateOutcome};
 
-    if project.auto_pr.unwrap_or(0) == 0 {
+    if effective_auto_pr(task, project) == 0 {
         return;
     }
     let branch = match task.branch_name.as_deref() {

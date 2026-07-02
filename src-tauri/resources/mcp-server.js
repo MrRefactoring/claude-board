@@ -31,7 +31,7 @@ async function api(path, options = {}) {
 
 const server = new McpServer({
   name: 'claude-board',
-  version: '4.1.0',
+  version: '4.2.0',
 });
 
 // ─── list_projects ───
@@ -208,6 +208,27 @@ server.tool(
       body: JSON.stringify({ body, pr_url: pr_url || null, author_type: 'agent' }),
     });
     return { content: [{ type: 'text', text: `Comment posted on task #${task_id}.` }] };
+  },
+);
+
+// ─── set_pr_intent ───
+server.tool(
+  'set_pr_intent',
+  "Set whether a task should open a pull request when it finishes. Use this when the user implies they want a PR for a specific task (e.g. 'open a PR for TASK-12'). enabled=true forces a PR, false disables it; omit to reset to the project default.",
+  {
+    task_id: z.number().describe('Task ID'),
+    enabled: z
+      .boolean()
+      .optional()
+      .describe('true = open a PR, false = never; omit to inherit the project default'),
+  },
+  async ({ task_id, enabled }) => {
+    await api(`/api/tasks/${task_id}/pr-intent`, {
+      method: 'POST',
+      body: JSON.stringify({ auto_pr: enabled === undefined ? null : enabled }),
+    });
+    const label = enabled === undefined ? 'inherit project default' : enabled ? 'open a PR' : 'no PR';
+    return { content: [{ type: 'text', text: `Task #${task_id} PR intent: ${label}.` }] };
   },
 );
 

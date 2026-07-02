@@ -16,6 +16,8 @@ const CHAT_ALLOWED_TOOLS: &[&str] = &[
     "mcp__claude-board__list_task_summary",
     "mcp__claude-board__get_task_detail",
     "mcp__claude-board__update_task",
+    "mcp__claude-board__add_task_comment",
+    "mcp__claude-board__set_pr_intent",
 ];
 
 /// Resolve the bundled MCP sidecar path (mirrors the resolution in runner.rs).

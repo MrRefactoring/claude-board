@@ -28,9 +28,48 @@ export function TaskGitTab({ d, detail, task, hasGit }: Props) {
   const [showFullDiff, setShowFullDiff] = useState(false);
   const [fullDiff, setFullDiff] = useState<string | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
+  const [autoPr, setAutoPr] = useState<number | null | undefined>(task.auto_pr);
+
+  const setIntent = (value: boolean | null) => {
+    setAutoPr(value === null ? null : value ? 1 : 0);
+    api.setTaskAutoPr(task.id, value).catch(() => {});
+  };
+
+  const intents: { v: boolean | null; label: string }[] = [
+    { v: null, label: 'Inherit' },
+    { v: true, label: 'On' },
+    { v: false, label: 'Off' },
+  ];
 
   return (
     <div className="space-y-4">
+      {/* Per-task PR intent */}
+      <div className="flex items-center justify-between bg-surface-800/40 rounded-lg px-3 py-2.5">
+        <div className="flex items-center gap-1.5 text-xs text-surface-300">
+          <GitPullRequest size={13} className="text-purple-400" />
+          {t('detail.autoPrForTask') || 'Auto-PR for this task'}
+        </div>
+        <div className="flex items-center gap-0.5 bg-surface-900/60 rounded-md p-0.5">
+          {intents.map((o) => {
+            const active =
+              (o.v === null && (autoPr === null || autoPr === undefined)) ||
+              (o.v === true && autoPr === 1) ||
+              (o.v === false && autoPr === 0);
+            return (
+              <button
+                key={String(o.v)}
+                onClick={() => setIntent(o.v)}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                  active ? 'bg-purple-500/20 text-purple-300' : 'text-surface-500 hover:text-surface-300'
+                }`}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Pull Request */}
       {d.pr_url && (
         <a

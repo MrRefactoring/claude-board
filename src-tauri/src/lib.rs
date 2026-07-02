@@ -276,6 +276,7 @@ pub fn run() {
             commands::tasks::get_task_detail,
             commands::tasks::get_task_comments,
             commands::tasks::add_task_comment,
+            commands::tasks::set_task_auto_pr,
             commands::tasks::reorder_queue,
             commands::tasks::reorder_tasks,
             commands::tasks::set_task_dependency,

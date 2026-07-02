@@ -127,6 +127,9 @@ const coreApi = {
       { taskId, body, authorName: authorName || null },
       { body, author_type: 'user' },
     ),
+  // Per-task PR intent: true = always open a PR, false = never, null = inherit project default.
+  setTaskAutoPr: (id: number, autoPr: boolean | null): Promise<Task> =>
+    call('set_task_auto_pr', 'POST', `/api/tasks/${id}/pr-intent`, { id, autoPr }, { auto_pr: autoPr }),
 
   // ─── Planning ───
   startPlanning: (projectId: number, data: Record<string, unknown>): Promise<unknown> =>

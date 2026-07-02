@@ -693,3 +693,14 @@ pub fn add_task_comment(
     app.emit("comment:created", &serde_json::json!({"taskId": task_id, "comment": comment})).ok();
     Ok(comment)
 }
+
+/// Per-task PR intent: Some(true)=always open a PR, Some(false)=never, None=inherit project.
+#[tauri::command]
+pub fn set_task_auto_pr(app: AppHandle, id: i64, auto_pr: Option<bool>) -> Result<tq::Task, String> {
+    let db = db::get_db();
+    let value = auto_pr.map(|v| if v { 1 } else { 0 });
+    tq::set_auto_pr(&db, id, value);
+    let updated = tq::get_by_id(&db, id).ok_or("Task not found")?;
+    app.emit("task:updated", &updated).ok();
+    Ok(updated)
+}
