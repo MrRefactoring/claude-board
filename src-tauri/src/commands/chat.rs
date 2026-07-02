@@ -1,4 +1,6 @@
+use std::io::{BufRead, BufReader};
 use std::process::Stdio;
+use tauri::{AppHandle, Emitter};
 use crate::claude::env_path;
 use crate::db::{self, projects, tasks};
 
@@ -7,11 +9,11 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-/// Board MCP tools the chat assistant may call: READ-ONLY. Every board change
-/// (edit, status/close, PR intent, comment) is proposed as a `board:action`
-/// block for the user to approve with a button — the chat never mutates
-/// directly. Task creation/decomposition goes through the review-first planning
-/// flow, not the chat.
+/// Board MCP tools pre-allowed for the chat (read-only, never prompt). Everything
+/// else the assistant tries — web/files/shell, plus board WRITE tools like
+/// create_task / decompose / add_dependency — routes through the approval card
+/// (or runs freely when full-autonomy bypass is on). Edits to existing tasks are
+/// still offered as `board:action` blocks for a lightweight review.
 const CHAT_ALLOWED_TOOLS: &[&str] = &[
     "mcp__claude-board__list_projects",
     "mcp__claude-board__list_tasks",
@@ -19,6 +21,11 @@ const CHAT_ALLOWED_TOOLS: &[&str] = &[
     "mcp__claude-board__get_task_detail",
     "mcp__claude-board__list_agents",
 ];
+
+/// The MCP tool Claude calls to ask for permission (via `--permission-prompt-tool`)
+/// when it wants a tool outside the read-only whitelist. Must itself be allowed so
+/// invoking it never recurses into another permission prompt.
+const PERMISSION_PROMPT_TOOL: &str = "mcp__claude-board__approve_permission";
 
 /// One prior turn of the conversation, sent from the client so the assistant
 /// keeps context across messages (the chat itself is stateless / one-shot).
@@ -70,11 +77,87 @@ fn resolve_mcp_server_path() -> String {
         .unwrap_or_default()
 }
 
-/// Send a chat message to Claude with access to the Claude Board MCP tools
-/// (read the board + edit task descriptions/titles). One-shot; returns text.
-/// Runs in the project's working directory.
+/// Emit a compact activity line to the chat UI — a small live log of what the
+/// assistant is doing during a run (which tool it called, whether it succeeded).
+fn emit_chat_activity(app: &AppHandle, kind: &str, label: String) {
+    app.emit("chat:activity", &serde_json::json!({ "kind": kind, "label": label })).ok();
+}
+
+/// One-line summary of a tool call for the activity log: the short tool name plus
+/// a telling input field (command / query / title / path …) when present.
+fn summarize_tool(name: &str, input: &serde_json::Value) -> String {
+    let short = name.rsplit("__").next().unwrap_or(name);
+    let detail = ["command", "query", "title", "prompt", "pattern", "path", "file_path", "url"]
+        .iter()
+        .find_map(|k| input.get(*k).and_then(|v| v.as_str()))
+        .map(|d| {
+            let d = d.trim();
+            let clipped: String = d.chars().take(80).collect();
+            if d.chars().count() > 80 { format!("{}…", clipped) } else { clipped }
+        });
+    match detail {
+        Some(d) if !d.is_empty() => format!("{} · {}", short, d),
+        _ => short.to_string(),
+    }
+}
+
+/// Parse one `stream-json` line: emit compact activity events and capture the
+/// final assistant text (from the `result` event, with assistant text as fallback).
+fn handle_stream_line(app: &AppHandle, line: &str, final_text: &mut String, assistant_buf: &mut String) {
+    let v: serde_json::Value = match serde_json::from_str(line) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    match v.get("type").and_then(|t| t.as_str()) {
+        Some("assistant") => {
+            if let Some(content) = v.pointer("/message/content").and_then(|c| c.as_array()) {
+                for item in content {
+                    match item.get("type").and_then(|t| t.as_str()) {
+                        Some("tool_use") => {
+                            let name = item.get("name").and_then(|n| n.as_str()).unwrap_or("tool");
+                            // The permission gate and tool-discovery are internal plumbing — hide them.
+                            if name.ends_with("approve_permission") || name == "ToolSearch" {
+                                continue;
+                            }
+                            let input = item.get("input").cloned().unwrap_or_else(|| serde_json::json!({}));
+                            emit_chat_activity(app, "tool", summarize_tool(name, &input));
+                        }
+                        Some("text") => {
+                            if let Some(t) = item.get("text").and_then(|t| t.as_str()) {
+                                assistant_buf.push_str(t);
+                            }
+                        }
+                        Some("thinking") => emit_chat_activity(app, "thinking", "thinking…".to_string()),
+                        _ => {}
+                    }
+                }
+            }
+        }
+        Some("user") => {
+            if let Some(content) = v.pointer("/message/content").and_then(|c| c.as_array()) {
+                for item in content {
+                    if item.get("type").and_then(|t| t.as_str()) == Some("tool_result") {
+                        let is_err = item.get("is_error").and_then(|b| b.as_bool()).unwrap_or(false);
+                        emit_chat_activity(app, "tool_result", if is_err { "error".into() } else { "done".into() });
+                    }
+                }
+            }
+        }
+        Some("result") => {
+            if let Some(r) = v.get("result").and_then(|r| r.as_str()) {
+                *final_text = r.to_string();
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Send a chat message to Claude with access to the Claude Board MCP tools. Runs
+/// `stream-json` under the hood and emits a compact `chat:activity` log to the UI
+/// while it works; returns the final assistant text. Runs in the project's dir.
 #[tauri::command]
 pub async fn chat_send(
+    app: AppHandle,
     project_id: i64,
     message: String,
     model: Option<String>,
@@ -106,9 +189,12 @@ pub async fn chat_send(
 ## Task List (id — task_key — title — status)
 {}
 
-## Your tools (Claude Board MCP, READ-ONLY)
-- get_task_detail / list_tasks / list_task_summary / list_projects / list_agents — inspect the board.
-You cannot change the board directly. To change anything, PROPOSE an action (below) and the user approves it with a button.
+## Your tools
+- Board (read): get_task_detail / list_tasks / list_task_summary / list_projects / list_agents — inspect the board.
+- Board (create): create_task, decompose (break a goal into an epic → story → task → subtask tree), add_dependency (make one task wait for another) — use these to CREATE tasks and wire dependencies yourself.
+- Other tools (web search, files, shell, notes/Obsidian, etc.): use them when the task genuinely needs it.
+Any tool outside the read-only board set triggers an approval card in this chat with Yes / Always / Deny the FIRST time you use it — there is NO separate terminal dialog, so never tell the user to "confirm a dialog". If the user enabled full autonomy, tools just run.
+To EDIT an existing task (status, title, description, priority, PR intent, comment), do NOT call a tool — propose a `board:action` block (below) that the user approves with a button.
 
 ## Proposing board changes (confirm-first)
 When the user asks you to change the board — close a task, change its status, edit its title/description/type/priority/acceptance criteria, toggle its PR intent, or add a comment — do NOT try to do it yourself. Instead:
@@ -134,7 +220,7 @@ Rules for actions:
 ## Rules
 - Answer concisely in the user's language, using markdown.
 - When asked to summarize or analyze tasks, read them with the board tools first.
-- To break a goal into epics/stories/tasks, do NOT propose creating tasks — tell the user to use the board's Decompose / Planning action, which produces a review-first breakdown they can approve."#,
+- To create tasks, or break a goal into epics/stories/tasks, use the create_task / decompose / add_dependency tools directly (each asks for the user's approval unless full autonomy is on). Do this yourself — do NOT tell the user to go to Decompose/Planning. For a large, review-heavy breakdown you MAY additionally suggest the board's Decompose/Planning flow."#,
         project.name, project.working_dir,
         all_tasks.len(), running, backlog, done, failed,
         task_summary,
@@ -143,6 +229,9 @@ Rules for actions:
     let history_block = build_history_block(history.as_deref());
     let prompt = format!("{}{}\n\n## User Message\n{}", system_context, history_block, message);
     let model_str = model.unwrap_or_else(|| "sonnet".to_string());
+    // Full-autonomy toggle: bypass ON → skip all permission prompts; OFF → route
+    // tool use outside the read-only whitelist through the approval card.
+    let bypass = db::settings::get(&db).chat_bypass_permissions;
 
     // Wire the Claude Board MCP sidecar so the assistant can read/update tasks.
     let mcp_server_path = resolve_mcp_server_path();
@@ -157,17 +246,39 @@ Rules for actions:
     }).to_string();
     let working_dir = project.working_dir.clone();
 
-    // Run Claude CLI in one-shot mode with the board MCP tools whitelisted.
+    // Log the invocation's internals so the whole chat "inside" is inspectable in
+    // the app log file afterwards (full prompt at debug; summary at info).
+    log::info!(
+        "[chat] project={} model={} bypass_permissions={} allowed_tools={} permission_prompt={}",
+        project_id,
+        model_str,
+        bypass,
+        if bypass { 0 } else { CHAT_ALLOWED_TOOLS.len() + 1 },
+        !bypass,
+    );
+    log::debug!("[chat] prompt:\n{}", prompt);
+
+    // Run Claude CLI streaming. bypass ON → full autonomy; OFF → read-only board
+    // tools are pre-allowed and anything else prompts via the approval card. We
+    // read stream-json line by line to emit a live activity log to the UI.
     let result = tauri::async_runtime::spawn_blocking(move || {
+        let started = std::time::Instant::now();
         let mut cmd = env_path::claude_command();
         cmd.args([
             "-p", &prompt,
             "--model", &model_str,
-            "--output-format", "text",
+            "--output-format", "stream-json",
+            "--verbose",
             "--mcp-config", &mcp_config,
         ]);
-        for tool in CHAT_ALLOWED_TOOLS {
-            cmd.args(["--allowedTools", tool]);
+        if bypass {
+            cmd.arg("--dangerously-skip-permissions");
+        } else {
+            for tool in CHAT_ALLOWED_TOOLS {
+                cmd.args(["--allowedTools", tool]);
+            }
+            cmd.args(["--allowedTools", PERMISSION_PROMPT_TOOL]);
+            cmd.args(["--permission-prompt-tool", PERMISSION_PROMPT_TOOL]);
         }
         cmd.current_dir(&working_dir)
             .stdout(Stdio::piped())
@@ -176,12 +287,59 @@ Rules for actions:
         #[cfg(target_os = "windows")]
         cmd.creation_flags(CREATE_NO_WINDOW);
 
-        let output = cmd.output().map_err(|e| format!("Failed to run Claude CLI: {}", e))?;
+        let mut child = cmd.spawn().map_err(|e| format!("Failed to run Claude CLI: {}", e))?;
 
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        // Drain stderr on a side thread to avoid a pipe-buffer deadlock.
+        let stderr_thread = child.stderr.take().map(|se| {
+            std::thread::spawn(move || {
+                let mut buf = String::new();
+                let mut reader = BufReader::new(se);
+                let mut line = String::new();
+                while reader.read_line(&mut line).unwrap_or(0) > 0 {
+                    buf.push_str(&line);
+                    line.clear();
+                }
+                buf
+            })
+        });
+
+        // Parse stream-json events line by line: emit the compact activity log and
+        // capture the final assistant text.
+        let mut final_text = String::new();
+        let mut assistant_buf = String::new();
+        if let Some(out) = child.stdout.take() {
+            let reader = BufReader::new(out);
+            for line in reader.lines().map_while(Result::ok) {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                handle_stream_line(&app, &line, &mut final_text, &mut assistant_buf);
+            }
+        }
+
+        let status = child.wait().map_err(|e| format!("Failed to wait on Claude CLI: {}", e))?;
+        let elapsed = started.elapsed();
+        let stderr = stderr_thread.and_then(|h| h.join().ok()).unwrap_or_default();
+        if !stderr.trim().is_empty() {
+            log::debug!("[chat] stderr:\n{}", stderr.trim());
+        }
+
+        // Prefer the `result` event text; fall back to concatenated assistant text.
+        let text = if !final_text.trim().is_empty() {
+            final_text.trim().to_string()
         } else {
-            let stderr = String::from_utf8_lossy(&output.stderr);
+            assistant_buf.trim().to_string()
+        };
+
+        if status.success() {
+            log::info!("[chat] done exit=0 text_len={} elapsed={:?}", text.len(), elapsed);
+            log::debug!("[chat] final text:\n{}", text);
+            Ok(text)
+        } else if !text.is_empty() {
+            log::info!("[chat] exit={:?} but text present ({} chars) elapsed={:?}", status.code(), text.len(), elapsed);
+            Ok(text)
+        } else {
+            log::info!("[chat] failed exit={:?} elapsed={:?} stderr={}", status.code(), elapsed, stderr.trim());
             Err(format!("Claude CLI error: {}", stderr.trim()))
         }
     }).await.map_err(|e| format!("Task join error: {}", e))?;

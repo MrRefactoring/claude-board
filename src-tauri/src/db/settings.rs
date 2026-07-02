@@ -17,6 +17,10 @@ pub struct AppSettings {
     pub notify_queue_started: bool,
     pub sound_enabled: bool,
     pub auto_open_terminal: bool,
+    /// When true, the AI chat runs with `--dangerously-skip-permissions` (full
+    /// autonomy, no approval cards). When false, tool use outside the read-only
+    /// whitelist prompts the user with a Yes / Always / Deny card.
+    pub chat_bypass_permissions: bool,
 }
 
 impl Default for AppSettings {
@@ -35,6 +39,7 @@ impl Default for AppSettings {
             notify_queue_started: false,
             sound_enabled: true,
             auto_open_terminal: false,
+            chat_bypass_permissions: false,
         }
     }
 }
@@ -68,6 +73,7 @@ pub fn get(db: &DbPool) -> AppSettings {
             "notify_queue_started" => settings.notify_queue_started = value == "true",
             "sound_enabled" => settings.sound_enabled = value == "true",
             "auto_open_terminal" => settings.auto_open_terminal = value == "true",
+            "chat_bypass_permissions" => settings.chat_bypass_permissions = value == "true",
             _ => {}
         }
     }
@@ -99,6 +105,7 @@ pub fn update(db: &DbPool, settings: &AppSettings) {
         ("notify_queue_started", settings.notify_queue_started.to_string()),
         ("sound_enabled", settings.sound_enabled.to_string()),
         ("auto_open_terminal", settings.auto_open_terminal.to_string()),
+        ("chat_bypass_permissions", settings.chat_bypass_permissions.to_string()),
     ];
     for (key, value) in pairs {
         set(db, key, &value);

@@ -482,23 +482,39 @@ fn scan_git_info(working_dir: &str, task_id: i64, db: &DbPool) {
     );
 }
 
-/// Delete feature branch (local + remote) and worktree after task completion.
-/// Skips if auto_pr is enabled (branch needed for open PR).
-/// Only acts if task has a branch and branch is not the base branch.
 /// Effective PR intent for a task: the per-task `auto_pr` override wins, falling
 /// back to the project default when the task leaves it unset (NULL = inherit).
 fn effective_auto_pr(task: &tasks::Task, project: &projects::Project) -> i64 {
     task.auto_pr.unwrap_or_else(|| project.auto_pr.unwrap_or(0))
 }
 
-pub fn cleanup_task_branch(task: &tasks::Task, working_dir: &str, project: &projects::Project) {
-    // Always clean up worktree regardless of other settings
+/// Effective auto-merge intent — project-level toggle only (default off).
+fn effective_auto_merge(_task: &tasks::Task, project: &projects::Project) -> i64 {
+    project.auto_merge.unwrap_or(0)
+}
+
+/// Post-completion branch handling. Always removes the worktree. Critically, it
+/// NEVER force-deletes an unmerged task branch — that used to orphan the agent's
+/// commits (dangling, lost at the next `git gc`). Behaviour:
+/// - `auto_pr` on   → keep the branch (an open PR owns it).
+/// - `auto_merge` on → try to merge the branch into the base branch, and only on
+///   success delete it. The merge is *skipped* (branch kept) unless the base
+///   branch is the clean, checked-out HEAD of the main working dir; on conflict
+///   we `merge --abort` and keep the branch. Task output is therefore never lost.
+/// - otherwise → keep the branch so the user can merge/inspect it manually.
+pub fn cleanup_task_branch(
+    task: &tasks::Task,
+    working_dir: &str,
+    project: &projects::Project,
+    db: &DbPool,
+) {
+    // Always clean up the worktree regardless of other settings.
     cleanup_task_worktree(task.id, working_dir);
 
     if project.auto_branch.unwrap_or(1) == 0 {
         return;
     }
-    // Don't delete branch if auto_pr is on — PR may still be open
+    // An open PR owns the branch — never touch it here.
     if effective_auto_pr(task, project) == 1 {
         return;
     }
@@ -511,7 +527,18 @@ pub fn cleanup_task_branch(task: &tasks::Task, working_dir: &str, project: &proj
         return;
     }
 
-    let git = |args: &[&str]| {
+    // auto_merge disabled → KEEP the branch (deleting it here was the data-loss bug).
+    if effective_auto_merge(task, project) == 0 {
+        log::info!(
+            "Task {} finished on branch {} (auto_merge off) — branch kept for manual merge",
+            task.id,
+            branch
+        );
+        return;
+    }
+
+    // auto_merge enabled → attempt a safe, non-destructive merge into the base.
+    let git_ok = |args: &[&str]| -> bool {
         let mut cmd = Command::new("git");
         cmd.args(args)
             .current_dir(working_dir)
@@ -519,16 +546,54 @@ pub fn cleanup_task_branch(task: &tasks::Task, working_dir: &str, project: &proj
             .stderr(Stdio::null());
         #[cfg(target_os = "windows")]
         cmd.creation_flags(CREATE_NO_WINDOW);
-        cmd.output().ok();
+        cmd.output().map(|o| o.status.success()).unwrap_or(false)
+    };
+    let git_out = |args: &[&str]| -> Option<String> {
+        let mut cmd = Command::new("git");
+        cmd.args(args)
+            .current_dir(working_dir)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        cmd.output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
     };
 
-    // Delete local branch (worktree already removed so branch is free)
-    git(&["branch", "-D", branch]);
-    // Delete remote branch (best-effort, only if auto_push is on)
-    if project.auto_push.unwrap_or(0) == 1 {
-        git(&["push", "origin", "--delete", branch]);
+    // Guard: never disturb the user's working tree — only merge when the base
+    // branch is the current HEAD and the tree is clean.
+    let head = git_out(&["rev-parse", "--abbrev-ref", "HEAD"]).unwrap_or_default();
+    let dirty = git_out(&["status", "--porcelain"])
+        .map(|s| !s.is_empty())
+        .unwrap_or(true);
+    if head != base || dirty {
+        let msg = format!(
+            "auto_merge пропущен: рабочее дерево не на «{}» или содержит незакоммиченные изменения — ветка {} сохранена для ручного слияния",
+            base, branch
+        );
+        log::info!("Task {}: {}", task.id, msg);
+        tasks::add_log(db, task.id, &msg, "info", None);
+        return;
     }
-    log::info!("Cleaned up branch {} for task {}", branch, task.id);
+
+    // --no-ff keeps a visible merge commit; on conflict abort and keep the branch.
+    if git_ok(&["merge", "--no-ff", "--no-edit", branch]) {
+        // Merged cleanly → commits now live on base; the branch is safe to drop.
+        git_ok(&["branch", "-D", branch]);
+        let msg = format!("auto_merge: ветка {} влита в {} и удалена", branch, base);
+        log::info!("Task {}: {}", task.id, msg);
+        tasks::add_log(db, task.id, &msg, "success", None);
+    } else {
+        git_ok(&["merge", "--abort"]);
+        let msg = format!(
+            "auto_merge: конфликт при слиянии {} в {} — ветка сохранена для ручного слияния",
+            branch, base
+        );
+        log::info!("Task {}: {}", task.id, msg);
+        tasks::add_log(db, task.id, &msg, "error", None);
+    }
 }
 
 /// Public wrapper for auto_create_pr (called from commands/tasks.rs on manual done transition)
@@ -947,6 +1012,7 @@ fn build_claude_args(
     permission_mode: &str,
     allowed_tools: &str,
     mcp_server_port: u16,
+    task_id: i64,
 ) -> Vec<String> {
     let mut args = vec![
         "-p".to_string(),
@@ -995,14 +1061,20 @@ fn build_claude_args(
             "claude-board": {
                 "command": "node",
                 "args": [mcp_server_path],
-                "env": { "CLAUDE_BOARD_URL": format!("http://localhost:{}", mcp_server_port) }
+                "env": {
+                    "CLAUDE_BOARD_URL": format!("http://localhost:{}", mcp_server_port),
+                    // Lets the sidecar tag permission requests with this task so the
+                    // approval card shows up against the right task.
+                    "CLAUDE_BOARD_TASK_ID": task_id.to_string(),
+                }
             }
         }
     });
     args.extend(["--mcp-config".to_string(), mcp_config.to_string()]);
 
-    // Permission mode: "auto-accept" skips all permissions, "allow-tools" whitelists specific tools,
-    // "default" passes no flags (Claude CLI prompts user for each tool use)
+    // Permission mode: "auto-accept" skips all permissions, "allow-tools" whitelists
+    // specific tools, "default" prompts the user for each new tool.
+    const PERMISSION_PROMPT_TOOL: &str = "mcp__claude-board__approve_permission";
     if permission_mode == "auto-accept" {
         args.push("--dangerously-skip-permissions".to_string());
     } else if permission_mode == "allow-tools" {
@@ -1018,12 +1090,39 @@ fn build_claude_args(
                 args.extend(["--allowedTools".to_string(), t.to_string()]);
             }
         }
+    } else {
+        // "default": interactive approval. Headless runs have no TTY, so instead of
+        // passing no flags (which silently blocks tools), route permission prompts
+        // through the approval card via the permission-prompt tool. Any explicitly
+        // allowed tools are still pre-approved.
+        for t in allowed_tools.split(',').map(|t| t.trim()).filter(|t| !t.is_empty()) {
+            args.extend(["--allowedTools".to_string(), t.to_string()]);
+        }
+        args.extend(["--allowedTools".to_string(), PERMISSION_PROMPT_TOOL.to_string()]);
+        args.extend(["--permission-prompt-tool".to_string(), PERMISSION_PROMPT_TOOL.to_string()]);
     }
-    // "default" mode: no permission flags — Claude CLI uses its default interactive approval
 
     if effort != "medium" {
         args.extend(["--effort".to_string(), effort.to_string()]);
     }
+
+    // Exact spawn command for post-hoc debugging (prompt redacted to its length).
+    let display: Vec<String> = {
+        let mut out = Vec::with_capacity(args.len());
+        let mut redact_next = false;
+        for a in &args {
+            if redact_next {
+                out.push(format!("<prompt:{} chars>", a.len()));
+                redact_next = false;
+            } else {
+                out.push(a.clone());
+                if a == "-p" { redact_next = true; }
+            }
+        }
+        out
+    };
+    log::info!("[runner] task {} spawn: claude {}", task_id, display.join(" "));
+    log::debug!("[runner] task {} prompt:\n{}", task_id, prompt);
 
     args
 }
@@ -1289,7 +1388,7 @@ fn handle_process_lifecycle(
                     ) {
                         auto_create_pr_public(&done_task, working_dir, &proj, db, app);
                         let after_pr = tasks::get_by_id(db, task_id).unwrap_or(done_task.clone());
-                        cleanup_task_branch(&after_pr, project_working_dir, &proj);
+                        cleanup_task_branch(&after_pr, project_working_dir, &proj, db);
 
                         if proj.github_sync_enabled.unwrap_or(0) == 1 {
                             if let Some(issue_num) = done_task.github_issue_number {
@@ -1517,6 +1616,7 @@ pub fn start(
         permission_mode,
         allowed_tools,
         mcp_server_port,
+        task_id,
     );
 
     let project_working_dir = working_dir.to_string();
@@ -1733,6 +1833,7 @@ After all checks, you MUST output this exact JSON block as your final output:
         permission_mode,
         allowed_tools,
         mcp_server_port,
+        task_id,
     );
     // Reuse the task's worktree if one exists, otherwise fall back to project working dir
     let effective_dir = get_task_worktree(task_id).unwrap_or_else(|| working_dir.to_string());
@@ -2020,7 +2121,7 @@ After all checks, you MUST output this exact JSON block as your final output:
                                 // Cleanup worktree + feature branch using project root dir
                                 let after_pr =
                                     tasks::get_by_id(&db, task_id).unwrap_or(done_task.clone());
-                                cleanup_task_branch(&after_pr, &project_working_dir, &proj);
+                                cleanup_task_branch(&after_pr, &project_working_dir, &proj, &db);
 
                                 // Auto-close linked GitHub issue
                                 if proj.github_sync_enabled.unwrap_or(0) == 1 {
@@ -2118,6 +2219,7 @@ After all checks, you MUST output this exact JSON block as your final output:
                                     auto_branch: None,
                                     auto_pr: None,
                                     auto_push: None,
+                                    auto_merge: None,
                                     pr_base_branch: None,
                                     project_key: None,
                                     task_counter: None,

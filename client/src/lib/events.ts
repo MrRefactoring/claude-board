@@ -52,6 +52,9 @@ export interface AppEventMap {
   'claude:finished': unknown;
   'claude:limits': unknown;
 
+  // Compact live activity log emitted by the AI chat during a run (Tauri-only).
+  'chat:activity': { kind: string; label: string };
+
   // Tauri-only (emitted by the desktop shell, not in the Socket.IO list)
   'update:available': unknown;
   'update:ready': unknown;

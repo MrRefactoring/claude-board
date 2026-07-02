@@ -15,6 +15,11 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 
 const BASE_URL = process.env.CLAUDE_BOARD_URL || 'http://localhost:4000';
+// Set by the task runner so permission requests can be attached to their task.
+// Unset for the chat sidecar → those requests are tagged origin="chat".
+const TASK_ID = process.env.CLAUDE_BOARD_TASK_ID ? Number(process.env.CLAUDE_BOARD_TASK_ID) : null;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function api(path, options = {}) {
   // eslint-disable-next-line no-undef
@@ -31,8 +36,27 @@ async function api(path, options = {}) {
 
 const server = new McpServer({
   name: 'claude-board',
-  version: '4.5.0',
+  version: '4.6.0',
 });
+
+// Log every tool invocation (name + args) to stderr. The runner drains stderr
+// into task_logs and the chat captures it, so the board's "internals" are
+// inspectable after the fact. Wrap once so individual tools stay untouched.
+const _origTool = server.tool.bind(server);
+server.tool = function tool(name, ...rest) {
+  const cb = rest[rest.length - 1];
+  if (typeof cb === 'function') {
+    rest[rest.length - 1] = async (...cbArgs) => {
+      try {
+        console.error(`[mcp] ${name} ${JSON.stringify(cbArgs[0] ?? {})}`);
+      } catch {
+        /* arg not serialisable — skip logging it */
+      }
+      return cb(...cbArgs);
+    };
+  }
+  return _origTool(name, ...rest);
+};
 
 // ─── list_projects ───
 server.tool('list_projects', 'List all projects with task counts and stats', {}, async () => {
@@ -364,6 +388,66 @@ server.tool(
       });
     }
     return { content: [{ type: 'text', text: `# Project Tasks\nTotal: ${tasks.length}${lines.join('\n')}` }] };
+  },
+);
+
+// ─── approve_permission (permission-prompt tool) ───
+// Wired via `claude -p --permission-prompt-tool mcp__claude-board__approve_permission`.
+// Claude calls this automatically before using a tool that isn't pre-allowed; we
+// surface a Yes/Always/Deny card to the user and return the decision. The exact
+// argument shape Claude passes is not officially documented — we accept the known
+// { tool_name, input } contract, log the raw args for verification, and tolerate
+// missing fields. Response MUST be a JSON text block with `behavior`.
+server.tool(
+  'approve_permission',
+  'Internal permission gate. Claude Code invokes this automatically before using a tool that is not pre-approved; it asks the user to approve or deny. Do not call this directly.',
+  {
+    tool_name: z.string().optional().describe('The tool Claude wants to use'),
+    input: z.object({}).passthrough().optional().describe('The input for that tool'),
+  },
+  async (args) => {
+    const toolName = args?.tool_name || args?.toolName || args?.tool || 'unknown tool';
+    const toolInput = args?.input ?? args?.tool_input ?? {};
+    const allow = () => ({
+      content: [{ type: 'text', text: JSON.stringify({ behavior: 'allow', updatedInput: toolInput }) }],
+    });
+    const deny = (message) => ({
+      content: [{ type: 'text', text: JSON.stringify({ behavior: 'deny', message }) }],
+    });
+
+    let id;
+    try {
+      const created = await api('/api/permission/request', {
+        method: 'POST',
+        body: JSON.stringify({
+          tool_name: toolName,
+          input: toolInput,
+          origin: TASK_ID != null ? 'task' : 'chat',
+          task_id: TASK_ID,
+        }),
+      });
+      id = created.id;
+      if (created.status === 'allow') return allow(); // remembered ("always") tool
+    } catch (e) {
+      console.error(`[approve_permission] request failed: ${e.message}`);
+      return deny('Could not reach the approval service.');
+    }
+
+    // Poll for the user's decision (~5 min), then default to deny.
+    const deadline = Date.now() + 5 * 60 * 1000;
+    while (Date.now() < deadline) {
+      await sleep(800);
+      let r;
+      try {
+        r = await api(`/api/permission/${id}`);
+      } catch (e) {
+        console.error(`[approve_permission] poll failed: ${e.message}`);
+        continue;
+      }
+      if (r.status === 'allow') return allow();
+      if (r.status === 'deny') return deny(r.message || 'Denied by user.');
+    }
+    return deny('Timed out waiting for approval.');
   },
 );
 

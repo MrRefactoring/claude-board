@@ -60,6 +60,11 @@ pub fn run() {
     // kept, which made bug reports hard to triage.
     let log_plugin = tauri_plugin_log::Builder::default()
         .level(log::LevelFilter::Info)
+        // Our own crate at Debug so the chat/runner "internals" (full prompt,
+        // exact CLI args, stdout, every permission request/decision) land in the
+        // rotating log file for post-hoc inspection. Third-party stays quieter.
+        .level_for("claude_board", log::LevelFilter::Debug)
+        .level_for("claude_board_lib", log::LevelFilter::Debug)
         // Noisy third-party crates: keep them at warn so the log stays useful.
         .level_for("hyper", log::LevelFilter::Warn)
         .level_for("reqwest", log::LevelFilter::Warn)
@@ -98,6 +103,10 @@ pub fn run() {
                     log::error!("Database initialization failed: {}", e);
                     return Err(Box::<dyn std::error::Error>::from(e));
                 }
+
+                // Register the global event bridge so HTTP-API handlers (MCP
+                // sidecar) can emit the same realtime events the UI listens for.
+                services::events::init(app.handle().clone());
 
                 // Recover orphaned tasks and start auto-queue
                 services::queue::startup_recovery(app.handle());
@@ -383,6 +392,9 @@ pub fn run() {
             commands::workflows::delete_workflow_template,
             commands::workflows::apply_workflow_template,
             commands::chat::chat_send,
+            // Tool-permission approval (Yes/Always/Deny)
+            commands::permissions::get_pending_permissions,
+            commands::permissions::resolve_permission,
             // Roadmap (GSD)
             commands::roadmap::get_milestones,
             commands::roadmap::create_milestone,

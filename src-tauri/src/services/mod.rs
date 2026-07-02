@@ -1,9 +1,11 @@
 pub mod agent_recurrence;
+pub mod events;
 pub mod github;
 pub mod github_sync;
 pub mod gsd;
 pub mod http_api;
 pub mod notification;
+pub mod permissions;
 pub mod pr_providers;
 pub mod queue;
 pub mod scanner;

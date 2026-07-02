@@ -75,6 +75,9 @@ pub fn update_app_settings(_app: AppHandle, data: serde_json::Value) -> Result<s
     if let Some(v) = data.get("auto_open_terminal").and_then(|v| v.as_bool()) {
         current.auto_open_terminal = v;
     }
+    if let Some(v) = data.get("chat_bypass_permissions").and_then(|v| v.as_bool()) {
+        current.chat_bypass_permissions = v;
+    }
 
     settings::update(&db, &current);
     Ok(current)

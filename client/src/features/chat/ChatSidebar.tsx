@@ -1,10 +1,29 @@
 import { useState, useRef, useEffect } from 'react';
 import type { KeyboardEvent } from 'react';
-import { X, Send, Loader2, Bot, User, Trash2, Sparkles, ListTree, Check, Ban, CheckCircle2 } from 'lucide-react';
+import { X, Send, Loader2, Bot, User, Trash2, Sparkles, ListTree, Check, Ban, CheckCircle2, Zap, ShieldQuestion, Wrench, Plus } from 'lucide-react';
 import MDEditor from '@uiw/react-md-editor';
 import { api } from '@/lib/api';
-import type { Task, TaskStatus } from '@/lib/types';
-import { IS_TAURI } from '@/lib/tauriEvents';
+import type { Task, TaskStatus, PendingPermission } from '@/lib/types';
+import { IS_TAURI, tauriListen } from '@/lib/tauriEvents';
+import { useChatTabs } from './useChatTabs';
+import type { ChatAction } from './useChatTabs';
+
+/** A compact activity line streamed from the backend during a chat run. */
+interface Activity {
+  kind: string;
+  label: string;
+}
+
+/** Pull a telling field out of a pending tool's input to show on the approval card. */
+function permDetail(input: unknown): string | null {
+  if (!input || typeof input !== 'object') return null;
+  const o = input as Record<string, unknown>;
+  for (const k of ['title', 'query', 'command', 'body', 'path', 'file_path', 'url', 'pattern']) {
+    const v = o[k];
+    if (typeof v === 'string' && v.trim()) return v.trim().slice(0, 140);
+  }
+  return null;
+}
 
 interface Props {
   projectId: number;
@@ -12,23 +31,6 @@ interface Props {
   onClose: () => void;
   /** Hand the current input off to the review-first planning flow (Decompose). */
   onDecompose?: (goal: string) => void;
-}
-
-/** A board change the assistant proposes; the user approves it with a button. */
-interface ChatAction {
-  action: 'update_task' | 'set_status' | 'set_pr_intent' | 'add_comment';
-  task_id: number;
-  params?: Record<string, unknown>;
-  summary?: string;
-}
-
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  isError?: boolean;
-  action?: ChatAction;
-  actionState?: 'pending' | 'approved' | 'dismissed' | 'error';
-  actionError?: string;
 }
 
 const ACTION_TYPES = new Set(['update_task', 'set_status', 'set_pr_intent', 'add_comment']);
@@ -61,9 +63,21 @@ const ACTION_LABELS: Record<ChatAction['action'], string> = {
 };
 
 export default function ChatSidebar({ projectId, projectName, onClose, onDecompose }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Multiple persisted conversations, one active at a time (Cursor-style tabs).
+  const { tabs, activeId, activeTab, selectTab, addTab, closeTab, updateTabMessages, clearTab } =
+    useChatTabs(projectId);
+  const messages = activeTab.messages;
+
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  // The tab whose run is currently in flight (null when idle). One run at a time.
+  const [runningTabId, setRunningTabId] = useState<string | null>(null);
+  const busy = runningTabId !== null;
+  const showRun = runningTabId === activeId;
+  // Full-autonomy toggle (persisted app-wide) + live tool-permission requests.
+  const [bypass, setBypass] = useState(false);
+  const [pending, setPending] = useState<PendingPermission[]>([]);
+  // Compact live activity log for the current run (tool calls, thinking).
+  const [activity, setActivity] = useState<Activity[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -71,9 +85,67 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
     inputRef.current?.focus();
   }, []);
 
+  // Load the persisted bypass flag on mount.
+  useEffect(() => {
+    api
+      .getAppSettings()
+      .then((s) => {
+        const v = (s as { chat_bypass_permissions?: boolean })?.chat_bypass_permissions;
+        if (typeof v === 'boolean') setBypass(v);
+      })
+      .catch(() => {});
+  }, []);
+
+  // While a chat run is active, poll for tool-permission requests Claude raised
+  // (origin === 'chat') so we can show a Yes / Always / Deny card.
+  useEffect(() => {
+    if (!busy) {
+      setPending([]);
+      return;
+    }
+    let alive = true;
+    const tick = async () => {
+      try {
+        const all = await api.getPendingPermissions();
+        if (alive) setPending(all.filter((p) => p.origin === 'chat'));
+      } catch {
+        /* transient — try again next tick */
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 800);
+    return () => {
+      alive = false;
+      clearInterval(iv);
+    };
+  }, [busy]);
+
+  // Live activity log streamed by chat_send while a run is in flight.
+  useEffect(() => tauriListen('chat:activity', (p) => setActivity((prev) => [...prev.slice(-199), p])), []);
+
+  const toggleBypass = async () => {
+    const next = !bypass;
+    setBypass(next);
+    try {
+      await api.updateAppSettings({ chat_bypass_permissions: next });
+    } catch {
+      setBypass(!next); // revert on failure
+    }
+  };
+
+  const resolvePermission = async (id: string, decision: 'allow' | 'deny', remember = false) => {
+    setPending((prev) => prev.filter((p) => p.id !== id)); // optimistic
+    try {
+      await api.resolvePermission(id, decision, remember);
+    } catch {
+      /* the poll will re-surface it if the resolve didn't land */
+    }
+  };
+
+  // Scroll to the newest message when the active tab's thread changes.
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, activeId]);
 
   // Auto-grow the input to fit its content, up to a cap (then it scrolls).
   useEffect(() => {
@@ -84,28 +156,33 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
   }, [input]);
 
   const handleSend = async () => {
-    if (!input.trim() || loading || !IS_TAURI) return;
+    if (!input.trim() || busy || !IS_TAURI) return;
+    const tabId = activeId; // capture — the run's response must land in THIS tab
     const userMessage = input.trim();
     // Snapshot the prior turns (before appending this one) as conversation context.
-    const history = messages
+    const history = activeTab.messages
       .filter((m) => !m.isError && m.content.trim())
       .map((m) => ({ role: m.role, content: m.content }));
     setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
-    setLoading(true);
+    updateTabMessages(tabId, (prev) => [...prev, { role: 'user', content: userMessage }]);
+    setActivity([]);
+    setRunningTabId(tabId);
 
     try {
-      const response = await api.chatSend(projectId, userMessage, undefined, history);
+      const response = await api.chatSend(projectId, userMessage, activeTab.model ?? undefined, history);
       const { text, action } = parseAction(response as string);
-      setMessages((prev) => [
+      updateTabMessages(tabId, (prev) => [
         ...prev,
         { role: 'assistant', content: text, action, actionState: action ? 'pending' : undefined },
       ]);
     } catch (e) {
       const detail = (e as Error)?.message || (e as string) || 'Failed to get response';
-      setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${detail}`, isError: true }]);
+      updateTabMessages(tabId, (prev) => [
+        ...prev,
+        { role: 'assistant', content: `Error: ${detail}`, isError: true },
+      ]);
     } finally {
-      setLoading(false);
+      setRunningTabId(null);
       inputRef.current?.focus();
     }
   };
@@ -113,7 +190,9 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
   // Execute an approved board action deterministically via the existing APIs —
   // no second LLM round-trip. The board refreshes from the emitted events.
   const runAction = async (idx: number, a: ChatAction) => {
-    setMessages((prev) => prev.map((msg, i) => (i === idx ? { ...msg, actionState: 'approved' } : msg)));
+    updateTabMessages(activeId, (prev) =>
+      prev.map((msg, i) => (i === idx ? { ...msg, actionState: 'approved' } : msg)),
+    );
     try {
       const p = a.params || {};
       if (a.action === 'update_task') {
@@ -127,14 +206,16 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
       }
     } catch (e) {
       const detail = (e as Error)?.message || 'Failed to apply';
-      setMessages((prev) =>
+      updateTabMessages(activeId, (prev) =>
         prev.map((msg, i) => (i === idx ? { ...msg, actionState: 'error', actionError: detail } : msg)),
       );
     }
   };
 
   const dismissAction = (idx: number) => {
-    setMessages((prev) => prev.map((msg, i) => (i === idx ? { ...msg, actionState: 'dismissed' } : msg)));
+    updateTabMessages(activeId, (prev) =>
+      prev.map((msg, i) => (i === idx ? { ...msg, actionState: 'dismissed' } : msg)),
+    );
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -146,13 +227,9 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
 
   // Hand the typed goal to the review-first planning flow instead of chatting.
   const handleDecompose = () => {
-    if (!onDecompose || loading) return;
+    if (!onDecompose || busy) return;
     onDecompose(input.trim());
     setInput('');
-  };
-
-  const clearChat = () => {
-    setMessages([]);
   };
 
   if (!IS_TAURI) return null;
@@ -171,11 +248,26 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={toggleBypass}
+            title={
+              bypass
+                ? 'Full autonomy: tools run without asking (--dangerously-skip-permissions)'
+                : 'Ask before each new tool (Yes / Always / Deny)'
+            }
+            className={`flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
+              bypass
+                ? 'text-amber-400 bg-amber-500/10'
+                : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800'
+            }`}
+          >
+            <Zap size={12} /> {bypass ? 'Auto' : 'Ask'}
+          </button>
           {messages.length > 0 && (
             <button
-              onClick={clearChat}
+              onClick={() => clearTab(activeId)}
               className="p-1.5 rounded-lg text-surface-500 hover:text-surface-300 hover:bg-surface-800 transition-colors"
-              title="Clear chat"
+              title="Clear this chat"
             >
               <Trash2 size={14} />
             </button>
@@ -187,6 +279,44 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
             <X size={16} />
           </button>
         </div>
+      </div>
+
+      {/* Tabs — one independent, persisted conversation each */}
+      <div className="flex items-center gap-1 px-2 py-1.5 border-b border-surface-800 flex-shrink-0 overflow-x-auto">
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            onClick={() => selectTab(tab.id)}
+            title={tab.title}
+            className={`group flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-md text-[11px] cursor-pointer flex-shrink-0 max-w-[150px] transition-colors ${
+              tab.id === activeId
+                ? 'bg-surface-800 text-surface-100'
+                : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
+            }`}
+          >
+            {tab.id === runningTabId ? (
+              <Loader2 size={10} className="text-claude animate-spin flex-shrink-0" />
+            ) : null}
+            <span className="truncate">{tab.title}</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                closeTab(tab.id);
+              }}
+              className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-surface-700 flex-shrink-0 transition-opacity"
+              title="Close tab"
+            >
+              <X size={10} />
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={addTab}
+          className="p-1 rounded-md text-surface-500 hover:text-surface-200 hover:bg-surface-800 flex-shrink-0"
+          title="New chat"
+        >
+          <Plus size={13} />
+        </button>
       </div>
 
       {/* Messages */}
@@ -315,14 +445,79 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
           </div>
         ))}
 
-        {loading && (
+        {/* Tool-permission requests raised during this tab's run */}
+        {showRun &&
+          pending.map((p) => (
+            <div key={p.id} className="flex gap-2.5">
+              <div className="w-6 h-6 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <ShieldQuestion size={12} className="text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-400 mb-1">
+                  Tool permission
+                </div>
+                <p className="text-xs text-surface-200 leading-snug">
+                  Claude wants to use{' '}
+                  <span className="font-mono text-amber-200 break-all">
+                    {p.tool_name.replace(/^mcp__claude-board__/, '')}
+                  </span>
+                  .
+                </p>
+                {permDetail(p.input) && (
+                  <p className="text-[11px] text-surface-400 mt-0.5 break-words leading-snug">{permDetail(p.input)}</p>
+                )}
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <button
+                    onClick={() => resolvePermission(p.id, 'allow')}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-medium transition-colors"
+                  >
+                    <Check size={12} /> Yes
+                  </button>
+                  <button
+                    onClick={() => resolvePermission(p.id, 'allow', true)}
+                    title="Allow this tool for the rest of the session"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-[11px] font-medium transition-colors"
+                  >
+                    <CheckCircle2 size={12} /> Always
+                  </button>
+                  <button
+                    onClick={() => resolvePermission(p.id, 'deny')}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md text-surface-400 hover:text-surface-200 hover:bg-surface-800 text-[11px] font-medium transition-colors"
+                  >
+                    <Ban size={12} /> Deny
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+        {showRun && (
           <div className="flex gap-2.5">
             <div className="w-6 h-6 rounded-lg bg-claude/10 flex items-center justify-center flex-shrink-0">
               <Loader2 size={12} className="text-claude animate-spin" />
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-surface-500">
-              <span>Thinking</span>
-              <span className="animate-pulse">...</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 text-xs text-surface-500">
+                <span>Working</span>
+                <span className="animate-pulse">...</span>
+              </div>
+              {activity.filter((a) => a.kind !== 'tool_result').length > 0 && (
+                <div className="mt-1.5 space-y-0.5">
+                  {activity
+                    .filter((a) => a.kind !== 'tool_result')
+                    .slice(-8)
+                    .map((a, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5 text-[10px] text-surface-500">
+                        {a.kind === 'tool' ? (
+                          <Wrench size={9} className="text-claude/70 flex-shrink-0" />
+                        ) : (
+                          <span className="text-surface-600 flex-shrink-0">·</span>
+                        )}
+                        <span className="truncate font-mono">{a.label}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -334,7 +529,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
         {onDecompose && (
           <button
             onClick={handleDecompose}
-            disabled={loading}
+            disabled={busy}
             title="Break the goal in the box into epics, stories and tasks — you review before anything is created"
             className="w-full mb-2 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-claude bg-claude/10 hover:bg-claude/20 disabled:opacity-40 rounded-lg transition-colors"
           >
@@ -352,11 +547,11 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
             rows={1}
             className="flex-1 px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm text-surface-100 placeholder-surface-500 resize-none focus:outline-none focus:ring-1 focus:ring-claude max-h-48 overflow-y-auto"
             style={{ minHeight: '36px' }}
-            disabled={loading}
+            disabled={busy}
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim() || loading}
+            disabled={!input.trim() || busy}
             className="p-2 rounded-lg bg-claude hover:bg-claude-light disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
             <Send size={14} className="text-white" />

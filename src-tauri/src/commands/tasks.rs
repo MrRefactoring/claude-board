@@ -189,7 +189,7 @@ fn execute_done_side_effects(db: &crate::db::DbPool, app: &AppHandle, id: i64, t
         runner::auto_create_pr_public(&fresh_task, &pr_dir, &project, db, app);
         let after_pr = tq::get_by_id(db, id).unwrap_or(fresh_task.clone());
         // Cleanup uses project root (manages worktrees and branches)
-        runner::cleanup_task_branch(&after_pr, &project.working_dir, &project);
+        runner::cleanup_task_branch(&after_pr, &project.working_dir, &project, db);
 
         // Auto-close linked GitHub issue
         if project.github_sync_enabled.unwrap_or(0) == 1 {

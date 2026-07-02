@@ -220,6 +220,8 @@ export default {
   'projectModal.permissionMode': 'İzin Modu',
   'projectModal.autoBranch': 'Otomatik Dal',
   'projectModal.autoBranchDesc': 'Her g\u00f6rev i\u00e7in \u00f6zellik dal\u0131 olu\u015ftur',
+  'projectModal.autoMerge': 'Otomatik Birle\u015ftir',
+  'projectModal.autoMergeDesc': 'Ba\u015far\u0131da g\u00f6rev dal\u0131n\u0131 temel dala birle\u015ftir (kirli a\u011fa\u00e7ta atlar; \u00e7ak\u0131\u015fmada dal\u0131 korur). Kapal\u0131ysa dal silinmez, elle birle\u015ftirmen i\u00e7in saklan\u0131r.',
   'projectModal.autoPush': 'Otomatik Push',
   'projectModal.autoPushDesc': 'Dalları otomatik olarak uzak depoya gönder',
   'projectModal.autoPR': 'Otomatik PR',
@@ -622,6 +624,7 @@ export default {
   'detail.completed': 'Tamamland\u0131',
   'detail.rateLimitHits': 'h\u0131z limiti',
   'detail.commits': "Commit'ler",
+  'detail.branchKept': 'elle birleştirme için saklandı',
   'detail.fileChanges': 'Dosya De\u011fi\u015fiklikleri',
   'detail.viewFullDiff': "T\u00fcm Diff'i G\u00f6r",
   'detail.noDiff': 'Diff bulunamad\u0131',
@@ -935,6 +938,9 @@ export default {
   'settings.autoOpenTerminal': 'Terminali Otomatik A\u00e7',
   'settings.autoOpenTerminalDesc':
     'Bir g\u00f6rev \u00e7al\u0131\u015fmaya ba\u015flad\u0131\u011f\u0131nda terminal panelini otomatik a\u00e7',
+  'settings.chatBypassPermissions': 'Sohbet Tam Otonomi',
+  'settings.chatBypassPermissionsDesc':
+    'Yapay zeka sohbetinin t\u00fcm ara\u00e7lar\u0131 sormadan kullanmas\u0131na izin ver. Kapal\u0131yken her yeni ara\u00e7 Evet / Her zaman / Reddet sorar.',
   'settings.defaultModel': 'Varsay\u0131lan Model',
   'settings.defaultModelDesc': 'Yeni g\u00f6revler i\u00e7in varsay\u0131lan Claude modeli',
   'settings.defaultEffort': 'Varsay\u0131lan D\u00fc\u015f\u00fcnme \u00c7abas\u0131',

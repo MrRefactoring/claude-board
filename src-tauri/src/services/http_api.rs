@@ -42,6 +42,11 @@ pub async fn start_server(port: u16) {
         .route("/api/auth/status", get(auth_status))
         // Settings
         .route("/api/settings", get(get_settings).put(update_settings))
+        // Tool-permission back-channel (interactive Yes/Always/Deny)
+        .route("/api/permission/request", post(permission_request))
+        .route("/api/permission/pending", get(permission_pending))
+        .route("/api/permission/{id}", get(permission_get))
+        .route("/api/permission/{id}/resolve", post(permission_resolve))
         .layer(CorsLayer::permissive());
 
     let listener = match tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port)).await {
@@ -115,7 +120,17 @@ async fn create_task(Path(project_id): Path<i64>, Json(body): Json<CreateTaskBod
         }
     }
     match tasks::get_by_id(&db, id) {
-        Some(task) => (StatusCode::CREATED, Json(to_json(&task))).into_response(),
+        Some(task) => {
+            // Propagate to the board live (e.g. tasks created by the AI chat's
+            // create_task tool) — mirrors commands::tasks::create_task.
+            crate::services::events::emit("task:created", &task);
+            if let Some(parent_id) = body.parent_task_id {
+                if let Some(parent) = tasks::get_by_id(&db, parent_id) {
+                    crate::services::events::emit("task:updated", &parent);
+                }
+            }
+            (StatusCode::CREATED, Json(to_json(&task))).into_response()
+        }
         None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }
@@ -146,7 +161,12 @@ struct AddDependencyBody {
 async fn add_task_dependency_handler(Path(id): Path<i64>, Json(body): Json<AddDependencyBody>) -> impl IntoResponse {
     let db = db::get_db();
     match dependencies::add_dependency(&db, id, body.depends_on_id, body.condition_type.as_deref()) {
-        Ok(_) => Json(serde_json::json!({"ok": true, "task_id": id, "depends_on_id": body.depends_on_id})).into_response(),
+        Ok(_) => {
+            if let Some(t) = tasks::get_by_id(&db, id) {
+                crate::services::events::emit("task:updated", &t);
+            }
+            Json(serde_json::json!({"ok": true, "task_id": id, "depends_on_id": body.depends_on_id})).into_response()
+        }
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e.to_string()}))).into_response(),
     }
 }
@@ -176,6 +196,12 @@ async fn post_task_comment(Path(id): Path<i64>, Json(b): Json<CommentBody>) -> i
         b.pr_url.as_deref(),
     );
     if cid > 0 {
+        if let Some(comment) = db::comments::get_by_task(&db, id).into_iter().find(|c| c.id == cid) {
+            crate::services::events::emit(
+                "comment:created",
+                &serde_json::json!({"taskId": id, "comment": comment}),
+            );
+        }
         (StatusCode::CREATED, Json(serde_json::json!({"id": cid, "task_id": id}))).into_response()
     } else {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -294,7 +320,11 @@ async fn create_tasks_bulk(Path(project_id): Path<i64>, Json(body): Json<BulkBod
     }
 
     let created: Vec<serde_json::Value> = ids.iter()
-        .filter_map(|&id| tasks::get_by_id(&db, id).map(|t| to_json(&t)))
+        .filter_map(|&id| tasks::get_by_id(&db, id).map(|t| {
+            // Live-propagate each created task to the board (chat decompose path).
+            crate::services::events::emit("task:created", &t);
+            to_json(&t)
+        }))
         .collect();
     (StatusCode::CREATED, Json(serde_json::json!({"tasks": created}))).into_response()
 }
@@ -336,13 +366,17 @@ async fn update_task(Path(id): Path<i64>, Json(body): Json<UpdateTaskBody>) -> i
         body.tags.as_deref().or(task.tags.as_deref()),
     );
     match tasks::get_by_id(&db, id) {
-        Some(updated) => Json(to_json(&updated)).into_response(),
+        Some(updated) => {
+            crate::services::events::emit("task:updated", &updated);
+            Json(to_json(&updated)).into_response()
+        }
         None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }
 
 async fn delete_task_handler(Path(id): Path<i64>) -> impl IntoResponse {
     tasks::delete(&db::get_db(), id);
+    crate::services::events::emit("task:deleted", &serde_json::json!({"id": id}));
     Json(serde_json::json!({"ok": true}))
 }
 
@@ -359,7 +393,10 @@ async fn change_status(Path(id): Path<i64>, Json(body): Json<StatusBody>) -> imp
     // the file/DB state stays consistent.
     crate::services::gsd::apply_task_status_cascade(&db, None, id);
     match tasks::get_by_id(&db, id) {
-        Some(t) => Json(to_json(&t)).into_response(),
+        Some(t) => {
+            crate::services::events::emit("task:updated", &t);
+            Json(to_json(&t)).into_response()
+        }
         None => StatusCode::NOT_FOUND.into_response(),
     }
 }
@@ -423,6 +460,55 @@ async fn auth_status() -> Json<serde_json::Value> {
     Json(serde_json::json!({"enabled": crate::db::auth::is_auth_enabled(&db::get_db())}))
 }
 
+// ─── Tool-permission back-channel ───
+//
+// The MCP `approve_permission` tool (in mcp-server.js) POSTs a request here and
+// polls GET /{id}; the UI polls /pending and resolves each one. See
+// crate::services::permissions for the in-memory registry.
+
+#[derive(Deserialize)]
+struct PermReqBody {
+    tool_name: String,
+    #[serde(default)]
+    input: serde_json::Value,
+    origin: Option<String>,
+    task_id: Option<i64>,
+}
+
+/// POST /api/permission/request — sidecar registers a request Claude wants to run.
+async fn permission_request(Json(b): Json<PermReqBody>) -> impl IntoResponse {
+    let origin = b.origin.as_deref().unwrap_or("chat");
+    let req = crate::services::permissions::create(&b.tool_name, b.input, origin, b.task_id);
+    Json(serde_json::json!({"id": req.id, "status": req.status}))
+}
+
+/// GET /api/permission/pending — the UI polls this to render approval cards.
+async fn permission_pending() -> Json<serde_json::Value> {
+    Json(to_json(&crate::services::permissions::list_pending()))
+}
+
+/// GET /api/permission/{id} — the sidecar polls this for the decision. Always
+/// 200 so the sidecar's poll loop never throws; unknown ids read as a deny.
+async fn permission_get(Path(id): Path<String>) -> Json<serde_json::Value> {
+    match crate::services::permissions::get(&id) {
+        Some(r) => Json(serde_json::json!({"status": r.status, "message": r.message})),
+        None => Json(serde_json::json!({"status": "deny", "message": "unknown request"})),
+    }
+}
+
+#[derive(Deserialize)]
+struct PermResolveBody {
+    decision: String,
+    #[serde(default)]
+    remember: bool,
+}
+
+/// POST /api/permission/{id}/resolve — the UI applies the user's choice.
+async fn permission_resolve(Path(id): Path<String>, Json(b): Json<PermResolveBody>) -> impl IntoResponse {
+    let ok = crate::services::permissions::resolve(&id, &b.decision, b.remember);
+    Json(serde_json::json!({"ok": ok}))
+}
+
 async fn get_settings() -> Json<serde_json::Value> {
     Json(to_json(&settings::get(&db::get_db())))
 }
@@ -436,6 +522,7 @@ async fn update_settings(Json(body): Json<serde_json::Value>) -> Json<serde_json
     if let Some(v) = body.get("language").and_then(|v| v.as_str()) { current.language = v.to_string(); }
     if let Some(v) = body.get("auto_open_terminal").and_then(|v| v.as_bool()) { current.auto_open_terminal = v; }
     if let Some(v) = body.get("sound_enabled").and_then(|v| v.as_bool()) { current.sound_enabled = v; }
+    if let Some(v) = body.get("chat_bypass_permissions").and_then(|v| v.as_bool()) { current.chat_bypass_permissions = v; }
     settings::update(&db, &current);
     Json(to_json(&current))
 }
