@@ -1,36 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-  X,
-  ScanSearch,
-  Clock,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  Save,
-  Trash2,
-  FileText,
-  Plus,
-  RefreshCw,
-  Copy,
-  Search,
-  AlertTriangle,
-  History,
-  Check,
-  Eye,
-  Pencil,
-  Zap,
-  SearchCode,
-  Radio,
-  Blocks,
-  PenLine,
-} from 'lucide-react';
+import { X, ScanSearch, Clock, Loader2, AlertCircle, History } from 'lucide-react';
 import { api } from '@/lib/api';
 import { tauriListen } from '@/lib/tauriEvents';
 import type { AppEventMap } from '@/lib/events';
 import { useTranslation } from '@/i18n/I18nProvider';
-import { MarkdownContent } from '@/features/tasks/MarkdownContent';
-
-type ScanPhase = 'idle' | 'scanning' | 'preview' | 'saved' | 'error';
+import type { ScanPhase, Prescan, ScanHistoryItem } from './types';
+import ScanIdleView from './ScanIdleView';
+import ScanPreview from './ScanPreview';
+import ScanHistoryPanel from './ScanHistoryPanel';
+import ScanFooter from './ScanFooter';
 
 type ScanResult = string | { content?: string };
 
@@ -39,11 +17,6 @@ interface ScanCacheEntry {
   result: string;
   error: string | null;
   elapsed: number;
-}
-
-interface Prescan {
-  fileCount?: number;
-  projectTypes?: string[];
 }
 
 interface ScanEvent {
@@ -55,37 +28,12 @@ interface ScanEvent {
   result?: ScanResult;
 }
 
-interface ScanHistoryItem {
-  id: number;
-  content?: string;
-  createdAt?: string;
-  date?: string;
-  scanType?: string;
-  fileCount?: number;
-}
-
 function formatElapsed(ms: number) {
   const s = Math.floor(ms / 1000);
   const m = Math.floor(s / 60);
   if (m > 0) return `${m}m ${s % 60}s`;
   return `${s}s`;
 }
-
-function estimateTime(fileCount: number) {
-  if (fileCount <= 100) return '~30s';
-  if (fileCount <= 500) return '~1 min';
-  if (fileCount <= 2000) return '~2 min';
-  if (fileCount <= 5000) return '~3 min';
-  return '~5+ min';
-}
-
-const SCAN_TYPES = [
-  { key: 'quick', Icon: Zap },
-  { key: 'detailed', Icon: SearchCode },
-  { key: 'apiDocs', Icon: Radio },
-  { key: 'architecture', Icon: Blocks },
-  { key: 'custom', Icon: PenLine },
-];
 
 // Module-level cache — survives open/close
 const scanCache: Record<number, ScanCacheEntry> = {};
@@ -435,93 +383,15 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0">
           {/* Scan Type Presets — show in idle */}
           {phase === 'idle' && (
-            <>
-              <div className="flex flex-wrap gap-1.5">
-                {SCAN_TYPES.map(({ key, Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setScanType(key)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
-                      scanType === key
-                        ? 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30'
-                        : 'bg-surface-800 text-surface-400 hover:text-surface-200 hover:bg-surface-700'
-                    }`}
-                  >
-                    <Icon size={13} />
-                    {t(`scan.${key}`)}
-                  </button>
-                ))}
-              </div>
-
-              {/* Custom prompt textarea */}
-              {scanType === 'custom' && (
-                <textarea
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  placeholder={t('scan.customPromptPlaceholder')}
-                  className="w-full h-24 bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-xs text-surface-200 placeholder-surface-600 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/50"
-                />
-              )}
-
-              {/* Pre-scan stats */}
-              {prescanLoading ? (
-                <div className="flex items-center gap-2 text-xs text-surface-500 py-2">
-                  <Loader2 size={12} className="animate-spin" />
-                  {t('scan.collectingStats')}
-                </div>
-              ) : prescan ? (
-                <div className="bg-surface-800/50 border border-surface-700/50 rounded-lg px-4 py-3 space-y-2">
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="flex items-center gap-1.5 text-surface-300">
-                      <FileText size={12} className="text-blue-400" />
-                      {prescan.fileCount != null
-                        ? t('scan.filesDetected', { count: prescan.fileCount })
-                        : t('scan.prescanInfo')}
-                    </span>
-                    {prescan.projectTypes && prescan.projectTypes.length > 0 && (
-                      <div className="flex gap-1 flex-wrap">
-                        {prescan.projectTypes.map((type) => (
-                          <span
-                            key={type}
-                            className="px-1.5 py-0.5 rounded bg-surface-700 text-surface-300 text-[10px] font-medium"
-                          >
-                            {type}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {prescan.fileCount != null && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-surface-500">
-                      <Clock size={10} />
-                      {t('scan.estimatedTime')}: {estimateTime(prescan.fileCount)}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-6 gap-3">
-                  <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center">
-                    <ScanSearch size={28} className="text-blue-400" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-surface-200 font-medium">{t('scan.idleTitle')}</p>
-                    <p className="text-xs text-surface-500 mt-1 max-w-sm">{t('scan.idleDesc')}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Large codebase warning */}
-              {isLargeCodebase && (
-                <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5">
-                  <AlertTriangle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-amber-400 font-medium">
-                      {t('scan.largeCodebaseWarning', { count: prescan?.fileCount ?? 0 })}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </>
+            <ScanIdleView
+              scanType={scanType}
+              setScanType={setScanType}
+              customPrompt={customPrompt}
+              setCustomPrompt={setCustomPrompt}
+              prescan={prescan}
+              prescanLoading={prescanLoading}
+              isLargeCodebase={isLargeCodebase}
+            />
           )}
 
           {/* Scanning */}
@@ -544,148 +414,28 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
 
           {/* Preview */}
           {(phase === 'preview' || phase === 'saved') && result && (
-            <div className="space-y-3">
-              {/* Search bar */}
-              {showSearch && (
-                <div className="flex items-center gap-2 bg-surface-800 border border-surface-700 rounded-lg px-3 py-1.5">
-                  <Search size={12} className="text-surface-500" />
-                  <input
-                    ref={searchRef}
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t('scan.searchPlaceholder')}
-                    className="flex-1 bg-transparent text-xs text-surface-200 placeholder-surface-600 outline-none"
-                  />
-                  {searchQuery && (
-                    <span className="text-[10px] text-surface-500">
-                      {searchMatchCount} {searchMatchCount === 1 ? 'match' : 'matches'}
-                    </span>
-                  )}
-                  <button
-                    onClick={() => {
-                      setShowSearch(false);
-                      setSearchQuery('');
-                    }}
-                    className="p-0.5 rounded hover:bg-surface-700 text-surface-500"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-surface-400">{t('scan.editPreview')}</label>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-surface-600">
-                    {t('scan.wordCount')}: {wordCount}
-                  </span>
-                  {/* Preview / Edit toggle */}
-                  <div className="flex items-center bg-surface-800 rounded-lg p-0.5">
-                    <button
-                      onClick={() => setViewMode('preview')}
-                      className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors ${viewMode === 'preview' ? 'bg-surface-700 text-surface-200' : 'text-surface-500 hover:text-surface-300'}`}
-                      title="Markdown Preview"
-                    >
-                      <Eye size={10} />
-                    </button>
-                    <button
-                      onClick={() => setViewMode('edit')}
-                      className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors ${viewMode === 'edit' ? 'bg-surface-700 text-surface-200' : 'text-surface-500 hover:text-surface-300'}`}
-                      title="Edit"
-                    >
-                      <Pencil size={10} />
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowSearch(true);
-                      setTimeout(() => searchRef.current?.focus(), 50);
-                    }}
-                    className="p-1 rounded hover:bg-surface-800 text-surface-500 hover:text-surface-300 transition-colors"
-                    title={t('scan.search')}
-                  >
-                    <Search size={12} />
-                  </button>
-                  <button
-                    onClick={handleCopy}
-                    className="p-1 rounded hover:bg-surface-800 text-surface-500 hover:text-surface-300 transition-colors"
-                    title={t('scan.copyToClipboard')}
-                  >
-                    {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Diff view */}
-              {diffMode && viewingHistoryItem?.content ? (
-                <div className="grid grid-cols-2 gap-2 max-h-[45vh]">
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-surface-500 font-medium">{t('scan.history')} (old)</p>
-                    <pre className="text-xs text-surface-400 whitespace-pre-wrap bg-surface-800/50 rounded-lg p-3 border border-surface-700/50 leading-relaxed overflow-y-auto h-full max-h-[40vh]">
-                      {viewingHistoryItem.content}
-                    </pre>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-surface-500 font-medium">Current</p>
-                    <div className="bg-surface-800/50 rounded-lg p-3 border border-surface-700/50 overflow-y-auto max-h-[40vh]">
-                      <MarkdownContent content={result} />
-                    </div>
-                  </div>
-                </div>
-              ) : searchQuery && highlightedResult ? (
-                <div className="text-xs text-surface-300 whitespace-pre-wrap bg-surface-800/50 rounded-lg p-4 border border-surface-700/50 leading-relaxed max-h-[50vh] overflow-y-auto">
-                  {highlightedResult.map((part, i) =>
-                    part.highlight ? (
-                      <mark key={i} className="bg-amber-500/30 text-amber-200 rounded px-0.5">
-                        {part.text}
-                      </mark>
-                    ) : (
-                      <span key={i}>{part.text}</span>
-                    ),
-                  )}
-                </div>
-              ) : viewMode === 'edit' ? (
-                <textarea
-                  ref={textareaRef}
-                  value={result}
-                  onChange={(e) => setResult(e.target.value)}
-                  className="w-full text-xs text-surface-300 whitespace-pre-wrap bg-surface-800/50 rounded-lg p-4 border border-surface-700/50 leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/30"
-                  style={{ minHeight: '200px', maxHeight: '50vh' }}
-                  readOnly={phase === 'saved'}
-                />
-              ) : (
-                <div
-                  className="bg-surface-800/50 rounded-lg p-4 border border-surface-700/50 overflow-y-auto"
-                  style={{ minHeight: '200px', maxHeight: '50vh' }}
-                >
-                  <MarkdownContent content={result} />
-                </div>
-              )}
-
-              {/* Mode selector — only in preview */}
-              {phase === 'preview' && (
-                <div>
-                  <label className="text-xs font-medium text-surface-400 mb-1.5 block">{t('scan.writeMode')}</label>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setMode('overwrite')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${mode === 'overwrite' ? 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30' : 'bg-surface-800 text-surface-500 hover:text-surface-300'}`}
-                    >
-                      <FileText size={12} />
-                      {t('scan.overwrite')}
-                    </button>
-                    <button
-                      onClick={() => setMode('append')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${mode === 'append' ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30' : 'bg-surface-800 text-surface-500 hover:text-surface-300'}`}
-                    >
-                      <Plus size={12} />
-                      {t('scan.append')}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ScanPreview
+              phase={phase}
+              result={result}
+              setResult={setResult}
+              mode={mode}
+              setMode={setMode}
+              showSearch={showSearch}
+              setShowSearch={setShowSearch}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              searchRef={searchRef}
+              searchMatchCount={searchMatchCount}
+              highlightedResult={highlightedResult}
+              wordCount={wordCount}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              copied={copied}
+              handleCopy={handleCopy}
+              diffMode={diffMode}
+              viewingHistoryItem={viewingHistoryItem}
+              textareaRef={textareaRef}
+            />
           )}
 
           {/* Error */}
@@ -701,170 +451,34 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
 
           {/* History Panel */}
           {showHistory && (
-            <div className="border-t border-surface-800 pt-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-medium text-surface-400 flex items-center gap-1.5">
-                  <History size={12} />
-                  {t('scan.history')}
-                  {history.length > 0 && <span className="text-[10px] text-surface-600">({history.length})</span>}
-                </h3>
-              </div>
-              {historyLoading ? (
-                <div className="flex items-center gap-2 text-xs text-surface-500 py-3 justify-center">
-                  <Loader2 size={12} className="animate-spin" />
-                </div>
-              ) : history.length === 0 ? (
-                <p className="text-xs text-surface-600 py-3 text-center">{t('scan.noHistory')}</p>
-              ) : (
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {history.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs cursor-pointer transition-colors ${
-                        viewingHistoryItem?.id === item.id
-                          ? 'bg-blue-500/10 border border-blue-500/20'
-                          : 'bg-surface-800/50 hover:bg-surface-800 border border-transparent'
-                      }`}
-                      onClick={() => handleViewHistoryItem(item)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <span className="text-surface-300">
-                          {item.createdAt
-                            ? new Date(item.createdAt).toLocaleDateString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                            : item.date || 'Unknown'}
-                        </span>
-                        {item.scanType && <span className="ml-2 text-surface-500">- {item.scanType}</span>}
-                        {item.fileCount != null && (
-                          <span className="ml-1 text-surface-600">({item.fileCount} files)</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {result && viewingHistoryItem?.id === item.id && viewingHistoryItem?.content && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCompare();
-                            }}
-                            className={`p-1 rounded hover:bg-surface-700 transition-colors ${diffMode ? 'text-blue-400' : 'text-surface-500'}`}
-                            title="Compare"
-                          >
-                            <FileText size={12} />
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteScan(item.id);
-                          }}
-                          className="p-1 rounded hover:bg-red-500/20 text-surface-600 hover:text-red-400 transition-colors"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Viewing history item content (not in diff mode) */}
-              {viewingHistoryItem?.content && !diffMode && !(phase === 'preview' || phase === 'saved') && (
-                <pre className="text-xs text-surface-400 whitespace-pre-wrap bg-surface-800/30 rounded-lg p-3 border border-surface-700/30 leading-relaxed max-h-48 overflow-y-auto mt-2">
-                  {viewingHistoryItem.content}
-                </pre>
-              )}
-            </div>
+            <ScanHistoryPanel
+              history={history}
+              historyLoading={historyLoading}
+              viewingHistoryItem={viewingHistoryItem}
+              diffMode={diffMode}
+              result={result}
+              phase={phase}
+              handleViewHistoryItem={handleViewHistoryItem}
+              handleCompare={handleCompare}
+              handleDeleteScan={handleDeleteScan}
+            />
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex gap-2 px-5 py-3 border-t border-surface-800 flex-shrink-0">
-          {phase === 'idle' && (
-            <>
-              <button
-                onClick={onClose}
-                className="flex-1 px-4 py-2.5 text-sm text-surface-300 bg-surface-800 hover:bg-surface-700 rounded-lg transition-colors"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleStart}
-                disabled={scanType === 'custom' && !customPrompt.trim()}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-              >
-                <ScanSearch size={14} /> {t('scan.startScan')}
-              </button>
-            </>
-          )}
-          {isScanning && (
-            <button
-              onClick={handleCancel}
-              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors"
-            >
-              {t('scan.cancel')}
-            </button>
-          )}
-          {phase === 'preview' && (
-            <>
-              <button
-                onClick={handleDiscard}
-                className="flex items-center gap-1.5 px-4 py-2.5 text-sm text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors"
-              >
-                <Trash2 size={14} /> {t('scan.discard')}
-              </button>
-              <button
-                onClick={handleRescan}
-                className="flex items-center gap-1.5 px-4 py-2.5 text-sm text-surface-300 bg-surface-800 hover:bg-surface-700 rounded-lg transition-colors"
-              >
-                <RefreshCw size={14} /> {t('scan.rescan')}
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg transition-colors"
-              >
-                {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                {saving ? t('common.saving') : t('scan.saveToClaudeMd')}
-              </button>
-            </>
-          )}
-          {phase === 'saved' && (
-            <>
-              <button
-                onClick={handleRescan}
-                className="flex items-center gap-1.5 px-4 py-2.5 text-sm text-surface-300 bg-surface-800 hover:bg-surface-700 rounded-lg transition-colors"
-              >
-                <RefreshCw size={14} /> {t('scan.rescan')}
-              </button>
-              <button
-                onClick={onClose}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors"
-              >
-                <CheckCircle2 size={14} /> {t('common.close')}
-              </button>
-            </>
-          )}
-          {phase === 'error' && (
-            <>
-              <button
-                onClick={onClose}
-                className="flex-1 px-4 py-2.5 text-sm text-surface-300 bg-surface-800 hover:bg-surface-700 rounded-lg transition-colors"
-              >
-                {t('common.close')}
-              </button>
-              <button
-                onClick={handleStart}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
-              >
-                <RefreshCw size={14} /> {t('scan.retry')}
-              </button>
-            </>
-          )}
-        </div>
+        <ScanFooter
+          phase={phase}
+          isScanning={isScanning}
+          scanType={scanType}
+          customPrompt={customPrompt}
+          saving={saving}
+          onClose={onClose}
+          handleStart={handleStart}
+          handleCancel={handleCancel}
+          handleDiscard={handleDiscard}
+          handleRescan={handleRescan}
+          handleSave={handleSave}
+        />
       </div>
 
       {/* Inline animation style */}
