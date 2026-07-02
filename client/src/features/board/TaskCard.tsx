@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, memo } from 'react';
 import type { MouseEvent } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   Terminal,
   Pencil,
@@ -173,30 +175,28 @@ function MobileStatusTransition({ task, onStatusChange }: MobileStatusTransition
 
 interface TaskCardProps {
   task: BoardTask;
-  onDragStart: () => void;
-  onDragEnd: () => void;
+  /** Sortable id — unique per rendered instance (see Column's dndPrefix). */
+  dndId: string;
+  /** Alt is held during the current drag — this card is a dependency-drop target. */
+  altDrag?: boolean;
   onViewLogs: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onStatusChange?: (taskId: number, status: string) => void;
   onReview?: () => void;
   onViewDetail?: () => void;
-  onDepDrop?: (from: BoardTask, to: BoardTask) => void;
-  draggedTask?: BoardTask | null;
 }
 
 const TaskCard = memo(function TaskCard({
   task,
-  onDragStart,
-  onDragEnd,
+  dndId,
+  altDrag,
   onViewLogs,
   onEdit,
   onDelete,
   onStatusChange,
   onReview,
   onViewDetail,
-  onDepDrop,
-  draggedTask,
 }: TaskCardProps) {
   const { t } = useTranslation();
   const [showMenu, setShowMenu] = useState(false);
@@ -204,8 +204,18 @@ const TaskCard = memo(function TaskCard({
   const menuRef = useRef<HTMLDivElement>(null);
   const transitionCtx = useStatusTransition();
   const transition = transitionCtx?.getTransition(task.id);
-  const [depDropHover, setDepDropHover] = useState(false);
-  const isDepTarget = draggedTask && draggedTask.id !== task.id;
+  const {
+    active,
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition: sortTransition,
+    isDragging,
+    isOver,
+  } = useSortable({ id: dndId, data: { task, columnId: task.status || 'backlog' } });
+  const activeTask = active?.data.current?.task as BoardTask | undefined;
+  const depDropHover = !!altDrag && isOver && !!activeTask && activeTask.id !== task.id;
 
   const handleContextMenu = (e: MouseEvent) => {
     e.preventDefault();
@@ -242,31 +252,10 @@ const TaskCard = memo(function TaskCard({
   return (
     <>
       <div
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', String(task.id));
-          onDragStart();
-        }}
-        onDragEnd={() => {
-          setDepDropHover(false);
-          onDragEnd();
-        }}
-        onDragOver={(e) => {
-          if (!isDepTarget || !e.altKey) return;
-          e.preventDefault();
-          e.stopPropagation();
-          e.dataTransfer.dropEffect = 'link';
-          setDepDropHover(true);
-        }}
-        onDragLeave={() => setDepDropHover(false)}
-        onDrop={(e) => {
-          if (!isDepTarget || !e.altKey) return;
-          e.preventDefault();
-          e.stopPropagation();
-          setDepDropHover(false);
-          if (draggedTask) onDepDrop?.(draggedTask, task);
-        }}
+        ref={setNodeRef}
+        style={{ transform: CSS.Transform.toString(transform), transition: sortTransition }}
+        {...attributes}
+        {...listeners}
         onClick={() => onViewDetail?.()}
         onContextMenu={handleContextMenu}
         className={`group relative bg-surface-800 rounded-lg p-3 border transition-all duration-150 hover:shadow-lg hover:shadow-black/20 ${
@@ -275,7 +264,7 @@ const TaskCard = memo(function TaskCard({
             : 'border-surface-700/50 hover:border-surface-600'
         } ${
           priority > 0 ? `border-l-2 ${priorityColors[priority as keyof typeof priorityColors]}` : ''
-        } ${transition ? 'animate-card-pop' : ''} ${isDepTarget ? 'cursor-pointer' : 'active:cursor-grabbing cursor-pointer'}`}
+        } ${transition ? 'animate-card-pop' : ''} ${isDragging ? 'opacity-40' : ''} active:cursor-grabbing cursor-pointer`}
       >
         {transition && <StatusTransitionEffect from={transition.from} to={transition.to} />}
         <div className="flex items-start justify-between gap-2">

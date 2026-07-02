@@ -1,4 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
+import { DndContext, DragOverlay, MouseSensor, useSensor, useSensors, pointerWithin } from '@dnd-kit/core';
+import type { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core';
+import { computeReorder } from '@/features/board/reorder';
 import {
   LayoutGrid,
   List,
@@ -82,6 +85,9 @@ export default function Board({
 }: BoardProps) {
   const { t } = useTranslation();
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [overColumnId, setOverColumnId] = useState<string | null>(null);
+  const [altDrag, setAltDrag] = useState(false);
+  const altRef = useRef(false);
   const [mobileTab, setMobileTab] = useState('backlog');
   const [viewMode, setViewMode] = useState('board');
   const [groupByEpic, setGroupByEpic] = useState(false);
@@ -103,6 +109,76 @@ export default function Board({
     if (fromTask.id === toTask.id) return;
     setDepDialog({ from: fromTask, to: toTask });
   }, []);
+
+  // ─── Drag & drop (dnd-kit) ───
+  // Mouse-only on purpose: mobile uses the tap-to-move status buttons, and a
+  // touch sensor would fight the column scroll gesture.
+  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 6 } }));
+
+  // dnd-kit events don't expose modifier keys, so Alt (dependency drop,
+  // see handleDragEnd) is tracked via window key events while a drag runs.
+  useEffect(() => {
+    if (!draggedTask) return;
+    const setAlt = (value: boolean) => {
+      altRef.current = value;
+      setAltDrag(value);
+    };
+    const down = (e: KeyboardEvent) => e.key === 'Alt' && setAlt(true);
+    const up = (e: KeyboardEvent) => e.key === 'Alt' && setAlt(false);
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      setAlt(false);
+    };
+  }, [draggedTask]);
+
+  const handleDragStart = useCallback((e: DragStartEvent) => {
+    const task = e.active.data.current?.task as Task | undefined;
+    setDraggedTask(task ?? null);
+    const alt = !!(e.activatorEvent as globalThis.MouseEvent | undefined)?.altKey;
+    altRef.current = alt;
+    setAltDrag(alt);
+  }, []);
+
+  const handleDragOver = useCallback((e: DragOverEvent) => {
+    setOverColumnId((e.over?.data.current?.columnId as string | undefined) ?? null);
+  }, []);
+
+  const handleDragCancel = useCallback(() => {
+    setDraggedTask(null);
+    setOverColumnId(null);
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (e: DragEndEvent) => {
+      const task = e.active.data.current?.task as Task | undefined;
+      const over = e.over;
+      setDraggedTask(null);
+      setOverColumnId(null);
+      if (!task || !over) return;
+
+      const overTask = over.data.current?.task as Task | undefined;
+      // Alt+drop onto another card — create a dependency instead of moving.
+      if (overTask && altRef.current && overTask.id !== task.id) {
+        handleDepDrop(task, overTask);
+        return;
+      }
+      const overColumn = (over.data.current?.columnId as string | undefined) ?? null;
+      if (!overColumn) return;
+      const status = task.status || 'backlog';
+      if (overColumn !== status) {
+        onStatusChange(task.id, overColumn);
+        return;
+      }
+      if (overTask && overTask.id !== task.id) {
+        const ids = computeReorder(columnTasksRef.current(status), task.id, overTask.id);
+        if (ids) handleReorder(ids);
+      }
+    },
+    [onStatusChange, handleReorder, handleDepDrop],
+  );
 
   const confirmDep = useCallback(
     async (direction: string) => {
@@ -183,6 +259,9 @@ export default function Board({
     return grouped;
   }, [filteredTasks]);
   const columnTasks = (colId: string) => groupedTasks[colId] || [];
+  // Drag handlers are declared above this memo — reach the current grouping via a ref.
+  const columnTasksRef = useRef(columnTasks);
+  columnTasksRef.current = columnTasks;
 
   // Only show awaiting_approval column when require_approval is enabled
   const visibleColumns = useMemo(
@@ -231,460 +310,475 @@ export default function Board({
     return Array.from(laneMap.values());
   }, [groupByEpic, tasks, filteredTasks]);
 
-  const renderColumn = (col: (typeof COLUMNS)[number], tasksForCol: BoardTask[]) => (
+  const renderColumn = (col: (typeof COLUMNS)[number], tasksForCol: BoardTask[], dndPrefix = '') => (
     <Column
       key={col.id}
       column={col}
       tasks={tasksForCol}
-      draggedTask={draggedTask}
-      onDragStart={setDraggedTask}
-      onDragEnd={() => setDraggedTask(null)}
-      onDrop={() => {
-        if (draggedTask && draggedTask.status !== col.id) onStatusChange(draggedTask.id, col.id);
-        setDraggedTask(null);
-      }}
+      highlight={overColumnId === col.id}
+      altDrag={altDrag}
+      dndPrefix={dndPrefix}
       onViewLogs={onViewLogs}
       onEditTask={onEditTask}
       onDeleteTask={onDeleteTask}
       onStatusChange={onStatusChange}
       onReviewTask={onReviewTask}
       onViewDetail={onViewDetail}
-      onReorder={handleReorder}
-      onDepDrop={handleDepDrop}
     />
   );
 
   return (
-    <div className="h-full flex">
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* View toggle + model filter bar */}
-        <div className="flex items-center gap-1 px-4 pt-3 pb-1 flex-wrap" data-tour="view-tabs">
-          {VIEWS.map((v) => {
-            const Icon = v.icon;
-            return (
-              <button
-                key={v.id}
-                onClick={() => setViewMode(v.id)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  viewMode === v.id
-                    ? 'bg-claude/15 text-claude'
-                    : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
-                }`}
-              >
-                <Icon size={13} />
-                <span className="hidden sm:inline">{t(v.labelKey)}</span>
-              </button>
-            );
-          })}
-
-          {/* Group by epic (kanban view only) */}
-          {viewMode === 'board' && (
-            <button
-              onClick={() => setGroupByEpic((v) => !v)}
-              title="Group the board into epic swimlanes"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                groupByEpic ? 'bg-violet-500/15 text-violet-300' : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
-              }`}
-            >
-              <Rows3 size={13} />
-              <span className="hidden sm:inline">Epics</span>
-            </button>
-          )}
-
-          {/* Separator */}
-          {activeModels.length > 1 && <div className="w-px h-5 bg-surface-700/50 mx-1.5" />}
-
-          {/* Model filter chips */}
-          {activeModels.length > 1 &&
-            activeModels.map((m) => {
-              const isActive = modelFilter === m;
-              const count = modelCounts[m] || 0;
+    <DndContext
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <div className="h-full flex">
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* View toggle + model filter bar */}
+          <div className="flex items-center gap-1 px-4 pt-3 pb-1 flex-wrap" data-tour="view-tabs">
+            {VIEWS.map((v) => {
+              const Icon = v.icon;
               return (
                 <button
-                  key={m}
-                  onClick={() => setModelFilter(isActive ? null : m)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
-                    isActive
-                      ? `${MODEL_BG_ACTIVE[m as keyof typeof MODEL_BG_ACTIVE] || 'bg-surface-700/50'} ring-1 ${
-                          MODEL_COLORS[m as keyof typeof MODEL_COLORS] || 'text-surface-300'
-                        }`
-                      : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
-                  }`}
-                >
-                  <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: MODEL_DOT[m as keyof typeof MODEL_DOT] || '#94a3b8' }}
-                  />
-                  <span className="capitalize">{m}</span>
-                  <span
-                    className={`text-[10px] px-1 py-px rounded-full ${isActive ? 'bg-white/10' : 'bg-surface-800'}`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-
-          {/* Clear model filter */}
-          {modelFilter && (
-            <button
-              onClick={() => setModelFilter(null)}
-              className="flex items-center gap-1 px-1.5 py-1.5 rounded-lg text-[10px] text-surface-500 hover:text-surface-300 hover:bg-surface-800/50 transition-colors"
-              title={t('board.clearFilter')}
-            >
-              <X size={12} />
-            </button>
-          )}
-
-          {/* Tag filter dropdown */}
-          {activeTags.length > 0 && (
-            <>
-              <div className="w-px h-5 bg-surface-700/50 mx-1.5" />
-              <div className="relative" ref={tagDropdownRef}>
-                <button
-                  onClick={() => setTagDropdownOpen(!tagDropdownOpen)}
+                  key={v.id}
+                  onClick={() => setViewMode(v.id)}
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    tagFilter.length > 0
+                    viewMode === v.id
                       ? 'bg-claude/15 text-claude'
                       : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
                   }`}
                 >
-                  <Tag size={12} />
-                  {t('task.tags')}
-                  {tagFilter.length > 0 && (
-                    <span className="text-[10px] bg-claude/20 px-1.5 py-px rounded-full">{tagFilter.length}</span>
-                  )}
-                  <ChevronDown size={10} />
+                  <Icon size={13} />
+                  <span className="hidden sm:inline">{t(v.labelKey)}</span>
                 </button>
-                {tagDropdownOpen && (
-                  <div className="absolute top-full left-0 mt-1 bg-surface-800 border border-surface-700 rounded-lg py-1 shadow-xl z-20 min-w-[280px] max-h-[320px] overflow-y-auto">
-                    {tagFilter.length > 0 && (
-                      <button
-                        onClick={() => {
-                          setTagFilter([]);
-                          setTagDropdownOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-surface-500 hover:bg-surface-700 border-b border-surface-700/50 transition-colors"
-                      >
-                        <X size={10} /> {t('common.clearAll')}
-                      </button>
-                    )}
-                    {activeTags.map((tag) => {
-                      const isActive = tagFilter.includes(tag);
-                      const color = getTagColor(tag);
-                      return (
-                        <button
-                          key={tag}
-                          onClick={() =>
-                            setTagFilter((prev) => (isActive ? prev.filter((t) => t !== tag) : [...prev, tag]))
-                          }
-                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${
-                            isActive ? 'bg-surface-700/50 text-surface-200' : 'text-surface-400 hover:bg-surface-700/30'
-                          }`}
-                        >
-                          <div
-                            className={`w-3 h-3 rounded border flex items-center justify-center ${
-                              isActive ? 'bg-claude border-claude' : 'border-surface-600'
-                            }`}
-                          >
-                            {isActive && <span className="text-[8px] text-white font-bold">✓</span>}
-                          </div>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${color}`}>{tag}</span>
-                          <span className="ml-auto text-[10px] text-surface-600">{tagCounts[tag]}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+              );
+            })}
 
-          {/* GitHub Issues panel toggle (Tauri only — no HTTP routes for GitHub) */}
-          {IS_TAURI && !!project?.github_sync_enabled && (
-            <>
-              <div className="w-px h-5 bg-surface-700/50 mx-1.5" />
+            {/* Group by epic (kanban view only) */}
+            {viewMode === 'board' && (
               <button
-                onClick={() => setShowGithubPanel((p) => !p)}
+                onClick={() => setGroupByEpic((v) => !v)}
+                title="Group the board into epic swimlanes"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  showGithubPanel
-                    ? 'text-claude bg-claude/10'
+                  groupByEpic
+                    ? 'bg-violet-500/15 text-violet-300'
                     : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
                 }`}
-                title="GitHub Issues"
               >
-                <Github size={13} />
-                <span className="hidden sm:inline">Issues</span>
+                <Rows3 size={13} />
+                <span className="hidden sm:inline">Epics</span>
               </button>
-            </>
-          )}
-        </div>
+            )}
 
-        {/* Board view */}
-        {viewMode === 'board' && (
-          <>
-            {/* Mobile tab bar */}
-            <div className="flex md:hidden border-b border-surface-800 bg-surface-900/80 overflow-x-auto">
-              {visibleColumns.map((col) => {
-                const count = columnTasks(col.id).length;
+            {/* Separator */}
+            {activeModels.length > 1 && <div className="w-px h-5 bg-surface-700/50 mx-1.5" />}
+
+            {/* Model filter chips */}
+            {activeModels.length > 1 &&
+              activeModels.map((m) => {
+                const isActive = modelFilter === m;
+                const count = modelCounts[m] || 0;
                 return (
                   <button
-                    key={col.id}
-                    onClick={() => setMobileTab(col.id)}
-                    className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
-                      mobileTab === col.id ? `${col.color} border-current` : 'text-surface-500 border-transparent'
+                    key={m}
+                    onClick={() => setModelFilter(isActive ? null : m)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+                      isActive
+                        ? `${MODEL_BG_ACTIVE[m as keyof typeof MODEL_BG_ACTIVE] || 'bg-surface-700/50'} ring-1 ${
+                            MODEL_COLORS[m as keyof typeof MODEL_COLORS] || 'text-surface-300'
+                          }`
+                        : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
                     }`}
                   >
-                    <div className={`w-1.5 h-1.5 rounded-full ${col.bg}`} />
-                    {t('status.' + col.id)}
-                    {count > 0 && (
-                      <span className="text-[10px] bg-surface-800 px-1.5 py-0.5 rounded-full">{count}</span>
-                    )}
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: MODEL_DOT[m as keyof typeof MODEL_DOT] || '#94a3b8' }}
+                    />
+                    <span className="capitalize">{m}</span>
+                    <span
+                      className={`text-[10px] px-1 py-px rounded-full ${isActive ? 'bg-white/10' : 'bg-surface-800'}`}
+                    >
+                      {count}
+                    </span>
                   </button>
                 );
               })}
-            </div>
 
-            {/* Mobile: single column */}
-            <div className="flex-1 overflow-y-auto md:hidden p-3">
-              <Column
-                column={visibleColumns.find((c) => c.id === mobileTab) || visibleColumns[0]}
-                tasks={columnTasks(mobileTab)}
-                draggedTask={draggedTask}
-                onDragStart={setDraggedTask}
-                onDragEnd={() => setDraggedTask(null)}
-                onDrop={() => {
-                  if (draggedTask && draggedTask.status !== mobileTab) onStatusChange(draggedTask.id, mobileTab);
-                  setDraggedTask(null);
-                }}
-                onViewLogs={onViewLogs}
-                onEditTask={onEditTask}
-                onDeleteTask={onDeleteTask}
-                onStatusChange={onStatusChange}
-                onReviewTask={onReviewTask}
-                onViewDetail={onViewDetail}
-                onReorder={handleReorder}
-                onDepDrop={handleDepDrop}
-                isMobile
-              />
-            </div>
+            {/* Clear model filter */}
+            {modelFilter && (
+              <button
+                onClick={() => setModelFilter(null)}
+                className="flex items-center gap-1 px-1.5 py-1.5 rounded-lg text-[10px] text-surface-500 hover:text-surface-300 hover:bg-surface-800/50 transition-colors"
+                title={t('board.clearFilter')}
+              >
+                <X size={12} />
+              </button>
+            )}
 
-            {/* Desktop: grouped into epic swimlanes, or a single columns row */}
-            {groupByEpic && epicLanes ? (
-              <div className="hidden md:flex flex-col flex-1 gap-5 p-4 overflow-y-auto">
-                {epicLanes.length === 0 && <div className="text-xs text-surface-500 px-1">No tasks to group.</div>}
-                {epicLanes.map((lane) => {
-                  const { done, total } = laneRollup(lane.tasks);
-                  return (
-                    <div key={lane.epic ? lane.epic.id : 'none'} className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2 px-1">
-                        {lane.epic ? (
-                          <>
-                            <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300">
-                              Epic
-                            </span>
-                            <span className="text-sm font-medium text-surface-200 truncate">{lane.epic.title}</span>
-                            {lane.epic.task_key && (
-                              <span className="text-[10px] text-surface-500 font-mono">{lane.epic.task_key}</span>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-sm font-medium text-surface-400">No epic</span>
-                        )}
-                        {total > 0 && (
-                          <span className="text-[10px] text-surface-500 tabular-nums ml-auto">
-                            {done}/{total} done
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex gap-4 overflow-x-auto">
-                        {visibleColumns.map((col) =>
-                          renderColumn(
-                            col,
-                            lane.tasks.filter((t) => (t.status || 'backlog') === col.id),
-                          ),
-                        )}
-                      </div>
+            {/* Tag filter dropdown */}
+            {activeTags.length > 0 && (
+              <>
+                <div className="w-px h-5 bg-surface-700/50 mx-1.5" />
+                <div className="relative" ref={tagDropdownRef}>
+                  <button
+                    onClick={() => setTagDropdownOpen(!tagDropdownOpen)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      tagFilter.length > 0
+                        ? 'bg-claude/15 text-claude'
+                        : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
+                    }`}
+                  >
+                    <Tag size={12} />
+                    {t('task.tags')}
+                    {tagFilter.length > 0 && (
+                      <span className="text-[10px] bg-claude/20 px-1.5 py-px rounded-full">{tagFilter.length}</span>
+                    )}
+                    <ChevronDown size={10} />
+                  </button>
+                  {tagDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 bg-surface-800 border border-surface-700 rounded-lg py-1 shadow-xl z-20 min-w-[280px] max-h-[320px] overflow-y-auto">
+                      {tagFilter.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setTagFilter([]);
+                            setTagDropdownOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-surface-500 hover:bg-surface-700 border-b border-surface-700/50 transition-colors"
+                        >
+                          <X size={10} /> {t('common.clearAll')}
+                        </button>
+                      )}
+                      {activeTags.map((tag) => {
+                        const isActive = tagFilter.includes(tag);
+                        const color = getTagColor(tag);
+                        return (
+                          <button
+                            key={tag}
+                            onClick={() =>
+                              setTagFilter((prev) => (isActive ? prev.filter((t) => t !== tag) : [...prev, tag]))
+                            }
+                            className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${
+                              isActive
+                                ? 'bg-surface-700/50 text-surface-200'
+                                : 'text-surface-400 hover:bg-surface-700/30'
+                            }`}
+                          >
+                            <div
+                              className={`w-3 h-3 rounded border flex items-center justify-center ${
+                                isActive ? 'bg-claude border-claude' : 'border-surface-600'
+                              }`}
+                            >
+                              {isActive && <span className="text-[8px] text-white font-bold">✓</span>}
+                            </div>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${color}`}>{tag}</span>
+                            <span className="ml-auto text-[10px] text-surface-600">{tagCounts[tag]}</span>
+                          </button>
+                        );
+                      })}
                     </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* GitHub Issues panel toggle (Tauri only — no HTTP routes for GitHub) */}
+            {IS_TAURI && !!project?.github_sync_enabled && (
+              <>
+                <div className="w-px h-5 bg-surface-700/50 mx-1.5" />
+                <button
+                  onClick={() => setShowGithubPanel((p) => !p)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    showGithubPanel
+                      ? 'text-claude bg-claude/10'
+                      : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
+                  }`}
+                  title="GitHub Issues"
+                >
+                  <Github size={13} />
+                  <span className="hidden sm:inline">Issues</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Board view */}
+          {viewMode === 'board' && (
+            <>
+              {/* Mobile tab bar */}
+              <div className="flex md:hidden border-b border-surface-800 bg-surface-900/80 overflow-x-auto">
+                {visibleColumns.map((col) => {
+                  const count = columnTasks(col.id).length;
+                  return (
+                    <button
+                      key={col.id}
+                      onClick={() => setMobileTab(col.id)}
+                      className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
+                        mobileTab === col.id ? `${col.color} border-current` : 'text-surface-500 border-transparent'
+                      }`}
+                    >
+                      <div className={`w-1.5 h-1.5 rounded-full ${col.bg}`} />
+                      {t('status.' + col.id)}
+                      {count > 0 && (
+                        <span className="text-[10px] bg-surface-800 px-1.5 py-0.5 rounded-full">{count}</span>
+                      )}
+                    </button>
                   );
                 })}
               </div>
-            ) : (
-              <div className="hidden md:flex flex-1 gap-4 p-4 overflow-x-auto">
-                {visibleColumns.map((col) => renderColumn(col, columnTasks(col.id)))}
+
+              {/* Mobile: single column */}
+              <div className="flex-1 overflow-y-auto md:hidden p-3">
+                <Column
+                  column={visibleColumns.find((c) => c.id === mobileTab) || visibleColumns[0]}
+                  tasks={columnTasks(mobileTab)}
+                  highlight={overColumnId === mobileTab}
+                  altDrag={altDrag}
+                  dndPrefix="m:"
+                  onViewLogs={onViewLogs}
+                  onEditTask={onEditTask}
+                  onDeleteTask={onDeleteTask}
+                  onStatusChange={onStatusChange}
+                  onReviewTask={onReviewTask}
+                  onViewDetail={onViewDetail}
+                  isMobile
+                />
               </div>
-            )}
-          </>
-        )}
 
-        {/* List view */}
-        {viewMode === 'list' && (
-          <ErrorBoundary>
-            <div className="flex-1 overflow-hidden">
-              <ListView
-                tasks={filteredTasks}
-                onStatusChange={onStatusChange}
-                onViewLogs={onViewLogs}
-                onEditTask={onEditTask}
-                onDeleteTask={onDeleteTask}
-                onBulkDelete={onBulkDelete}
-                onReviewTask={onReviewTask}
-                onViewDetail={onViewDetail}
-              />
-            </div>
-          </ErrorBoundary>
-        )}
+              {/* Desktop: grouped into epic swimlanes, or a single columns row */}
+              {groupByEpic && epicLanes ? (
+                <div className="hidden md:flex flex-col flex-1 gap-5 p-4 overflow-y-auto">
+                  {epicLanes.length === 0 && <div className="text-xs text-surface-500 px-1">No tasks to group.</div>}
+                  {epicLanes.map((lane) => {
+                    const { done, total } = laneRollup(lane.tasks);
+                    return (
+                      <div key={lane.epic ? lane.epic.id : 'none'} className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 px-1">
+                          {lane.epic ? (
+                            <>
+                              <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300">
+                                Epic
+                              </span>
+                              <span className="text-sm font-medium text-surface-200 truncate">{lane.epic.title}</span>
+                              {lane.epic.task_key && (
+                                <span className="text-[10px] text-surface-500 font-mono">{lane.epic.task_key}</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-sm font-medium text-surface-400">No epic</span>
+                          )}
+                          {total > 0 && (
+                            <span className="text-[10px] text-surface-500 tabular-nums ml-auto">
+                              {done}/{total} done
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-4 overflow-x-auto">
+                          {visibleColumns.map((col) =>
+                            renderColumn(
+                              col,
+                              lane.tasks.filter((t) => (t.status || 'backlog') === col.id),
+                              // Same column repeats in every lane — keep dnd ids unique.
+                              `lane${lane.epic ? lane.epic.id : 'none'}:`,
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="hidden md:flex flex-1 gap-4 p-4 overflow-x-auto">
+                  {visibleColumns.map((col) => renderColumn(col, columnTasks(col.id)))}
+                </div>
+              )}
+            </>
+          )}
 
-        {viewMode === 'pipeline' && (
-          <ErrorBoundary>
-            <Suspense
-              fallback={
-                <div className="flex-1 flex items-center justify-center text-surface-500 text-sm">Loading...</div>
-              }
-            >
+          {/* List view */}
+          {viewMode === 'list' && (
+            <ErrorBoundary>
               <div className="flex-1 overflow-hidden">
-                <PipelineView
+                <ListView
                   tasks={filteredTasks}
                   onStatusChange={onStatusChange}
                   onViewLogs={onViewLogs}
+                  onEditTask={onEditTask}
+                  onDeleteTask={onDeleteTask}
+                  onBulkDelete={onBulkDelete}
+                  onReviewTask={onReviewTask}
                   onViewDetail={onViewDetail}
                 />
               </div>
-            </Suspense>
-          </ErrorBoundary>
-        )}
+            </ErrorBoundary>
+          )}
 
-        {viewMode === 'orchestration' && (
-          <ErrorBoundary>
-            <Suspense
-              fallback={
-                <div className="flex-1 flex items-center justify-center text-surface-500 text-sm">Loading...</div>
-              }
-            >
-              <div className="flex-1 overflow-hidden">
-                <OrchestrationView
-                  tasks={tasks}
-                  projectId={projectId}
-                  onViewLogs={onViewLogs}
-                  onStatusChange={onStatusChange}
-                  onViewDetail={onViewDetail}
-                />
-              </div>
-            </Suspense>
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'analytics' && (
-          <ErrorBoundary>
-            <Suspense
-              fallback={
-                <div className="flex-1 flex items-center justify-center text-surface-500 text-sm">Loading...</div>
-              }
-            >
-              <div className="flex-1 overflow-hidden">
-                <AnalyticsView tasks={filteredTasks} projectId={projectId} />
-              </div>
-            </Suspense>
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'roadmap' && (
-          <ErrorBoundary>
-            <Suspense
-              fallback={
-                <div className="flex-1 flex items-center justify-center text-surface-500 text-sm">Loading...</div>
-              }
-            >
-              <div className="flex-1 overflow-auto">
-                <RoadmapView projectId={projectId} project={project} />
-              </div>
-            </Suspense>
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'terminal' && (
-          <ErrorBoundary>
-            <Suspense
-              fallback={
-                <div className="flex-1 flex items-center justify-center text-surface-500 text-sm">Loading...</div>
-              }
-            >
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <ProjectTerminal tasks={filteredTasks} />
-              </div>
-            </Suspense>
-          </ErrorBoundary>
-        )}
-        {/* Dependency creation dialog */}
-        {depDialog && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-            onClick={() => setDepDialog(null)}
-          >
-            <div
-              className="bg-surface-800 border border-surface-700 rounded-xl p-5 w-[380px] shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <Link2 size={16} className="text-blue-400" />
-                <h3 className="text-sm font-medium text-surface-100">{t('board.createDependency')}</h3>
-              </div>
-              <p className="text-xs text-surface-400 mb-4">{t('board.depDialogDesc')}</p>
-
-              <div className="space-y-2">
-                <button
-                  onClick={() => confirmDep('depends')}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-surface-700/50 hover:bg-surface-700 border border-surface-600/50 transition-colors text-left"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-surface-200 truncate">{depDialog.from.title}</div>
-                    <div className="text-[10px] text-surface-500">{depDialog.from.task_key}</div>
-                  </div>
-                  <div className="flex flex-col items-center flex-shrink-0">
-                    <ArrowRight size={14} className="text-blue-400" />
-                    <span className="text-[9px] text-blue-400 mt-0.5">{t('board.dependsOn')}</span>
-                  </div>
-                  <div className="flex-1 min-w-0 text-right">
-                    <div className="text-xs font-medium text-surface-200 truncate">{depDialog.to.title}</div>
-                    <div className="text-[10px] text-surface-500">{depDialog.to.task_key}</div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => confirmDep('blocks')}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-surface-700/50 hover:bg-surface-700 border border-surface-600/50 transition-colors text-left"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-surface-200 truncate">{depDialog.to.title}</div>
-                    <div className="text-[10px] text-surface-500">{depDialog.to.task_key}</div>
-                  </div>
-                  <div className="flex flex-col items-center flex-shrink-0">
-                    <ArrowRight size={14} className="text-blue-400" />
-                    <span className="text-[9px] text-blue-400 mt-0.5">{t('board.dependsOn')}</span>
-                  </div>
-                  <div className="flex-1 min-w-0 text-right">
-                    <div className="text-xs font-medium text-surface-200 truncate">{depDialog.from.title}</div>
-                    <div className="text-[10px] text-surface-500">{depDialog.from.task_key}</div>
-                  </div>
-                </button>
-              </div>
-
-              <button
-                onClick={() => setDepDialog(null)}
-                className="w-full mt-3 py-2 text-xs text-surface-500 hover:text-surface-300 transition-colors"
+          {viewMode === 'pipeline' && (
+            <ErrorBoundary>
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center text-surface-500 text-sm">Loading...</div>
+                }
               >
-                {t('common.cancel')}
-              </button>
+                <div className="flex-1 overflow-hidden">
+                  <PipelineView
+                    tasks={filteredTasks}
+                    onStatusChange={onStatusChange}
+                    onViewLogs={onViewLogs}
+                    onViewDetail={onViewDetail}
+                  />
+                </div>
+              </Suspense>
+            </ErrorBoundary>
+          )}
+
+          {viewMode === 'orchestration' && (
+            <ErrorBoundary>
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center text-surface-500 text-sm">Loading...</div>
+                }
+              >
+                <div className="flex-1 overflow-hidden">
+                  <OrchestrationView
+                    tasks={tasks}
+                    projectId={projectId}
+                    onViewLogs={onViewLogs}
+                    onStatusChange={onStatusChange}
+                    onViewDetail={onViewDetail}
+                  />
+                </div>
+              </Suspense>
+            </ErrorBoundary>
+          )}
+
+          {viewMode === 'analytics' && (
+            <ErrorBoundary>
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center text-surface-500 text-sm">Loading...</div>
+                }
+              >
+                <div className="flex-1 overflow-hidden">
+                  <AnalyticsView tasks={filteredTasks} projectId={projectId} />
+                </div>
+              </Suspense>
+            </ErrorBoundary>
+          )}
+
+          {viewMode === 'roadmap' && (
+            <ErrorBoundary>
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center text-surface-500 text-sm">Loading...</div>
+                }
+              >
+                <div className="flex-1 overflow-auto">
+                  <RoadmapView projectId={projectId} project={project} />
+                </div>
+              </Suspense>
+            </ErrorBoundary>
+          )}
+
+          {viewMode === 'terminal' && (
+            <ErrorBoundary>
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center text-surface-500 text-sm">Loading...</div>
+                }
+              >
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <ProjectTerminal tasks={filteredTasks} />
+                </div>
+              </Suspense>
+            </ErrorBoundary>
+          )}
+          {/* Dependency creation dialog */}
+          {depDialog && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              onClick={() => setDepDialog(null)}
+            >
+              <div
+                className="bg-surface-800 border border-surface-700 rounded-xl p-5 w-[380px] shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <Link2 size={16} className="text-blue-400" />
+                  <h3 className="text-sm font-medium text-surface-100">{t('board.createDependency')}</h3>
+                </div>
+                <p className="text-xs text-surface-400 mb-4">{t('board.depDialogDesc')}</p>
+
+                <div className="space-y-2">
+                  <button
+                    onClick={() => confirmDep('depends')}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg bg-surface-700/50 hover:bg-surface-700 border border-surface-600/50 transition-colors text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-surface-200 truncate">{depDialog.from.title}</div>
+                      <div className="text-[10px] text-surface-500">{depDialog.from.task_key}</div>
+                    </div>
+                    <div className="flex flex-col items-center flex-shrink-0">
+                      <ArrowRight size={14} className="text-blue-400" />
+                      <span className="text-[9px] text-blue-400 mt-0.5">{t('board.dependsOn')}</span>
+                    </div>
+                    <div className="flex-1 min-w-0 text-right">
+                      <div className="text-xs font-medium text-surface-200 truncate">{depDialog.to.title}</div>
+                      <div className="text-[10px] text-surface-500">{depDialog.to.task_key}</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => confirmDep('blocks')}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg bg-surface-700/50 hover:bg-surface-700 border border-surface-600/50 transition-colors text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-surface-200 truncate">{depDialog.to.title}</div>
+                      <div className="text-[10px] text-surface-500">{depDialog.to.task_key}</div>
+                    </div>
+                    <div className="flex flex-col items-center flex-shrink-0">
+                      <ArrowRight size={14} className="text-blue-400" />
+                      <span className="text-[9px] text-blue-400 mt-0.5">{t('board.dependsOn')}</span>
+                    </div>
+                    <div className="flex-1 min-w-0 text-right">
+                      <div className="text-xs font-medium text-surface-200 truncate">{depDialog.from.title}</div>
+                      <div className="text-[10px] text-surface-500">{depDialog.from.task_key}</div>
+                    </div>
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setDepDialog(null)}
+                  className="w-full mt-3 py-2 text-xs text-surface-500 hover:text-surface-300 transition-colors"
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
             </div>
+          )}
+        </div>
+        {/* GitHub Issues side panel */}
+        {IS_TAURI && showGithubPanel && (
+          <div className="w-[340px] flex-shrink-0 border-l border-surface-800">
+            <GitHubIssuesPanel projectId={projectId} onClose={() => setShowGithubPanel(false)} />
           </div>
         )}
       </div>
-      {/* GitHub Issues side panel */}
-      {IS_TAURI && showGithubPanel && (
-        <div className="w-[340px] flex-shrink-0 border-l border-surface-800">
-          <GitHubIssuesPanel projectId={projectId} onClose={() => setShowGithubPanel(false)} />
-        </div>
-      )}
-    </div>
+      <DragOverlay>
+        {draggedTask && (
+          <div
+            className={`bg-surface-800 rounded-lg p-3 border shadow-xl shadow-black/40 text-sm text-surface-200 opacity-95 ${
+              altDrag ? 'border-blue-400 ring-1 ring-blue-400/30' : 'border-claude/50'
+            }`}
+          >
+            {altDrag && <div className="text-[9px] font-semibold uppercase text-blue-400 mb-1">Link dependency</div>}
+            {draggedTask.title}
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 }

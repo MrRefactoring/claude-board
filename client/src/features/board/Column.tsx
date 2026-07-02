@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback, memo } from 'react';
-import type { DragEvent } from 'react';
+import { memo } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import TaskCard from '@/features/board/TaskCard';
 import { useTranslation } from '@/i18n/I18nProvider';
 import type { Task } from '@/lib/types';
@@ -15,108 +16,47 @@ interface ColumnDef {
 interface ColumnProps {
   column: ColumnDef;
   tasks: Task[];
-  draggedTask?: Task | null;
-  onDragStart: (task: Task) => void;
-  onDragEnd: () => void;
-  onDrop: () => void;
-  onReorder?: (taskIds: number[]) => void;
+  /** The pointer is currently dragging a card over this column. */
+  highlight?: boolean;
+  /** Alt is held during the drag — cards show the dependency-drop affordance. */
+  altDrag?: boolean;
+  /** Uniquifies dnd ids when the same column renders twice (desktop + mobile DOM). */
+  dndPrefix?: string;
   onViewLogs: (task: Task) => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (task: Task) => void;
   onStatusChange?: (taskId: number, status: string) => void;
   onReviewTask: (task: Task) => void;
   onViewDetail: (task: Task) => void;
-  onDepDrop?: (from: Task, to: Task) => void;
   isMobile?: boolean;
 }
 
 const Column = memo(function Column({
   column,
   tasks,
-  draggedTask,
-  onDragStart,
-  onDragEnd,
-  onDrop,
-  onReorder,
+  highlight,
+  altDrag,
+  dndPrefix = '',
   onViewLogs,
   onEditTask,
   onDeleteTask,
   onStatusChange,
   onReviewTask,
   onViewDetail,
-  onDepDrop,
   isMobile,
 }: ColumnProps) {
   const { t } = useTranslation();
-  const [dragOver, setDragOver] = useState(false);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
-  const cardRefs = useRef<Record<number, HTMLDivElement | null>>({});
-
-  const getDropIndex = useCallback(
-    (e: DragEvent) => {
-      for (let i = 0; i < tasks.length; i++) {
-        const el = cardRefs.current[tasks[i].id];
-        if (!el) continue;
-        const rect = el.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        if (e.clientY < midY) return i;
-      }
-      return tasks.length;
-    },
-    [tasks],
-  );
-
-  const handleDragOver = useCallback(
-    (e: DragEvent) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      // Only show reorder indicator for same-column drags
-      if (draggedTask && draggedTask.status === column.id) {
-        setDropIndex(getDropIndex(e));
-      }
-      setDragOver(true);
-    },
-    [draggedTask, column.id, getDropIndex],
-  );
-
-  const handleDrop = useCallback(
-    (e: DragEvent) => {
-      e.preventDefault();
-      setDragOver(false);
-      setDropIndex(null);
-
-      if (!draggedTask) return;
-
-      // Same column: reorder
-      if (draggedTask.status === column.id && onReorder) {
-        const targetIdx = getDropIndex(e);
-        const currentIdx = tasks.findIndex((t) => t.id === draggedTask.id);
-        if (currentIdx !== -1 && currentIdx !== targetIdx && currentIdx !== targetIdx - 1) {
-          const reordered = tasks.filter((t) => t.id !== draggedTask.id);
-          const insertAt = targetIdx > currentIdx ? targetIdx - 1 : targetIdx;
-          reordered.splice(insertAt, 0, draggedTask);
-          onReorder(reordered.map((t) => t.id));
-        }
-        onDragEnd();
-      } else {
-        // Cross-column: status change
-        onDrop();
-      }
-    },
-    [draggedTask, column.id, tasks, onReorder, onDrop, onDragEnd, getDropIndex],
-  );
+  const { setNodeRef } = useDroppable({
+    id: `${dndPrefix}${column.id}`,
+    data: { columnId: column.id },
+  });
 
   return (
     <div
+      ref={setNodeRef}
       className={`flex flex-col rounded-xl bg-surface-900/50 border transition-all duration-200 ${
-        dragOver ? 'border-claude/50 bg-claude/5' : 'border-surface-800'
+        highlight ? 'border-claude/50 bg-claude/5' : 'border-surface-800'
       } ${isMobile ? 'flex-1' : 'flex-1 min-w-[260px] max-w-[360px]'}`}
-      onDragOver={handleDragOver}
-      onDragLeave={() => {
-        setDragOver(false);
-        setDropIndex(null);
-      }}
-      onDrop={handleDrop}
     >
       {!isMobile && (
         <div className="flex items-center justify-between px-4 py-3 border-b border-surface-800">
@@ -131,34 +71,22 @@ const Column = memo(function Column({
       )}
 
       <div className={`flex-1 overflow-y-auto space-y-2 ${isMobile ? '' : 'p-3'}`}>
-        {tasks.map((task, idx) => (
-          <div
-            key={task.id}
-            ref={(el) => {
-              cardRefs.current[task.id] = el;
-            }}
-          >
-            {dropIndex === idx && draggedTask?.status === column.id && draggedTask?.id !== task.id && (
-              <div className="h-0.5 bg-claude/60 rounded-full mx-2 mb-1" />
-            )}
+        <SortableContext items={tasks.map((task) => `${dndPrefix}${task.id}`)} strategy={verticalListSortingStrategy}>
+          {tasks.map((task) => (
             <TaskCard
+              key={task.id}
               task={task}
-              draggedTask={draggedTask}
-              onDragStart={() => onDragStart(task)}
-              onDragEnd={onDragEnd}
+              dndId={`${dndPrefix}${task.id}`}
+              altDrag={altDrag}
               onViewLogs={() => onViewLogs(task)}
               onEdit={() => onEditTask(task)}
               onDelete={() => onDeleteTask(task)}
               onStatusChange={onStatusChange}
               onReview={() => onReviewTask(task)}
               onViewDetail={() => onViewDetail(task)}
-              onDepDrop={onDepDrop}
             />
-          </div>
-        ))}
-        {dropIndex === tasks.length && draggedTask?.status === column.id && (
-          <div className="h-0.5 bg-claude/60 rounded-full mx-2" />
-        )}
+          ))}
+        </SortableContext>
         {tasks.length === 0 && <div className="text-center py-8 text-surface-600 text-sm">{t('board.noTasks')}</div>}
       </div>
     </div>
