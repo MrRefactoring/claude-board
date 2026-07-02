@@ -16,8 +16,6 @@ import RolesModal from '../features/roles/RolesModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import TerminalBottomPanel from './TerminalBottomPanel';
-import { VoiceAssistantProvider } from '../features/voice/VoiceAssistantProvider';
-import VoiceAssistant from '../features/voice/VoiceAssistant';
 import PlanningModal from '../features/planning/PlanningModal';
 import CommandsModal from '../features/commands/CommandsModal';
 import SkillsModal from '../features/skills/SkillsModal';
@@ -25,6 +23,45 @@ import ScanModal from '../features/scan/ScanModal';
 import SettingsModal from '../features/settings/SettingsModal';
 import ChatSidebar from '../features/chat/ChatSidebar';
 import ErrorBoundary from '../components/ErrorBoundary';
+import type { Dispatch, SetStateAction } from 'react';
+import type { Project, Task, Template, Role, Toast as ToastItem, ConfirmState } from '../lib/types';
+import type { useTerminalTabs } from '../hooks/useTerminalTabs';
+import type { useTaskHandlers } from '../hooks/useTaskHandlers';
+import type { useProjectHandlers } from '../hooks/useProjectHandlers';
+
+interface AppLayoutProps {
+  connected: boolean;
+  projects: Project[];
+  currentProject: Project | null;
+  tasks: Task[];
+  filteredTasks: Task[];
+  terminal: ReturnType<typeof useTerminalTabs>;
+  selectedTask: Task | null;
+  activePanel: string | null;
+  search: string;
+  toasts: ToastItem[];
+  confirm: ConfirmState | null;
+  templates: Template[];
+  roles: Role[];
+  // Values are either the sentinel `true` (opened without a payload) or the
+  // entity being edited (Task/Project); typed concretely so `{modals.x && …}`
+  // gates stay valid ReactNode rather than the raw `unknown` of ModalState.
+  modals: Record<string, boolean | Task | Project | null>;
+  openModal: (name: string, data?: unknown) => void;
+  closeModal: (name: string) => void;
+  onClosePlanning: () => void;
+  onOpenPlanning: () => void;
+  onCloseTemplates: () => void;
+  onCloseRoles: () => void;
+  onSearchChange: (value: string) => void;
+  onSetActivePanel: Dispatch<SetStateAction<string | null>>;
+  onSetSelectedTask: (task: Task | null) => void;
+  onNavigateToProject: (project: Project | null) => void;
+  onNavigateToDashboard: () => void;
+  taskActions: ReturnType<typeof useTaskHandlers>;
+  projectActions: ReturnType<typeof useProjectHandlers>;
+  onOpenAppSettings: () => void;
+}
 
 export default function AppLayout({
   connected,
@@ -55,9 +92,9 @@ export default function AppLayout({
   taskActions,
   projectActions,
   onOpenAppSettings,
-}) {
-  const editingTask = modals.task === true ? null : modals.task;
-  const editingProject = modals.project === true ? null : modals.project;
+}: AppLayoutProps) {
+  const editingTask = (modals.task === true ? null : modals.task) as Task | null;
+  const editingProject = (modals.project === true ? null : modals.project) as Project | null;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -67,7 +104,7 @@ export default function AppLayout({
         taskCount={tasks.length}
         runningCount={tasks.filter((t) => t.is_running).length}
         tasks={tasks}
-        onNewTask={currentProject ? () => openModal('task') : null}
+        onNewTask={currentProject ? () => openModal('task') : undefined}
         onToggleStats={() => onSetActivePanel((prev) => (prev === 'stats' ? null : 'stats'))}
         statsActive={activePanel === 'stats'}
         onToggleActivity={() => onSetActivePanel((prev) => (prev === 'activity' ? null : 'activity'))}
@@ -84,14 +121,14 @@ export default function AppLayout({
         onEditClaudeMd={() => openModal('claudeMd')}
         onEditSnippets={() => openModal('snippets')}
         onEditTemplates={() => openModal('templates')}
-        onOpenPlanning={currentProject ? onOpenPlanning : null}
+        onOpenPlanning={currentProject ? onOpenPlanning : undefined}
         onEditWebhooks={() => openModal('webhooks')}
         onEditRoles={() => openModal('roles')}
         onEditCommands={() => openModal('commands')}
         onEditSkills={() => openModal('skills')}
         onOpenAppSettings={onOpenAppSettings}
-        onOpenScan={currentProject ? () => openModal('scan') : null}
-        onToggleChat={currentProject ? () => (modals.chat ? closeModal('chat') : openModal('chat')) : null}
+        onOpenScan={currentProject ? () => openModal('scan') : undefined}
+        onToggleChat={currentProject ? () => (modals.chat ? closeModal('chat') : openModal('chat')) : undefined}
         chatActive={!!modals.chat}
       />
 
@@ -105,7 +142,7 @@ export default function AppLayout({
                 tasks={filteredTasks}
                 projectId={currentProject.id}
                 project={currentProject}
-                onStatusChange={taskActions.onStatusChange}
+                onStatusChange={taskActions.onStatusChange as (taskId: number, status: string) => void}
                 onViewLogs={taskActions.onViewLogs}
                 onEditTask={(task) => openModal('task', task)}
                 onDeleteTask={taskActions.onDelete}
@@ -228,7 +265,7 @@ export default function AppLayout({
       {modals.review && (
         <ErrorBoundary>
           <ReviewModal
-            task={modals.review}
+            task={modals.review as Task}
             onApprove={taskActions.onApprove}
             onRequestChanges={taskActions.onRequestChanges}
             onClose={() => closeModal('review')}
@@ -238,7 +275,7 @@ export default function AppLayout({
       {modals.detail && (
         <ErrorBoundary>
           <TaskDetailModal
-            task={modals.detail}
+            task={modals.detail as Task}
             onClose={() => closeModal('detail')}
             onStatusChange={taskActions.onStatusChange}
           />

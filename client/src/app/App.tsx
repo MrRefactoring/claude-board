@@ -16,6 +16,12 @@ import { I18nProvider, useTranslation } from '../i18n/I18nProvider';
 import OnboardingTour, { useOnboarding } from '../features/onboarding/OnboardingTour';
 import ErrorBoundary from '../components/ErrorBoundary';
 import CommandPalette from '../features/command-palette/CommandPalette';
+import type { Task, Project, Template, Role, ConfirmState } from '../lib/types';
+
+interface UpdateInfo {
+  version?: string;
+  status?: string;
+}
 
 function AppInner() {
   const { t } = useTranslation();
@@ -37,13 +43,13 @@ function AppInner() {
   const { showOnboarding, completeOnboarding } = useOnboarding();
 
   // UI state
-  const [activePanel, setActivePanel] = useState(null);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [confirm, setConfirm] = useState(null);
+  const [activePanel, setActivePanel] = useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [search, setSearch] = useState('');
-  const [updateInfo, setUpdateInfo] = useState(null);
-  const [templates, setTemplates] = useState([]);
-  const [roles, setRoles] = useState([]);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
 
   // ─── Task handlers ───
   const taskActions = useTaskHandlers({
@@ -109,8 +115,8 @@ function AppInner() {
   useEffect(() => {
     if (!IS_TAURI) return;
     const unsubs = [
-      tauriListen('update:available', (data) => setUpdateInfo(data)),
-      tauriListen('update:ready', (data) => setUpdateInfo({ ...data, status: 'ready' })),
+      tauriListen('update:available', (data) => setUpdateInfo(data as UpdateInfo)),
+      tauriListen('update:ready', (data) => setUpdateInfo({ ...(data as UpdateInfo), status: 'ready' })),
       tauriListen('menu:preferences', () => openModalRef.current('appSettings')),
     ];
     return () => unsubs.forEach((fn) => fn());
@@ -122,15 +128,18 @@ function AppInner() {
     const count = tasks.filter((t) => t.is_running).length;
     import('@tauri-apps/api/app')
       .then((mod) => {
-        if (mod.setBadgeCount) {
-          mod.setBadgeCount(count > 0 ? count : null).catch(() => {});
+        // setBadgeCount isn't in this @tauri-apps/api version's type surface but
+        // exists at runtime on macOS builds; guard + narrow via cast.
+        const setBadgeCount = (mod as { setBadgeCount?: (count: number | null) => Promise<void> }).setBadgeCount;
+        if (setBadgeCount) {
+          setBadgeCount(count > 0 ? count : null).catch(() => {});
         }
       })
       .catch(() => {});
   }, [tasks]);
 
   // Auto-open terminal when task NEWLY starts running (respects auto_open_terminal setting)
-  const runningIdsRef = useRef(new Set());
+  const runningIdsRef = useRef<Set<number>>(new Set());
   const suppressRef = useRef(true);
   const terminalRef = useRef(terminal);
   terminalRef.current = terminal;
@@ -140,7 +149,7 @@ function AppInner() {
     api
       .getAppSettings()
       .then((s) => {
-        autoOpenRef.current = !!s?.auto_open_terminal;
+        autoOpenRef.current = !!(s as { auto_open_terminal?: boolean } | null)?.auto_open_terminal;
       })
       .catch(() => {});
     const timer = setTimeout(() => {
@@ -154,12 +163,12 @@ function AppInner() {
   }, [tasks]);
 
   useEffect(() => {
-    const handler = (task) => {
+    const handler = (task: Partial<Task> & { id: number }) => {
       if (suppressRef.current || !autoOpenRef.current) return;
       if (task.is_running && !runningIdsRef.current.has(task.id)) {
         runningIdsRef.current.add(task.id);
-        terminalRef.current.openTab(task);
-        setSelectedTask(task);
+        terminalRef.current.openTab(task as Task);
+        setSelectedTask(task as Task);
         setActivePanel('logs');
       } else if (!task.is_running) {
         runningIdsRef.current.delete(task.id);
@@ -202,14 +211,15 @@ function AppInner() {
 
   // Keyboard shortcuts
   useEffect(() => {
-    const handler = (e) => {
+    const handler = (e: KeyboardEvent) => {
       // Ctrl/Cmd+K — command palette (works everywhere, even in inputs)
       if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         setCommandPaletteOpen((prev) => !prev);
         return;
       }
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
       if (e.key === 'n' && !e.ctrlKey && !e.metaKey && currentProject) {
         e.preventDefault();
         openModal('task');
@@ -226,7 +236,7 @@ function AppInner() {
         } else if (modals.project) {
           closeModal('project');
         } else if (confirm) {
-          confirm.onCancel();
+          confirm.onCancel?.();
         } else if (activePanel) {
           setActivePanel(null);
           setSelectedTask(null);
@@ -291,7 +301,7 @@ function AppInner() {
         confirm={confirm}
         templates={templates}
         roles={roles}
-        modals={modals}
+        modals={modals as Record<string, boolean | Task | Project | null>}
         openModal={openModal}
         closeModal={closeModal}
         onClosePlanning={handleClosePlanning}
@@ -316,7 +326,7 @@ function AppInner() {
         onNavigateToProject={navigateToProject}
         onNavigateToDashboard={navigateToDashboard}
         onStatusChange={(task, status) => taskActions.onStatusChange(task.id, status)}
-        onViewLogs={(task) => taskActions.onViewLogs(task.id)}
+        onViewLogs={(task) => taskActions.onViewLogs(task)}
         onViewDetail={(task) => openModal('detail', task)}
         openModal={openModal}
       />

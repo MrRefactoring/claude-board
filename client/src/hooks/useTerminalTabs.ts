@@ -27,7 +27,7 @@ export function useTerminalTabs(tasks: Task[]) {
   }, []);
 
   const closeTab = useCallback(
-    (taskId: number) => {
+    (taskId: number | null) => {
       setTabs((prev) => {
         const remaining = prev.filter((t) => t.id !== taskId);
         if (taskId === activeTabId) {

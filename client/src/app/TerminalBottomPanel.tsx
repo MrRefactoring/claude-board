@@ -1,7 +1,15 @@
 import { Columns2, Rows2, PanelLeftClose } from 'lucide-react';
 import LiveTerminal from '../features/terminal/LiveTerminal';
+import type { Task } from '../lib/types';
+import type { useTerminalTabs } from '../hooks/useTerminalTabs';
 
-export default function TerminalBottomPanel({ terminal, selectedTask, onSetSelectedTask }) {
+interface TerminalBottomPanelProps {
+  terminal: ReturnType<typeof useTerminalTabs>;
+  selectedTask: Task | null;
+  onSetSelectedTask: (task: Task | null) => void;
+}
+
+export default function TerminalBottomPanel({ terminal, selectedTask, onSetSelectedTask }: TerminalBottomPanelProps) {
   const isSplit = terminal.splitMode && terminal.splitTab;
   const canSplit = terminal.tabs.length >= 2;
 
@@ -14,7 +22,7 @@ export default function TerminalBottomPanel({ terminal, selectedTask, onSetSelec
           e.preventDefault();
           const startY = e.clientY;
           const startH = terminal.bottomHeight;
-          const onMove = (ev) =>
+          const onMove = (ev: MouseEvent) =>
             terminal.setBottomHeight(Math.max(150, Math.min(window.innerHeight - 200, startH + (startY - ev.clientY))));
           const onUp = () => {
             window.removeEventListener('mousemove', onMove);
@@ -118,7 +126,7 @@ export default function TerminalBottomPanel({ terminal, selectedTask, onSetSelec
         >
           <LiveTerminal
             key={terminal.activeTabId}
-            task={terminal.activeTab || selectedTask}
+            task={(terminal.activeTab || selectedTask) as Task}
             layout="bottom"
             onClose={() => terminal.closeTab(terminal.activeTabId)}
             onToggleLayout={() => terminal.setLayout('side')}
@@ -130,7 +138,7 @@ export default function TerminalBottomPanel({ terminal, selectedTask, onSetSelec
           <div className={terminal.splitMode === 'horizontal' ? 'flex-1 min-h-0' : 'flex-1 min-w-0'}>
             <LiveTerminal
               key={`split-${terminal.splitTabId}`}
-              task={terminal.splitTab}
+              task={terminal.splitTab as Task}
               layout="bottom"
               onClose={() => {
                 terminal.setSplitTabId(null);
