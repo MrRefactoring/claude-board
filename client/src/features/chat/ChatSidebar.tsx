@@ -75,15 +75,27 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Auto-grow the input to fit its content, up to a cap (then it scrolls).
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [input]);
+
   const handleSend = async () => {
     if (!input.trim() || loading || !IS_TAURI) return;
     const userMessage = input.trim();
+    // Snapshot the prior turns (before appending this one) as conversation context.
+    const history = messages
+      .filter((m) => !m.isError && m.content.trim())
+      .map((m) => ({ role: m.role, content: m.content }));
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
 
     try {
-      const response = await api.chatSend(projectId, userMessage);
+      const response = await api.chatSend(projectId, userMessage, undefined, history);
       const { text, action } = parseAction(response as string);
       setMessages((prev) => [
         ...prev,
@@ -338,7 +350,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
             onKeyDown={handleKeyDown}
             placeholder="Ask about your project..."
             rows={1}
-            className="flex-1 px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm text-surface-100 placeholder-surface-500 resize-none focus:outline-none focus:ring-1 focus:ring-claude max-h-24"
+            className="flex-1 px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm text-surface-100 placeholder-surface-500 resize-none focus:outline-none focus:ring-1 focus:ring-claude max-h-48 overflow-y-auto"
             style={{ minHeight: '36px' }}
             disabled={loading}
           />

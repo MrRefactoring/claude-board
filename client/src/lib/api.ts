@@ -352,8 +352,19 @@ const tauriApi = {
   // ─── Circuit Breaker ───
   resetCircuitBreaker: (id: number) => tauriCall('reset_circuit_breaker', { id }),
   // ─── AI Chat ───
-  chatSend: (projectId: number, message: string, model?: string | null) =>
-    tauriCall('chat_send', { projectId, message, model: model || null, mcpPort: MCP_PORT }),
+  chatSend: (
+    projectId: number,
+    message: string,
+    model?: string | null,
+    history?: { role: string; content: string }[],
+  ) =>
+    tauriCall('chat_send', {
+      projectId,
+      message,
+      model: model || null,
+      mcpPort: MCP_PORT,
+      history: history || null,
+    }),
   // ─── Roadmap (GSD) ───
   getMilestones: (projectId: number) => tauriCall('get_milestones', { projectId }),
   createMilestone: (projectId: number, version: string, title: string, description?: string | null) =>

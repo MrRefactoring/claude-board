@@ -20,6 +20,38 @@ const CHAT_ALLOWED_TOOLS: &[&str] = &[
     "mcp__claude-board__list_agents",
 ];
 
+/// One prior turn of the conversation, sent from the client so the assistant
+/// keeps context across messages (the chat itself is stateless / one-shot).
+#[derive(serde::Deserialize)]
+pub struct ChatTurn {
+    pub role: String,
+    pub content: String,
+}
+
+/// Render the recent conversation into a prompt block (last N turns, oldest
+/// first). Empty history → empty string.
+fn build_history_block(history: Option<&[ChatTurn]>) -> String {
+    let turns = match history {
+        Some(h) if !h.is_empty() => h,
+        _ => return String::new(),
+    };
+    const MAX_TURNS: usize = 12;
+    let recent = if turns.len() > MAX_TURNS { &turns[turns.len() - MAX_TURNS..] } else { turns };
+    let lines: Vec<String> = recent
+        .iter()
+        .filter(|t| !t.content.trim().is_empty())
+        .map(|t| {
+            let who = if t.role == "user" { "User" } else { "Assistant" };
+            format!("**{}:** {}", who, t.content.trim())
+        })
+        .collect();
+    if lines.is_empty() {
+        String::new()
+    } else {
+        format!("\n\n## Conversation so far\n{}", lines.join("\n\n"))
+    }
+}
+
 /// Resolve the bundled MCP sidecar path (mirrors the resolution in runner.rs).
 fn resolve_mcp_server_path() -> String {
     std::env::current_exe()
@@ -47,6 +79,7 @@ pub async fn chat_send(
     message: String,
     model: Option<String>,
     mcp_port: Option<u16>,
+    history: Option<Vec<ChatTurn>>,
 ) -> Result<String, String> {
     let db = db::get_db();
     let project = projects::get_by_id(&db, project_id).ok_or("Project not found")?;
@@ -107,7 +140,8 @@ Rules for actions:
         task_summary,
     );
 
-    let prompt = format!("{}\n\n## User Message\n{}", system_context, message);
+    let history_block = build_history_block(history.as_deref());
+    let prompt = format!("{}{}\n\n## User Message\n{}", system_context, history_block, message);
     let model_str = model.unwrap_or_else(|| "sonnet".to_string());
 
     // Wire the Claude Board MCP sidecar so the assistant can read/update tasks.

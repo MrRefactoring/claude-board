@@ -97,6 +97,8 @@ pub fn is_valid_transition(from: TaskStatus, to: TaskStatus) -> bool {
         | (AwaitingApproval, Failed)     // rejected permanently
 
         // ── Manual overrides ──
+        | (Backlog, Done)           // close/complete a queued task without running work
+        | (Backlog, Failed)         // cancel a queued task
         | (InProgress, Backlog)     // user moves back to queue
         | (Testing, Backlog)        // user moves back to queue
         | (Testing, Failed)         // user marks as failed
@@ -200,15 +202,16 @@ mod tests {
         // Retry
         assert!(is_valid_transition(Failed, Backlog));
         assert!(is_valid_transition(Failed, InProgress));
+        // Close/cancel a queued task without running it
+        assert!(is_valid_transition(Backlog, Done));
+        assert!(is_valid_transition(Backlog, Failed));
     }
 
     #[test]
     fn test_invalid_transitions() {
         use TaskStatus::*;
-        // Can't go backwards past queue
-        assert!(!is_valid_transition(Backlog, Done));
+        // Can't skip straight into an active/verification stage from the queue
         assert!(!is_valid_transition(Backlog, Testing));
-        assert!(!is_valid_transition(Backlog, Failed));
         // Self-transition
         assert!(!is_valid_transition(Done, Done));
         // Can't go from done to testing directly
