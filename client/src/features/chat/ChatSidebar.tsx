@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import type { KeyboardEvent } from 'react';
-import { X, Send, Loader2, Bot, User, Trash2, Sparkles, ListTree } from 'lucide-react';
+import { X, Send, Loader2, Bot, User, Trash2, Sparkles, ListTree, Check, Ban, CheckCircle2 } from 'lucide-react';
 import MDEditor from '@uiw/react-md-editor';
 import { api } from '@/lib/api';
+import type { Task, TaskStatus } from '@/lib/types';
 import { IS_TAURI } from '@/lib/tauriEvents';
 
 interface Props {
@@ -13,11 +14,51 @@ interface Props {
   onDecompose?: (goal: string) => void;
 }
 
+/** A board change the assistant proposes; the user approves it with a button. */
+interface ChatAction {
+  action: 'update_task' | 'set_status' | 'set_pr_intent' | 'add_comment';
+  task_id: number;
+  params?: Record<string, unknown>;
+  summary?: string;
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   isError?: boolean;
+  action?: ChatAction;
+  actionState?: 'pending' | 'approved' | 'dismissed' | 'error';
+  actionError?: string;
 }
+
+const ACTION_TYPES = new Set(['update_task', 'set_status', 'set_pr_intent', 'add_comment']);
+
+/** Pull a `board:action` (or json) proposal block out of the assistant reply and
+ *  return the text without it. Tolerant: accepts any fenced block that parses to
+ *  an object with a known `action` and a numeric `task_id`. */
+function parseAction(content: string): { text: string; action?: ChatAction } {
+  const fence = /```(?:board:action|json)?\s*\n([\s\S]*?)```/g;
+  let m: RegExpExecArray | null;
+  while ((m = fence.exec(content)) !== null) {
+    try {
+      const obj = JSON.parse(m[1].trim());
+      if (obj && typeof obj === 'object' && ACTION_TYPES.has(obj.action) && typeof obj.task_id === 'number') {
+        const text = (content.slice(0, m.index) + content.slice(m.index + m[0].length)).trim();
+        return { text, action: obj as ChatAction };
+      }
+    } catch {
+      /* not our block — keep scanning */
+    }
+  }
+  return { text: content };
+}
+
+const ACTION_LABELS: Record<ChatAction['action'], string> = {
+  update_task: 'Edit task',
+  set_status: 'Change status',
+  set_pr_intent: 'PR intent',
+  add_comment: 'Add comment',
+};
 
 export default function ChatSidebar({ projectId, projectName, onClose, onDecompose }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -43,7 +84,11 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
 
     try {
       const response = await api.chatSend(projectId, userMessage);
-      setMessages((prev) => [...prev, { role: 'assistant', content: response as string }]);
+      const { text, action } = parseAction(response as string);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: text, action, actionState: action ? 'pending' : undefined },
+      ]);
     } catch (e) {
       const detail = (e as Error)?.message || (e as string) || 'Failed to get response';
       setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${detail}`, isError: true }]);
@@ -51,6 +96,33 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
       setLoading(false);
       inputRef.current?.focus();
     }
+  };
+
+  // Execute an approved board action deterministically via the existing APIs —
+  // no second LLM round-trip. The board refreshes from the emitted events.
+  const runAction = async (idx: number, a: ChatAction) => {
+    setMessages((prev) => prev.map((msg, i) => (i === idx ? { ...msg, actionState: 'approved' } : msg)));
+    try {
+      const p = a.params || {};
+      if (a.action === 'update_task') {
+        await api.updateTask(a.task_id, p as Partial<Task>);
+      } else if (a.action === 'set_status') {
+        await api.updateStatus(a.task_id, String(p.status) as TaskStatus);
+      } else if (a.action === 'set_pr_intent') {
+        await api.setTaskAutoPr(a.task_id, (p.enabled ?? null) as boolean | null);
+      } else if (a.action === 'add_comment') {
+        await api.addTaskComment(a.task_id, String(p.body ?? ''));
+      }
+    } catch (e) {
+      const detail = (e as Error)?.message || 'Failed to apply';
+      setMessages((prev) =>
+        prev.map((msg, i) => (i === idx ? { ...msg, actionState: 'error', actionError: detail } : msg)),
+      );
+    }
+  };
+
+  const dismissAction = (idx: number) => {
+    setMessages((prev) => prev.map((msg, i) => (i === idx ? { ...msg, actionState: 'dismissed' } : msg)));
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -153,17 +225,71 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
             </div>
             <div className="flex-1 min-w-0">
               {msg.role === 'assistant' && !msg.isError ? (
-                <div data-color-mode="dark" className="chat-md-content">
-                  <MDEditor.Markdown
-                    source={msg.content}
-                    style={{
-                      backgroundColor: 'transparent',
-                      color: '#d4cbbe',
-                      fontSize: '13px',
-                      lineHeight: '1.6',
-                    }}
-                  />
-                </div>
+                <>
+                  {msg.content && (
+                    <div data-color-mode="dark" className="chat-md-content">
+                      <MDEditor.Markdown
+                        source={msg.content}
+                        style={{
+                          backgroundColor: 'transparent',
+                          color: '#d4cbbe',
+                          fontSize: '13px',
+                          lineHeight: '1.6',
+                        }}
+                      />
+                    </div>
+                  )}
+                  {msg.action && (
+                    <div
+                      className={`mt-2 rounded-lg border px-3 py-2.5 ${
+                        msg.actionState === 'approved'
+                          ? 'border-emerald-500/30 bg-emerald-500/5'
+                          : msg.actionState === 'dismissed'
+                            ? 'border-surface-700/50 bg-surface-800/30 opacity-70'
+                            : msg.actionState === 'error'
+                              ? 'border-red-500/30 bg-red-500/5'
+                              : 'border-claude/30 bg-claude/5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-surface-400">
+                          {ACTION_LABELS[msg.action.action]}
+                        </span>
+                        <span className="text-[10px] text-surface-600 font-mono">#{msg.action.task_id}</span>
+                      </div>
+                      <p className="text-xs text-surface-200 leading-snug">
+                        {msg.action.summary || ACTION_LABELS[msg.action.action]}
+                      </p>
+                      {msg.actionState === 'error' && msg.actionError && (
+                        <p className="text-[11px] text-red-400 mt-1">{msg.actionError}</p>
+                      )}
+                      {(msg.actionState === 'pending' || msg.actionState === 'error') && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <button
+                            onClick={() => runAction(i, msg.action!)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-claude hover:bg-claude-light text-white text-[11px] font-medium transition-colors"
+                          >
+                            <Check size={12} /> {msg.actionState === 'error' ? 'Retry' : 'Approve'}
+                          </button>
+                          <button
+                            onClick={() => dismissAction(i)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-surface-400 hover:text-surface-200 hover:bg-surface-800 text-[11px] font-medium transition-colors"
+                          >
+                            <Ban size={12} /> Dismiss
+                          </button>
+                        </div>
+                      )}
+                      {msg.actionState === 'approved' && (
+                        <div className="flex items-center gap-1 mt-1.5 text-[11px] text-emerald-400 font-medium">
+                          <CheckCircle2 size={12} /> Applied
+                        </div>
+                      )}
+                      {msg.actionState === 'dismissed' && (
+                        <div className="text-[11px] text-surface-500 mt-1.5">Dismissed</div>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div
                   className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${

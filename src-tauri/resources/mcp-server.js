@@ -31,7 +31,7 @@ async function api(path, options = {}) {
 
 const server = new McpServer({
   name: 'claude-board',
-  version: '4.4.0',
+  version: '4.5.0',
 });
 
 // ─── list_projects ───
@@ -57,7 +57,7 @@ server.tool(
 
     const lines = tasks.map(
       (t) =>
-        `[${t.task_key || '#' + t.id}] ${t.title} — status: ${t.status}, type: ${t.task_type}, model: ${t.model || 'sonnet'}${t.is_running ? ' (RUNNING)' : ''}`,
+        `id ${t.id} [${t.task_key || '#' + t.id}] ${t.title} — status: ${t.status}, type: ${t.task_type}, model: ${t.model || 'sonnet'}${t.is_running ? ' (RUNNING)' : ''}`,
     );
     return { content: [{ type: 'text', text: lines.join('\n') }] };
   },

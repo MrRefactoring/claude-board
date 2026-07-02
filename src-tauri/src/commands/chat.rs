@@ -7,17 +7,16 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-/// Board MCP tools the chat assistant may call: read the board and edit task
-/// descriptions/titles. Task creation/decomposition is intentionally excluded —
-/// that goes through the review-first planning flow, not the chat.
+/// Board MCP tools the chat assistant may call: READ-ONLY. Every board change
+/// (edit, status/close, PR intent, comment) is proposed as a `board:action`
+/// block for the user to approve with a button — the chat never mutates
+/// directly. Task creation/decomposition goes through the review-first planning
+/// flow, not the chat.
 const CHAT_ALLOWED_TOOLS: &[&str] = &[
     "mcp__claude-board__list_projects",
     "mcp__claude-board__list_tasks",
     "mcp__claude-board__list_task_summary",
     "mcp__claude-board__get_task_detail",
-    "mcp__claude-board__update_task",
-    "mcp__claude-board__add_task_comment",
-    "mcp__claude-board__set_pr_intent",
     "mcp__claude-board__list_agents",
 ];
 
@@ -60,8 +59,8 @@ pub async fn chat_send(
     let done = all_tasks.iter().filter(|t| t.status.as_deref() == Some("done")).count();
     let failed = all_tasks.iter().filter(|t| t.status.as_deref() == Some("failed")).count();
 
-    let task_summary: String = all_tasks.iter().take(40).map(|t| {
-        format!("- [{}] {} ({})", t.task_key.as_deref().unwrap_or(""), t.title, t.status.as_deref().unwrap_or("backlog"))
+    let task_summary: String = all_tasks.iter().take(60).map(|t| {
+        format!("- id {} [{}] {} ({})", t.id, t.task_key.as_deref().unwrap_or(""), t.title, t.status.as_deref().unwrap_or("backlog"))
     }).collect::<Vec<_>>().join("\n");
 
     let system_context = format!(
@@ -71,19 +70,38 @@ pub async fn chat_send(
 - Working directory: {}
 - Tasks: {} total ({} running, {} queued, {} done, {} failed)
 
-## Task List (task_key — title — status)
+## Task List (id — task_key — title — status)
 {}
 
-## Your tools (Claude Board MCP)
-- get_task_detail / list_tasks / list_task_summary / list_projects — inspect the board.
-- update_task — edit a task's title, description, type, priority or acceptance criteria.
+## Your tools (Claude Board MCP, READ-ONLY)
+- get_task_detail / list_tasks / list_task_summary / list_projects / list_agents — inspect the board.
+You cannot change the board directly. To change anything, PROPOSE an action (below) and the user approves it with a button.
+
+## Proposing board changes (confirm-first)
+When the user asks you to change the board — close a task, change its status, edit its title/description/type/priority/acceptance criteria, toggle its PR intent, or add a comment — do NOT try to do it yourself. Instead:
+1. Briefly say, in one line, what you will do.
+2. End your reply with EXACTLY ONE fenced code block tagged `board:action`, containing a single JSON object. Example (closing a task):
+
+```board:action
+{{ "action": "set_status", "task_id": 42, "params": {{ "status": "done" }}, "summary": "Close TASK-42 (mark as done)" }}
+```
+
+Actions and their `params`:
+- "update_task" — any of `title`, `description`, `task_type` (feature|bugfix|refactor|docs|test|chore), `priority` (0-3), `acceptance_criteria`.
+- "set_status" — `status` (backlog|in_progress|testing|done|failed). Use "done" to close/finish a task.
+- "set_pr_intent" — `enabled` (true = open a PR, false = never; omit to inherit the project default).
+- "add_comment" — `body` (markdown).
+
+Rules for actions:
+- Exactly ONE action block per reply, and only when the user actually asked for a change.
+- Use the numeric `task_id` from the task list above (the `id N`). If a task isn't listed, call list_tasks to find its id. Never put a task_key in task_id.
+- For a description/title rewrite, put the FULL new text in `params` so the user sees it before approving.
+- If you are only answering, summarizing or analyzing, do NOT include an action block.
 
 ## Rules
 - Answer concisely in the user's language, using markdown.
 - When asked to summarize or analyze tasks, read them with the board tools first.
-- When asked to rewrite, tighten, translate or summarize a task's description or title, apply the change with update_task, then confirm what you changed (quote the new text briefly).
-- To break a goal into epics/stories/tasks, do NOT create tasks yourself — tell the user to use the board's Decompose / Planning action, which produces a review-first breakdown they can approve.
-- Never move tasks into in_progress and never delete anything."#,
+- To break a goal into epics/stories/tasks, do NOT propose creating tasks — tell the user to use the board's Decompose / Planning action, which produces a review-first breakdown they can approve."#,
         project.name, project.working_dir,
         all_tasks.len(), running, backlog, done, failed,
         task_summary,
