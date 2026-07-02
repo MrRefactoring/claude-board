@@ -34,6 +34,9 @@ import { formatTokens as fmtTokens } from '@/lib/formatters';
 import { useTranslation } from '@/i18n/I18nProvider';
 import { IS_TAURI, IS_MACOS } from '@/lib/tauriEvents';
 import Tooltip from '@/components/Tooltip';
+import { useUIStore } from '@/store/uiStore';
+import type { ModalName } from '@/store/uiStore';
+import type { useProjectHandlers } from '@/hooks/useProjectHandlers';
 import type { Task, Project } from '@/lib/types';
 
 type AvatarVariant = 'marble' | 'beam' | 'pixel' | 'sunset' | 'ring' | 'bauhaus' | 'geometric' | 'abstract';
@@ -71,100 +74,52 @@ interface SettingsItem {
   key: string;
   icon: LucideIcon;
   labelKey: string;
-  handler: string;
+  /** Modal opened by the item; 'project-settings' is special-cased to edit the current project. */
+  modal: ModalName | 'project-settings';
 }
 
 const SETTINGS_ITEMS: SettingsItem[] = [
-  { key: 'settings', icon: Settings, labelKey: 'header.settings', handler: 'onEditProject' },
-  { key: 'claude-md', icon: FileText, labelKey: 'header.claudeMd', handler: 'onEditClaudeMd' },
-  { key: 'snippets', icon: BookOpen, labelKey: 'header.snippets', handler: 'onEditSnippets' },
-  { key: 'templates', icon: Layers, labelKey: 'header.templates', handler: 'onEditTemplates' },
-  { key: 'roles', icon: Shield, labelKey: 'header.roles', handler: 'onEditRoles' },
-  { key: 'webhooks', icon: Bell, labelKey: 'header.webhooks', handler: 'onEditWebhooks' },
-  { key: 'commands', icon: Terminal, labelKey: 'header.commands', handler: 'onEditCommands' },
-  { key: 'skills', icon: Wand2, labelKey: 'header.skills', handler: 'onEditSkills' },
-  { key: 'app-settings', icon: SlidersHorizontal, labelKey: 'header.appSettings', handler: 'onOpenAppSettings' },
+  { key: 'settings', icon: Settings, labelKey: 'header.settings', modal: 'project-settings' },
+  { key: 'claude-md', icon: FileText, labelKey: 'header.claudeMd', modal: 'claudeMd' },
+  { key: 'snippets', icon: BookOpen, labelKey: 'header.snippets', modal: 'snippets' },
+  { key: 'templates', icon: Layers, labelKey: 'header.templates', modal: 'templates' },
+  { key: 'roles', icon: Shield, labelKey: 'header.roles', modal: 'roles' },
+  { key: 'webhooks', icon: Bell, labelKey: 'header.webhooks', modal: 'webhooks' },
+  { key: 'commands', icon: Terminal, labelKey: 'header.commands', modal: 'commands' },
+  { key: 'skills', icon: Wand2, labelKey: 'header.skills', modal: 'skills' },
+  { key: 'app-settings', icon: SlidersHorizontal, labelKey: 'header.appSettings', modal: 'appSettings' },
 ];
 
 interface HeaderProps {
   connected: boolean;
-  taskCount: number;
-  runningCount: number;
-  onNewTask?: () => void;
-  onToggleStats: () => void;
-  statsActive?: boolean;
-  onToggleActivity: () => void;
-  activityActive?: boolean;
-  search: string;
-  onSearchChange: (value: string) => void;
+  tasks: Task[];
   projects: Project[];
   currentProject: Project | null;
-  onSelectProject: (project: Project) => void;
-  onBackToDashboard: () => void;
-  onNewProject: () => void;
-  onEditProject?: () => void;
-  onDeleteProject: () => void;
-  onEditClaudeMd?: () => void;
-  onEditSnippets?: () => void;
-  onEditTemplates?: () => void;
-  onEditWebhooks?: () => void;
-  onEditRoles?: () => void;
-  onEditCommands?: () => void;
-  onEditSkills?: () => void;
-  onOpenPlanning?: () => void;
-  onOpenScan?: () => void;
-  onOpenAppSettings?: () => void;
-  onToggleChat?: () => void;
-  chatActive?: boolean;
-  tasks?: Task[];
+  projectActions: ReturnType<typeof useProjectHandlers>;
 }
 
-export default function Header({
-  connected,
-  taskCount,
-  runningCount,
-  onNewTask,
-  onToggleStats,
-  statsActive,
-  onToggleActivity,
-  activityActive,
-  search,
-  onSearchChange,
-  projects,
-  currentProject,
-  onSelectProject,
-  onBackToDashboard,
-  onNewProject,
-  onEditProject,
-  onDeleteProject,
-  onEditClaudeMd,
-  onEditSnippets,
-  onEditTemplates,
-  onEditWebhooks,
-  onEditRoles,
-  onEditCommands,
-  onEditSkills,
-  onOpenPlanning,
-  onOpenScan,
-  onOpenAppSettings,
-  onToggleChat,
-  chatActive,
-  tasks,
-}: HeaderProps) {
+export default function Header({ connected, tasks, projects, currentProject, projectActions }: HeaderProps) {
   const { t } = useTranslation();
   const [showProjectMenu, setShowProjectMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const handlers: Record<string, (() => void) | undefined> = {
-    onEditProject,
-    onEditClaudeMd,
-    onEditSnippets,
-    onEditTemplates,
-    onEditRoles,
-    onEditWebhooks,
-    onEditCommands,
-    onEditSkills,
-    onOpenAppSettings,
+  const openModal = useUIStore((s) => s.openModal);
+  const closeModal = useUIStore((s) => s.closeModal);
+  const openPlanning = useUIStore((s) => s.openPlanning);
+  const togglePanel = useUIStore((s) => s.togglePanel);
+  const activePanel = useUIStore((s) => s.activePanel);
+  const chatActive = useUIStore((s) => !!s.modals.chat);
+  const search = useUIStore((s) => s.search);
+  const setSearch = useUIStore((s) => s.setSearch);
+  const navigateToProject = useUIStore((s) => s.navigateToProject);
+  const navigateToDashboard = useUIStore((s) => s.navigateToDashboard);
+
+  const taskCount = tasks.length;
+  const runningCount = tasks.filter((task) => task.is_running).length;
+
+  const openSettingsItem = (item: SettingsItem) => {
+    if (item.modal === 'project-settings') projectActions.onEdit();
+    else openModal(item.modal);
   };
 
   useEffect(() => {
@@ -190,7 +145,7 @@ export default function Header({
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         <Tooltip text={t('header.backToDashboard')}>
           <button
-            onClick={onBackToDashboard}
+            onClick={navigateToDashboard}
             className="p-1.5 rounded-lg hover:bg-surface-800 text-surface-400 hover:text-claude transition-colors flex-shrink-0"
           >
             <LayoutGrid size={16} />
@@ -226,12 +181,11 @@ export default function Header({
                   <div className="grid grid-cols-3 gap-1">
                     {SETTINGS_ITEMS.map((item) => {
                       const Icon = item.icon;
-                      const fn = handlers[item.handler];
                       return (
                         <button
                           key={item.key}
                           onClick={() => {
-                            fn?.();
+                            openSettingsItem(item);
                             setShowProjectMenu(false);
                           }}
                           className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg text-surface-400 hover:bg-surface-700 hover:text-surface-200 transition-colors"
@@ -259,7 +213,7 @@ export default function Header({
                       <button
                         key={p.id}
                         onClick={() => {
-                          onSelectProject(p);
+                          navigateToProject(p);
                           setShowProjectMenu(false);
                         }}
                         className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-surface-300 hover:bg-surface-700 transition-colors"
@@ -284,7 +238,7 @@ export default function Header({
               <div className="p-1.5 flex gap-1">
                 <button
                   onClick={() => {
-                    onBackToDashboard();
+                    navigateToDashboard();
                     setShowProjectMenu(false);
                   }}
                   className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] text-surface-400 hover:bg-surface-700 hover:text-surface-200 transition-colors"
@@ -294,7 +248,7 @@ export default function Header({
                 </button>
                 <button
                   onClick={() => {
-                    onNewProject();
+                    openModal('project');
                     setShowProjectMenu(false);
                   }}
                   className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] text-surface-400 hover:bg-surface-700 hover:text-surface-200 transition-colors"
@@ -304,7 +258,7 @@ export default function Header({
                 </button>
                 <button
                   onClick={() => {
-                    onDeleteProject();
+                    projectActions.onDelete();
                     setShowProjectMenu(false);
                   }}
                   className="flex items-center justify-center px-2 py-1.5 rounded-lg text-[11px] text-red-400/60 hover:bg-red-500/10 hover:text-red-400 transition-colors"
@@ -331,7 +285,7 @@ export default function Header({
           <input
             id="search-input"
             value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder={t('header.searchPlaceholder')}
             className="w-32 lg:w-44 pl-8 pr-3 py-1.5 bg-surface-800 border border-surface-700 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-claude focus:border-claude placeholder-surface-600"
           />
@@ -356,32 +310,43 @@ export default function Header({
 
         {/* Toolbar — compact icon toggle group */}
         <div className="flex items-center bg-surface-800/60 rounded-lg p-0.5 border border-surface-700/40">
-          <ToolbarBtn icon={Clock} active={activityActive} onClick={onToggleActivity} title={t('header.activity')} />
-          <ToolbarBtn icon={BarChart3} active={statsActive} onClick={onToggleStats} title={t('header.stats')} />
-          {onOpenPlanning && (
-            <ToolbarBtn icon={Sparkles} onClick={onOpenPlanning} title="Planning" data-tour="planning-btn" />
+          <ToolbarBtn
+            icon={Clock}
+            active={activePanel === 'activity'}
+            onClick={() => togglePanel('activity')}
+            title={t('header.activity')}
+          />
+          <ToolbarBtn
+            icon={BarChart3}
+            active={activePanel === 'stats'}
+            onClick={() => togglePanel('stats')}
+            title={t('header.stats')}
+          />
+          <ToolbarBtn icon={Sparkles} onClick={openPlanning} title="Planning" data-tour="planning-btn" />
+          {IS_TAURI && (
+            <ToolbarBtn
+              icon={MessageSquare}
+              active={chatActive}
+              onClick={() => (chatActive ? closeModal('chat') : openModal('chat'))}
+              title="AI Chat"
+            />
           )}
-          {IS_TAURI && currentProject && onToggleChat && (
-            <ToolbarBtn icon={MessageSquare} active={chatActive} onClick={onToggleChat} title="AI Chat" />
-          )}
-          {IS_TAURI && currentProject && onOpenScan && (
-            <ToolbarBtn icon={ScanSearch} onClick={onOpenScan} title={t('header.scanCodebase')} />
+          {IS_TAURI && (
+            <ToolbarBtn icon={ScanSearch} onClick={() => openModal('scan')} title={t('header.scanCodebase')} />
           )}
         </div>
 
         {/* New Task */}
-        {onNewTask && (
-          <Tooltip text={t('header.newTask')} shortcut="N">
-            <button
-              onClick={onNewTask}
-              data-tour="new-task"
-              className="p-1.5 sm:px-3 sm:py-1.5 rounded-lg bg-claude hover:bg-claude-light text-sm font-medium transition-colors flex items-center gap-1.5 flex-shrink-0"
-            >
-              <Plus size={14} />
-              <span className="hidden sm:inline">{t('header.newTask')}</span>
-            </button>
-          </Tooltip>
-        )}
+        <Tooltip text={t('header.newTask')} shortcut="N">
+          <button
+            onClick={() => openModal('task')}
+            data-tour="new-task"
+            className="p-1.5 sm:px-3 sm:py-1.5 rounded-lg bg-claude hover:bg-claude-light text-sm font-medium transition-colors flex items-center gap-1.5 flex-shrink-0"
+          >
+            <Plus size={14} />
+            <span className="hidden sm:inline">{t('header.newTask')}</span>
+          </button>
+        </Tooltip>
       </div>
     </header>
   );
