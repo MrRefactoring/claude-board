@@ -21,7 +21,7 @@ export function TaskCommentsTab({ taskId }: { taskId: number }) {
       })
       .catch(() => {});
 
-    const onCreated = (payload: { taskId: number; comment: TaskComment }) => {
+    const onCreated = (payload: { taskId: number; comment: TaskComment } | undefined) => {
       if (payload?.taskId !== taskId) return;
       setComments((prev) => (prev.some((c) => c.id === payload.comment.id) ? prev : [...prev, payload.comment]));
     };

@@ -176,7 +176,7 @@ export default function Header({ connected, tasks, projects, currentProject, pro
           {showProjectMenu && (
             <div className="absolute left-0 sm:left-0 top-full mt-1 w-[calc(100vw-1.5rem)] sm:w-64 bg-surface-800 border border-surface-700 rounded-xl shadow-xl z-50 overflow-hidden max-h-[70vh] overflow-y-auto">
               {/* Settings grid */}
-              {currentProject && (
+              {
                 <div className="p-2">
                   <div className="grid grid-cols-3 gap-1">
                     {SETTINGS_ITEMS.map((item) => {
@@ -197,7 +197,7 @@ export default function Header({ connected, tasks, projects, currentProject, pro
                     })}
                   </div>
                 </div>
-              )}
+              }
 
               {/* Switch project */}
               {otherProjects.length > 0 && (

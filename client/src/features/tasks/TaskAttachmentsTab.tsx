@@ -19,7 +19,7 @@ export function TaskAttachmentsTab({ attachments, setAttachments }: Props) {
     <div className="space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {attachments.map((a) => {
-          const isImage = a.mime_type?.startsWith('image/');
+          const isImage = a.mime_type.startsWith('image/');
           return (
             <div
               key={a.id}

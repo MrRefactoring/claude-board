@@ -26,6 +26,7 @@ export function useTerminalTabs(tasks: Task[]) {
         }
         return tab;
       });
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- changed IS reassigned inside the map callback; the rule cannot see through the closure
       return changed ? next : prev;
     });
   }, [tasks]);

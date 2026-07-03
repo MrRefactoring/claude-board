@@ -42,7 +42,7 @@ export function TaskDependenciesTab({
         <h4 className="text-[11px] font-medium text-surface-400 uppercase tracking-wider mb-2">
           {t('detail.dependsOn') || 'Depends On'}
         </h4>
-        {deps.parents?.length > 0 ? (
+        {deps.parents.length > 0 ? (
           <div className="space-y-1.5">
             {deps.parents.map((pid) => {
               const pt = allTasks.find((t) => t.id === pid);
@@ -96,7 +96,7 @@ export function TaskDependenciesTab({
         <h4 className="text-[11px] font-medium text-surface-400 uppercase tracking-wider mb-2">
           {t('detail.blockedBy') || 'Blocks'}
         </h4>
-        {deps.children?.length > 0 ? (
+        {deps.children.length > 0 ? (
           <div className="space-y-1.5">
             {deps.children.map((cid) => {
               const ct = allTasks.find((t) => t.id === cid);
@@ -170,7 +170,7 @@ export function TaskDependenciesTab({
               {allTasks
                 .filter(
                   (t) =>
-                    t.id !== task.id && !(deps.parents || []).includes(t.id) && !(deps.children || []).includes(t.id),
+                    t.id !== task.id && !deps.parents.includes(t.id) && !deps.children.includes(t.id),
                 )
                 .map((t) => (
                   <option key={t.id} value={t.id}>

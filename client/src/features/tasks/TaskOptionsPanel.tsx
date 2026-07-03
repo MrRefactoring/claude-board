@@ -203,7 +203,7 @@ export default function TaskOptionsPanel({
         {attachedFiles.length > 0 && (
           <div className="space-y-0.5 mb-1.5">
             {attachedFiles.map((file, i) => {
-              const isImage = file.type?.startsWith('image/');
+              const isImage = file.type.startsWith('image/');
               return (
                 <div key={i} className="flex items-center gap-2 bg-surface-800/60 rounded px-2 py-1 group">
                   {isImage ? (

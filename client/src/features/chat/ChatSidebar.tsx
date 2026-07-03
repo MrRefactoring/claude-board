@@ -1,6 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
 import type { KeyboardEvent } from 'react';
-import { X, Send, Loader2, Bot, User, Trash2, Sparkles, ListTree, Check, Ban, CheckCircle2, Zap, ShieldQuestion, Wrench, Plus } from 'lucide-react';
+import {
+  X,
+  Send,
+  Loader2,
+  Bot,
+  User,
+  Trash2,
+  Sparkles,
+  ListTree,
+  Check,
+  Ban,
+  CheckCircle2,
+  Zap,
+  ShieldQuestion,
+  Wrench,
+  Plus,
+} from 'lucide-react';
 import MDEditor from '@uiw/react-md-editor';
 import { api } from '@/lib/api';
 import type { TaskStatus, PendingPermission } from '@/lib/types';
@@ -180,10 +196,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
       ]);
     } catch (e) {
       const detail = (e as Error | undefined)?.message || (e as string) || 'Failed to get response';
-      updateTabMessages(tabId, (prev) => [
-        ...prev,
-        { role: 'assistant', content: `Error: ${detail}`, isError: true },
-      ]);
+      updateTabMessages(tabId, (prev) => [...prev, { role: 'assistant', content: `Error: ${detail}`, isError: true }]);
     } finally {
       setRunningTabId(null);
       inputRef.current?.focus();
@@ -204,7 +217,8 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
         await api.updateStatus(a.task_id, String(p.status) as TaskStatus);
       } else if (a.action === 'set_pr_intent') {
         await api.setTaskAutoPr(a.task_id, (p.enabled ?? null) as boolean | null);
-      } else if (a.action === 'add_comment') {
+      } else {
+        // add_comment — the only remaining member of the ChatAction union
         await api.addTaskComment(a.task_id, typeof p.body === 'string' ? p.body : JSON.stringify(p.body ?? ''));
       }
     } catch (e) {
@@ -259,9 +273,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
                 : 'Ask before each new tool (Yes / Always / Deny)'
             }
             className={`flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
-              bypass
-                ? 'text-amber-400 bg-amber-500/10'
-                : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800'
+              bypass ? 'text-amber-400 bg-amber-500/10' : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800'
             }`}
           >
             <Zap size={12} /> {bypass ? 'Auto' : 'Ask'}
@@ -297,9 +309,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
                 : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
             }`}
           >
-            {tab.id === runningTabId ? (
-              <Loader2 size={10} className="text-claude animate-spin flex-shrink-0" />
-            ) : null}
+            {tab.id === runningTabId ? <Loader2 size={10} className="text-claude animate-spin flex-shrink-0" /> : null}
             <span className="truncate">{tab.title}</span>
             <button
               onClick={(e) => {

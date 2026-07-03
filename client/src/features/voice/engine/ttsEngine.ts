@@ -25,15 +25,17 @@ const LANG_NAME_KEYWORDS: Record<string, string[]> = {
 };
 
 function refreshVoices(): void {
-  if (!window.speechSynthesis) return;
-  const v = window.speechSynthesis.getVoices();
+  // jsdom (tests) and very old engines lack speechSynthesis despite lib.dom typing it required
+  const synth = window.speechSynthesis as SpeechSynthesis | undefined;
+  if (!synth) return;
+  const v = synth.getVoices();
   if (v.length > 0) {
     _voices = v;
     _voicesReady = true;
   }
 }
 
-if (typeof window !== 'undefined' && window.speechSynthesis) {
+if (typeof window !== 'undefined' && (window.speechSynthesis as SpeechSynthesis | undefined)) {
   refreshVoices();
   window.speechSynthesis.onvoiceschanged = refreshVoices;
 }
@@ -116,7 +118,7 @@ function unstick(): void {
  * Speak text aloud in the specified language.
  */
 export async function speak(text: string, lang: string = 'en-US'): Promise<void> {
-  const synth = window.speechSynthesis;
+  const synth = window.speechSynthesis as SpeechSynthesis | undefined;
   if (!synth) return;
 
   await ensureVoices();
@@ -158,7 +160,7 @@ export async function speak(text: string, lang: string = 'en-US'): Promise<void>
 }
 
 export function cancelSpeech(): void {
-  window.speechSynthesis?.cancel();
+  (window.speechSynthesis as SpeechSynthesis | undefined)?.cancel();
 }
 
 export function isTtsSupported(): boolean {

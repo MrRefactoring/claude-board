@@ -138,7 +138,7 @@ export function VoiceAssistantProvider({
     const stored = localStorage.getItem('voice-lang');
     if (stored) return stored;
     // Sync with app UI language
-    const uiLang = localStorage.getItem('ui-lang') || navigator.language?.split('-')[0] || 'en';
+    const uiLang = localStorage.getItem('ui-lang') || navigator.language.split('-')[0] || 'en';
     const langMap: Record<string, string> = {
       en: 'en-US',
       tr: 'tr-TR',
@@ -191,7 +191,7 @@ export function VoiceAssistantProvider({
 
   // ─── Process input ───
   const processInput = useCallback(async (rawText: string): Promise<void> => {
-    if (!rawText?.trim()) return;
+    if (!rawText.trim()) return;
     const text = rawText.trim();
     const cur = stateRef.current;
 

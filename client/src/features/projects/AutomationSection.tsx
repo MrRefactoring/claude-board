@@ -157,7 +157,7 @@ export default function AutomationSection({ form }: { form: ProjectForm }) {
                 {t('projectModal.detectedProvider')}: <span className="font-medium">{gitStatus.detectedProvider}</span>
               </p>
             )}
-            {prProvider === 'auto' && gitStatus?.detectedProvider === 'unknown' && gitStatus?.hasRemote && (
+            {prProvider === 'auto' && gitStatus?.detectedProvider === 'unknown' && gitStatus.hasRemote && (
               <p className="text-[10px] text-amber-400 mt-1">{t('projectModal.providerNotDetected')}</p>
             )}
           </Field>

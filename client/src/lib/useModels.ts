@@ -148,7 +148,7 @@ export function useModels() {
     // Kick off (or join in-flight) load.
     if (!cache) {
       void loadOnce().then((next) => {
-        if (active) setModels(next || BUILTIN_FALLBACK);
+        if (active) setModels(next);
       });
     } else {
       // Cache was already populated — sync to it.

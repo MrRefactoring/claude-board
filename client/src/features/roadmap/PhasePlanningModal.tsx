@@ -29,7 +29,7 @@ export function PhasePlanningModal({ phase, projectId, onClose, onRefresh }: Pha
     setProposals([]);
     setErrorMsg(null);
     try {
-      const result = (await api.planPhase(projectId, phase.id, model, 'medium')) as { planId?: string };
+      const result = (await api.planPhase(projectId, phase.id, model, 'medium')) as { planId?: string } | undefined;
       if (result?.planId) setActivePlanId(result.planId);
     } catch (e) {
       const msg = typeof e === 'string' ? e : (e as Error | undefined)?.message || 'Failed to start planning';

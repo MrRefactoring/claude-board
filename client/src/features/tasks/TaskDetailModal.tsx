@@ -146,7 +146,7 @@ export default function TaskDetailModal({ task, onClose, onStatusChange }: Props
                   <div
                     className={`w-1.5 h-1.5 rounded-full ${COLUMNS.find((c) => c.id === currentStatus)?.bg || ''}`}
                   />
-                  {currentStatus?.replace('_', ' ')}
+                  {currentStatus.replace('_', ' ')}
                   <ChevronDown size={10} />
                 </button>
                 {showStatusMenu && (

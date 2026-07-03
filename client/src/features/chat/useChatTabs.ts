@@ -52,9 +52,9 @@ function load(projectId: number): Persisted {
   try {
     const raw = localStorage.getItem(storageKey(projectId));
     if (raw) {
-      const parsed = JSON.parse(raw) as Persisted;
+      const parsed = JSON.parse(raw) as Persisted | null;
       const first = parsed && Array.isArray(parsed.tabs) ? parsed.tabs[0] : undefined;
-      if (first) {
+      if (parsed && first) {
         const activeId = parsed.tabs.some((t) => t.id === parsed.activeId) ? parsed.activeId : first.id;
         return { tabs: parsed.tabs, activeId };
       }

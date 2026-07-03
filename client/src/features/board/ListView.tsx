@@ -94,8 +94,8 @@ export default function ListView({
     const arr = [...tasks];
     const dir = sortDir === 'asc' ? 1 : -1;
     arr.sort((a, b) => {
-      let av: string | number = (a[sortField as keyof ListTask] as string | number) ?? 0;
-      let bv: string | number = (b[sortField as keyof ListTask] as string | number) ?? 0;
+      let av: string | number = (a[sortField as keyof ListTask] as string | number | undefined) ?? 0;
+      let bv: string | number = (b[sortField as keyof ListTask] as string | number | undefined) ?? 0;
       if (sortField === 'status') {
         const order: Record<string, number> = { backlog: 0, in_progress: 1, testing: 2, done: 3 };
         av = order[av as string] ?? 0;

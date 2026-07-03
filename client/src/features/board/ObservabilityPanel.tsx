@@ -39,7 +39,7 @@ interface AgentInfo {
 
 interface AgentActivityData {
   agents: AgentInfo[];
-  fileMap: Record<string, number[]>;
+  fileMap?: Record<string, number[]>;
   conflicts?: unknown[];
 }
 
@@ -119,8 +119,8 @@ export default function ObservabilityPanel({ projectId }: ObservabilityPanelProp
   const loadActivity = useCallback(() => {
     if (!IS_TAURI || !projectId) return;
     api
-      .getAgentActivity?.(projectId)
-      ?.then((d) => setData(d as AgentActivityData))
+      .getAgentActivity(projectId)
+      .then((d) => setData(d as AgentActivityData))
       .catch((e: unknown) => console.error('Failed to load agent activity:', e));
   }, [projectId]);
 
@@ -178,7 +178,7 @@ export default function ObservabilityPanel({ projectId }: ObservabilityPanelProp
   }, []);
 
   const { agents, fileMap } = data;
-  const activeFiles = Object.entries(fileMap || {});
+  const activeFiles = Object.entries(fileMap ?? {});
   const totalToolCalls = agents.reduce((s, a) => s + (a.toolCallCount || 0), 0);
   const totalTokens = agents.reduce((s, a) => s + (a.inputTokens || 0) + (a.outputTokens || 0), 0);
   const totalCost = agents.reduce((s, a) => s + (a.totalCost || 0), 0);
@@ -356,8 +356,8 @@ export default function ObservabilityPanel({ projectId }: ObservabilityPanelProp
             )}
             {feed.map((entry) => {
               if (entry.isResult) return null; // Only show tool calls, not results
-              const ToolIcon = TOOL_ICONS[entry.toolName as keyof typeof TOOL_ICONS] || Activity;
-              const color = TOOL_COLORS[entry.toolName as keyof typeof TOOL_COLORS] || 'text-surface-400';
+              const ToolIcon = (TOOL_ICONS as Record<string, typeof Activity>)[entry.toolName] || Activity;
+              const color = (TOOL_COLORS as Record<string, string>)[entry.toolName] || 'text-surface-400';
               return (
                 <div key={entry.id} className="flex items-center gap-1.5 text-[9px] py-0.5">
                   <span className="text-surface-600 font-mono w-14 flex-shrink-0">{entry.time}</span>

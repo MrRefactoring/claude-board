@@ -128,7 +128,7 @@ function parsePhaseDescription(raw: string | null | undefined): ParsedPhaseDescr
 }
 
 function PhaseTable({ table }: { table: PhaseTableData }) {
-  if (!table || !table.headers?.length) return null;
+  if (!table.headers.length) return null;
   return (
     <div className="overflow-x-auto rounded-lg border border-surface-700/40">
       <table className="w-full text-[11px]">

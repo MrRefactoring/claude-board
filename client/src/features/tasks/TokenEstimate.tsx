@@ -21,7 +21,7 @@ export default function TokenEstimate({ title, description, acceptanceCriteria, 
   if (tokens < 10) return null;
 
   const dynamic = getModelCosts(model, models);
-  const cost = dynamic || MODEL_COSTS[model as keyof typeof MODEL_COSTS] || MODEL_COSTS.sonnet;
+  const cost = dynamic || (MODEL_COSTS as Record<string, (typeof MODEL_COSTS)[keyof typeof MODEL_COSTS]>)[model] || MODEL_COSTS.sonnet;
   const inputCost = (tokens / 1e6) * cost.input;
 
   return (

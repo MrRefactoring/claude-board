@@ -163,7 +163,7 @@ export default function CommandPalette({
     // Projects
     if (projects.length > 0) {
       const filteredProjects = projects.filter(
-        (p) => !q || p.name.toLowerCase().includes(q) || p.slug?.toLowerCase().includes(q),
+        (p) => !q || p.name.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q),
       );
       for (const p of filteredProjects.slice(0, 5)) {
         results.push({

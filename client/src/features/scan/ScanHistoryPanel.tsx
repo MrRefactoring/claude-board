@@ -68,7 +68,7 @@ export default function ScanHistoryPanel({
                 {item.fileCount != null && <span className="ml-1 text-surface-600">({item.fileCount} files)</span>}
               </div>
               <div className="flex items-center gap-1">
-                {result && viewingHistoryItem?.id === item.id && viewingHistoryItem?.content && (
+                {result && viewingHistoryItem?.id === item.id && viewingHistoryItem.content && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

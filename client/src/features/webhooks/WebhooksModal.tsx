@@ -72,7 +72,7 @@ function WebhookForm({ webhook, onSave, onCancel }: WebhookFormProps) {
   const [url, setUrl] = useState(webhook?.url || '');
   const [platform, setPlatform] = useState(webhook?.platform || 'slack');
   const [events, setEvents] = useState<WebhookEventType[]>(webhook?.events || []);
-  const [allEvents, setAllEvents] = useState(!webhook || webhook?.events?.length === 0);
+  const [allEvents, setAllEvents] = useState(!webhook || webhook.events.length === 0);
 
   const toggleEvent = (eventId: WebhookEventType) => {
     setAllEvents(false);
@@ -242,8 +242,8 @@ export default function WebhooksModal({ projectId, projectName, onClose }: Props
               <div className="space-y-2 mb-4">
                 {crud.items.map((w) => {
                   const p = getPlatform(w.platform);
-                  const isTestOk = testResult?.id === w.id && testResult?.ok;
-                  const isTestFail = testResult?.id === w.id && !testResult?.ok;
+                  const isTestOk = testResult?.id === w.id && testResult.ok;
+                  const isTestFail = testResult?.id === w.id && !testResult.ok;
                   return (
                     <div
                       key={w.id}
@@ -306,7 +306,7 @@ export default function WebhooksModal({ projectId, projectName, onClose }: Props
                           ))
                         )}
                       </div>
-                      {isTestFail && testResult?.error && (
+                      {isTestFail && testResult.error && (
                         <p className="text-[10px] text-red-400 mt-1.5">Error: {testResult.error}</p>
                       )}
                     </div>

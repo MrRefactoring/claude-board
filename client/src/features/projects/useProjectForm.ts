@@ -73,7 +73,7 @@ export function useProjectForm(
   const [allowedTools, setAllowedTools] = useState(project?.allowed_tools || '');
   const [autoQueue, setAutoQueue] = useState(project?.auto_queue ? true : false);
   const [maxConcurrent, setMaxConcurrent] = useState(project?.max_concurrent || 1);
-  const [autoBranch, setAutoBranch] = useState(project?.auto_branch !== undefined ? !!project?.auto_branch : true);
+  const [autoBranch, setAutoBranch] = useState(project?.auto_branch !== undefined ? !!project.auto_branch : true);
   const [autoPr, setAutoPr] = useState(project?.auto_pr ? true : false);
   const [autoPush, setAutoPush] = useState(project?.auto_push ? true : false);
   const [autoMerge, setAutoMerge] = useState(project?.auto_merge ? true : false);

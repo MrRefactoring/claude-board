@@ -86,7 +86,7 @@ export function PlanLogFeed({ logs, isActive }: PlanLogFeedProps) {
           const isError = entry.result?.type === 'error';
           const hasResult = !!entry.result;
           const isOpen = expanded.has(entry.index);
-          const resultText = entry.result?.message?.replace(/^[✓✗]\s*/, '') || '';
+          const resultText = entry.result?.message.replace(/^[✓✗]\s*/, '') || '';
 
           let statusEl;
           if (!hasResult)

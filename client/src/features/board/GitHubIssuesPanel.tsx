@@ -60,7 +60,7 @@ export default function GitHubIssuesPanel({ projectId, onClose }: GitHubIssuesPa
     setLoading(true);
     setError(null);
     try {
-      const result = (await api.githubFetchIssues(projectId)) as FetchIssuesResult;
+      const result = (await api.githubFetchIssues(projectId)) as FetchIssuesResult | undefined;
       setIssues(result?.issues || []);
       setRepo(result?.repo || '');
     } catch (e) {
@@ -94,7 +94,7 @@ export default function GitHubIssuesPanel({ projectId, onClose }: GitHubIssuesPa
     setImporting(true);
     try {
       const nums = Array.from(selected);
-      const result = (await api.githubImportIssues(projectId, nums)) as ImportIssuesResult;
+      const result = (await api.githubImportIssues(projectId, nums)) as ImportIssuesResult | undefined;
       if ((result?.imported ?? 0) > 0) {
         setImportedNow((prev) => {
           const next = new Set(prev);

@@ -64,7 +64,7 @@ export default function ModelsTab({ t, models }: ModelsTabProps) {
       const payload = {
         modelId: editing.model_id.trim(),
         label: editing.label.trim(),
-        color: editing.color?.trim() || null,
+        color: editing.color.trim() || null,
         inputCostPerMtok: editing.input_cost_per_mtok === '' ? null : Number(editing.input_cost_per_mtok),
         outputCostPerMtok: editing.output_cost_per_mtok === '' ? null : Number(editing.output_cost_per_mtok),
         sortOrder: 0,
@@ -239,7 +239,7 @@ export default function ModelsTab({ t, models }: ModelsTabProps) {
         {editing?.mode === 'new' && <div className="mb-2">{renderForm()}</div>}
         <div className="space-y-1.5">
           {customs.map((m) =>
-            editing?.mode === 'edit' && editing?.id === (m.custom_id ?? m.id) ? (
+            editing?.mode === 'edit' && editing.id === (m.custom_id ?? m.id) ? (
               <div key={m.value}>{renderForm()}</div>
             ) : (
               <div

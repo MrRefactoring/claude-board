@@ -55,7 +55,6 @@ export function useProjectHandlers({ currentProject, t }: UseProjectHandlersOpti
 
   const onDeleteById = useCallback(
     (project: Project, onAfterDelete?: () => void) => {
-      if (!project) return;
       setConfirm({
         title: t('toast.deleteProjectTitle'),
         message: t('toast.deleteProjectConfirm', { name: project.name }),

@@ -124,7 +124,7 @@ export default function SessionReplay({ taskId }: SessionReplayProps) {
           {/* Event markers */}
           {events.map((evt, i) => {
             const pos = duration > 0 ? ((evt.timestampMs - timeRange.start) / duration) * 100 : 0;
-            const colors = EVENT_COLORS[evt.eventType as keyof typeof EVENT_COLORS] || EVENT_COLORS.tool_call;
+            const colors = (EVENT_COLORS as Record<string, (typeof EVENT_COLORS)[keyof typeof EVENT_COLORS]>)[evt.eventType] || EVENT_COLORS.tool_call;
             return (
               <div
                 key={i}
@@ -154,7 +154,7 @@ export default function SessionReplay({ taskId }: SessionReplayProps) {
         {/* Event list */}
         <div className="w-72 border-r border-surface-800 overflow-y-auto">
           {events.map((evt, i) => {
-            const colors = EVENT_COLORS[evt.eventType as keyof typeof EVENT_COLORS] || EVENT_COLORS.tool_call;
+            const colors = (EVENT_COLORS as Record<string, (typeof EVENT_COLORS)[keyof typeof EVENT_COLORS]>)[evt.eventType] || EVENT_COLORS.tool_call;
             const Icon = colors.icon;
             const isSelected = selectedEvent?.id === evt.id;
             return (
@@ -189,7 +189,7 @@ export default function SessionReplay({ taskId }: SessionReplayProps) {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span
-                  className={`text-sm font-medium ${(EVENT_COLORS[selectedEvent.eventType as keyof typeof EVENT_COLORS] || EVENT_COLORS.tool_call).text}`}
+                  className={`text-sm font-medium ${((EVENT_COLORS as Record<string, (typeof EVENT_COLORS)[keyof typeof EVENT_COLORS]>)[selectedEvent.eventType] || EVENT_COLORS.tool_call).text}`}
                 >
                   {selectedEvent.data?.toolName || selectedEvent.eventType}
                 </span>
