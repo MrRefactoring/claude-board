@@ -1179,6 +1179,28 @@ fn build_claude_args(
     args
 }
 
+/// What to do with a finished parent that still has un-done sub-tasks.
+#[derive(PartialEq, Debug)]
+enum SubtaskDisposition {
+    /// Keep the parent in the awaiting state — something will drive the sub-tasks.
+    Await,
+    /// Nothing will run the sub-tasks (auto-queue off, none started) — don't
+    /// strand the parent in a silent forever-await; complete it normally.
+    CompleteAnyway,
+}
+
+/// Awaiting sub-tasks only makes sense if something will actually run them:
+/// the queue is on (its poll picks up ready backlog sub-tasks), or at least one
+/// sub-task already left backlog (someone started it manually / earlier).
+/// Otherwise the parent would wait forever.
+fn subtask_disposition(auto_queue_on: bool, any_subtask_started: bool) -> SubtaskDisposition {
+    if auto_queue_on || any_subtask_started {
+        SubtaskDisposition::Await
+    } else {
+        SubtaskDisposition::CompleteAnyway
+    }
+}
+
 /// Handle process output, track events, and update task state on completion.
 #[allow(clippy::too_many_arguments)]
 fn handle_process_lifecycle(
@@ -1329,7 +1351,24 @@ fn handle_process_lifecycle(
         let has_pending_subtasks =
             !subtasks.is_empty() && !tasks::are_all_subtasks_done(db, task_id);
 
-        if has_pending_subtasks {
+        // Load the project once and reuse it below (auto-queue check + auto-test).
+        let project = projects::get_by_id(db, project_id);
+
+        // Only enter the awaiting state if something will actually drive the
+        // sub-tasks to completion; otherwise the parent would hang forever
+        // (e.g. an agent that created sub-tasks but did the work inline while
+        // the project has auto-queue off).
+        let auto_queue_on = project
+            .as_ref()
+            .is_some_and(|p| p.auto_queue.unwrap_or(0) == 1);
+        let any_subtask_started = subtasks
+            .iter()
+            .any(|s| s.status.as_deref() != Some(TaskStatus::Backlog.as_str()));
+        let enter_await = has_pending_subtasks
+            && subtask_disposition(auto_queue_on, any_subtask_started)
+                == SubtaskDisposition::Await;
+
+        if enter_await {
             // Sub-tasks still running — keep task in_progress but mark as awaiting
             tasks::set_awaiting_subtasks(db, task_id, true);
             tasks::add_log(
@@ -1349,7 +1388,33 @@ fn handle_process_lifecycle(
             );
             emit_task_updated(db, app, task_id);
         } else {
-            // Normal completion — no pending sub-tasks
+            if has_pending_subtasks {
+                // Nothing will run these sub-tasks (auto-queue off, none started) —
+                // don't strand the parent in a silent forever-await. Clear the flag
+                // set at create_task time and complete normally.
+                tasks::set_awaiting_subtasks(db, task_id, false);
+                tasks::add_log(
+                    db,
+                    task_id,
+                    &format!(
+                        "{} sub-task(s) remain in backlog and won't run automatically \
+                         (auto-queue off) — completing without awaiting; start them \
+                         manually if needed.",
+                        subtasks.len()
+                    ),
+                    "system",
+                    None,
+                );
+                activity::add(
+                    db,
+                    project_id,
+                    Some(task_id),
+                    "subtasks_not_awaited",
+                    &format!("Sub-tasks not awaited (auto-queue off): {}", task_title),
+                    None,
+                );
+            }
+            // Normal completion — no pending sub-tasks (or none that will run)
             tasks::update_status(db, task_id, TaskStatus::Testing.as_str());
             tasks::pause_timer(db, task_id);
             tasks::set_completed(db, task_id);
@@ -1367,7 +1432,7 @@ fn handle_process_lifecycle(
             }
 
             // Auto-test: if enabled, start verification — don't cascade yet
-            let project = projects::get_by_id(db, project_id);
+            // (reuses the `project` loaded above).
             let should_auto_test = project
                 .as_ref()
                 .is_some_and(|p| p.auto_test.unwrap_or(0) == 1);
@@ -2453,4 +2518,34 @@ fn extract_test_report(text: &str) -> Option<serde_json::Value> {
         i += 1;
     }
     best
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{subtask_disposition, SubtaskDisposition};
+
+    #[test]
+    fn completes_when_nothing_drives_subtasks() {
+        // auto-queue off + no sub-task started → don't strand the parent.
+        assert_eq!(
+            subtask_disposition(false, false),
+            SubtaskDisposition::CompleteAnyway
+        );
+    }
+
+    #[test]
+    fn awaits_when_auto_queue_will_run_them() {
+        assert_eq!(
+            subtask_disposition(true, false),
+            SubtaskDisposition::Await
+        );
+    }
+
+    #[test]
+    fn awaits_when_a_subtask_already_started() {
+        assert_eq!(
+            subtask_disposition(false, true),
+            SubtaskDisposition::Await
+        );
+    }
 }
