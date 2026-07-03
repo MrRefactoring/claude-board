@@ -177,7 +177,7 @@ export default function SnippetsModal({ projectId, projectName, onClose }: Props
       {crud.deleting && (
         <InlineDeleteConfirm
           message="Delete this snippet?"
-          onConfirm={() => crud.handleDelete(crud.deleting!.id)}
+          onConfirm={() => crud.deleting && void crud.handleDelete(crud.deleting.id)}
           onCancel={() => crud.setDeleting(null)}
         />
       )}

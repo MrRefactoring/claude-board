@@ -49,5 +49,14 @@ export default tseslint.config(
     },
   },
 
+  // Tests assert fixtures into existence — `!` on a known-present fixture is
+  // idiomatic and failing loudly is exactly what a test should do.
+  {
+    files: ['src/**/*.test.{ts,tsx}', 'src/**/__tests__/**'],
+    rules: {
+      '@typescript-eslint/no-non-null-assertion': 'off',
+    },
+  },
+
   prettier,
 );

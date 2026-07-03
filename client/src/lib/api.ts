@@ -57,8 +57,10 @@ async function request<T = unknown>(path: string, options: RequestInit = {}): Pr
 }
 
 async function tauriCall<T = unknown>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
+  const internals = window.__TAURI_INTERNALS__;
+  if (!internals) throw new Error(`Tauri runtime unavailable for command "${cmd}"`);
   try {
-    return await window.__TAURI_INTERNALS__!.invoke<T>(cmd, args);
+    return await internals.invoke<T>(cmd, args);
   } catch (e) {
     const msg = typeof e === 'string' ? e : (e as { message?: string })?.message || 'Unknown error';
     notifyError(msg);

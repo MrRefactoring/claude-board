@@ -86,7 +86,7 @@ export default function ReviewModal({ task, onApprove, onRequestChanges, onClose
                     <span className="text-[10px] font-medium text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
                       Rev #{rev.revision_number}
                     </span>
-                    <span className="text-[10px] text-surface-600">{new Date(rev.created_at!).toLocaleString()}</span>
+                    <span className="text-[10px] text-surface-600">{rev.created_at ? new Date(rev.created_at).toLocaleString() : ""}</span>
                   </div>
                   <p className="text-xs text-surface-300 whitespace-pre-wrap">{rev.feedback}</p>
                 </div>

@@ -310,8 +310,12 @@ export default function Board({
       if (t.task_level === 'epic') continue;
       const epic = epicOf(t);
       const key: number | 'none' = epic ? epic.id : 'none';
-      if (!laneMap.has(key)) laneMap.set(key, { epic, tasks: [] });
-      laneMap.get(key)!.tasks.push(t);
+      let lane = laneMap.get(key);
+      if (!lane) {
+        lane = { epic, tasks: [] };
+        laneMap.set(key, lane);
+      }
+      lane.tasks.push(t);
     }
     return Array.from(laneMap.values());
   }, [groupByEpic, tasks, filteredTasks]);

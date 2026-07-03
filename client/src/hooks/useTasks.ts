@@ -16,7 +16,7 @@ export function useTasks(currentProject: Project | null) {
   const projectId = currentProject?.id ?? null;
   const { data } = useQuery({
     queryKey: queryKeys.tasks(projectId ?? -1),
-    queryFn: () => api.getTasks(projectId!),
+    queryFn: () => api.getTasks(projectId ?? -1),
     enabled: projectId !== null,
   });
   return { tasks: data ?? NO_TASKS };

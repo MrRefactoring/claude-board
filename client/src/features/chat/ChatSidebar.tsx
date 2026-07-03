@@ -411,7 +411,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
                       {(msg.actionState === 'pending' || msg.actionState === 'error') && (
                         <div className="flex items-center gap-2 mt-2">
                           <button
-                            onClick={() => runAction(i, msg.action!)}
+                            onClick={() => msg.action && runAction(i, msg.action)}
                             className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-claude hover:bg-claude-light text-white text-[11px] font-medium transition-colors"
                           >
                             <Check size={12} /> {msg.actionState === 'error' ? 'Retry' : 'Approve'}

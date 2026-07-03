@@ -52,12 +52,12 @@ function AppInner() {
   // invalidates on modal close as a transport-independent fallback.
   const { data: templates = NO_TEMPLATES } = useQuery({
     queryKey: queryKeys.templates(currentProjectId ?? -1),
-    queryFn: () => api.getTemplates(currentProjectId!),
+    queryFn: () => api.getTemplates(currentProjectId ?? -1),
     enabled: currentProjectId !== null,
   });
   const { data: roles = NO_ROLES } = useQuery({
     queryKey: queryKeys.roles(currentProjectId ?? -1),
-    queryFn: () => api.getRoles(currentProjectId!),
+    queryFn: () => api.getRoles(currentProjectId ?? -1),
     enabled: currentProjectId !== null,
   });
 

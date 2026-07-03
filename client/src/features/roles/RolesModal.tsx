@@ -401,7 +401,7 @@ export default function RolesModal({ projectId, projectName, onClose }: Props) {
       {crud.deleting && (
         <InlineDeleteConfirm
           message="Delete this role? Tasks using it will keep working without role instructions."
-          onConfirm={() => crud.handleDelete(crud.deleting!.id)}
+          onConfirm={() => crud.deleting && void crud.handleDelete(crud.deleting.id)}
           onCancel={() => crud.setDeleting(null)}
         />
       )}

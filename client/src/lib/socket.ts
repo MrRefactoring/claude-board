@@ -74,8 +74,12 @@ if (IS_TAURI) {
         return;
       }
       if (event === 'disconnect') return;
-      if (!listeners.has(event)) listeners.set(event, new Set());
-      listeners.get(event)!.add(callback);
+      let set = listeners.get(event);
+      if (!set) {
+        set = new Set();
+        listeners.set(event, set);
+      }
+      set.add(callback);
     },
     off(event: string, callback?: (payload: unknown) => void) {
       const cbs = listeners.get(event);

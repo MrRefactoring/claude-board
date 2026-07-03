@@ -48,9 +48,10 @@ export function SuggestionBanner({ suggestions, setSuggestions, t }: SuggestionB
 
   const handleAction = async (s: Suggestion) => {
     if (s.action === 'install_plugin') {
+      if (!s.actionArgs) return;
       setInstalling(s.id);
       try {
-        await api.installPlugin(s.actionArgs!);
+        await api.installPlugin(s.actionArgs);
         addDismissed(s.id);
         setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
       } catch {}

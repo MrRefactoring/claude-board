@@ -71,8 +71,8 @@ export default function ModelsTab({ t, models }: ModelsTabProps) {
       };
       if (editing.mode === 'new') {
         await api.addCustomModel(payload as unknown as Partial<Model>);
-      } else {
-        await api.updateCustomModel(editing.id!, payload as unknown as Partial<Model>);
+      } else if (editing.id !== undefined) {
+        await api.updateCustomModel(editing.id, payload as unknown as Partial<Model>);
       }
       await refreshModels();
       setEditing(null);
@@ -270,7 +270,7 @@ export default function ModelsTab({ t, models }: ModelsTabProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => remove(m.custom_id!)}
+                    onClick={() => m.custom_id !== undefined && void remove(m.custom_id)}
                     disabled={busy || editing !== null}
                     className="p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10 disabled:opacity-50"
                   >

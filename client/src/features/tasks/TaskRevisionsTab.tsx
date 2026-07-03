@@ -14,7 +14,7 @@ export function TaskRevisionsTab({ revisions }: Props) {
             <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
               Rev #{rev.revision_number}
             </span>
-            <span className="text-[10px] text-surface-600">{new Date(rev.created_at!).toLocaleString()}</span>
+            <span className="text-[10px] text-surface-600">{rev.created_at ? new Date(rev.created_at).toLocaleString() : ""}</span>
           </div>
           <div className="text-xs text-surface-300">
             <MarkdownContent content={rev.feedback} />

@@ -427,7 +427,7 @@ export default function TemplatesModal({ projectId, projectName, onClose }: Prop
       {crud.deleting && (
         <InlineDeleteConfirm
           message="Delete this template?"
-          onConfirm={() => crud.handleDelete(crud.deleting!.id)}
+          onConfirm={() => crud.deleting && void crud.handleDelete(crud.deleting.id)}
           onCancel={() => crud.setDeleting(null)}
         />
       )}

@@ -351,7 +351,7 @@ export default function WebhooksModal({ projectId, projectName, onClose }: Props
       {crud.deleting && (
         <InlineDeleteConfirm
           message="Delete this webhook?"
-          onConfirm={() => crud.handleDelete(crud.deleting!.id)}
+          onConfirm={() => crud.deleting && void crud.handleDelete(crud.deleting.id)}
           onCancel={() => crud.setDeleting(null)}
         />
       )}
