@@ -38,6 +38,7 @@ pub fn create_tables(conn: &Connection) {
             started_at DATETIME, completed_at DATETIME,
             work_duration_ms INTEGER DEFAULT 0, last_resumed_at DATETIME,
             commits TEXT DEFAULT '[]', pr_url TEXT, diff_stat TEXT,
+            worktree_path TEXT, pushed INTEGER DEFAULT 0,
             role_id INTEGER, task_key TEXT DEFAULT '',
             created_at DATETIME DEFAULT (datetime('now','localtime')),
             updated_at DATETIME DEFAULT (datetime('now','localtime')),
@@ -606,6 +607,18 @@ pub fn run_migrations(conn: &Connection) {
             "tasks",
             "auto_pr",
             "ALTER TABLE tasks ADD COLUMN auto_pr INTEGER",
+        ),
+        // Where the task's work is checked out (worktree path), and whether its
+        // branch has reached the remote — see docs/concepts/work-lifecycle.md.
+        (
+            "tasks",
+            "worktree_path",
+            "ALTER TABLE tasks ADD COLUMN worktree_path TEXT",
+        ),
+        (
+            "tasks",
+            "pushed",
+            "ALTER TABLE tasks ADD COLUMN pushed INTEGER DEFAULT 0",
         ),
         // Reusable agents live on the roles table: a role can pin a model, restrict
         // the tool allow-list, and declare which task types it's good at.

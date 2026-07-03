@@ -56,6 +56,10 @@ pub struct Task {
     pub task_level: Option<String>,
     pub story_points: Option<i64>,
     pub auto_pr: Option<i64>,
+    // Work location: where the task is checked out, and whether its branch is on
+    // the remote — see docs/concepts/work-lifecycle.md.
+    pub worktree_path: Option<String>,
+    pub pushed: Option<i64>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
     #[serde(default)]
@@ -132,6 +136,8 @@ pub fn row_to_task(row: &rusqlite::Row) -> rusqlite::Result<Task> {
         task_level: row.get("task_level").ok().flatten(),
         story_points: row.get("story_points").ok().flatten(),
         auto_pr: row.get("auto_pr").ok().flatten(),
+        worktree_path: row.get("worktree_path").ok().flatten(),
+        pushed: row.get("pushed").ok().flatten(),
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
         is_running: false,
@@ -448,6 +454,25 @@ pub fn update_git_info(db: &DbPool, id: i64, commits: &str, pr_url: Option<&str>
         "UPDATE tasks SET commits=?1,pr_url=?2,diff_stat=?3,updated_at=datetime('now','localtime') WHERE id=?4",
         params![commits, pr_url, diff_stat, id],
     ) { log::error!("update_git_info: {}", e); }
+}
+
+/// Where the task's work is checked out. `None` clears it (worktree removed).
+/// See docs/concepts/work-lifecycle.md.
+pub fn set_worktree_path(db: &DbPool, id: i64, path: Option<&str>) {
+    let conn = db.lock();
+    if let Err(e) = conn.execute(
+        "UPDATE tasks SET worktree_path=?1,updated_at=datetime('now','localtime') WHERE id=?2",
+        params![path, id],
+    ) { log::error!("set_worktree_path: {}", e); }
+}
+
+/// Whether the task's branch has reached the remote.
+pub fn set_pushed(db: &DbPool, id: i64, val: bool) {
+    let conn = db.lock();
+    if let Err(e) = conn.execute(
+        "UPDATE tasks SET pushed=?1,updated_at=datetime('now','localtime') WHERE id=?2",
+        params![val as i64, id],
+    ) { log::error!("set_pushed: {}", e); }
 }
 
 pub fn update_test_report(db: &DbPool, id: i64, report: &str) {

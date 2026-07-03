@@ -279,6 +279,8 @@ pub fn run() {
             commands::tasks::delete_task,
             commands::tasks::get_task_logs,
             commands::tasks::stop_task,
+            commands::tasks::push_task_branch,
+            commands::tasks::create_task_pr,
             commands::tasks::restart_task,
             commands::tasks::request_changes,
             commands::tasks::get_revisions,

@@ -286,6 +286,7 @@ fn ensure_task_worktree(
         if let Some(wt_dir) = existing {
             if Path::new(&wt_dir).exists() {
                 tasks::update_branch(db, task.id, &branch_name);
+                tasks::set_worktree_path(db, task.id, Some(&wt_dir));
                 return (wt_dir, Some(branch_name));
             }
         }
@@ -361,6 +362,15 @@ fn ensure_task_worktree(
     if created {
         TASK_WORKTREES.lock().insert(task.id, worktree_str.clone());
         tasks::update_branch(db, task.id, &branch_name);
+        tasks::set_worktree_path(db, task.id, Some(&worktree_str));
+        activity::add(
+            db,
+            task.project_id,
+            Some(task.id),
+            "worktree_created",
+            &format!("Worktree created on branch {}", branch_name),
+            None,
+        );
         log::info!(
             "Created worktree for task {} at {} (branch: {})",
             task.id,
@@ -384,9 +394,84 @@ fn ensure_task_worktree(
     }
 }
 
-/// Get the worktree directory for a task, if one exists.
-pub fn get_task_worktree(task_id: i64) -> Option<String> {
-    TASK_WORKTREES.lock().get(&task_id).cloned()
+/// Get the worktree directory for a task, if one still exists on disk.
+///
+/// The in-memory map is the fast path (populated on creation this session);
+/// the persisted `worktree_path` is the fallback so a worktree survives an app
+/// restart (the map is empty then). Either way the directory must still exist —
+/// a removed worktree returns `None` so callers fall back to the project dir.
+pub fn get_task_worktree(db: &DbPool, task_id: i64) -> Option<String> {
+    if let Some(p) = TASK_WORKTREES.lock().get(&task_id).cloned() {
+        if Path::new(&p).exists() {
+            return Some(p);
+        }
+    }
+    let persisted = tasks::get_by_id(db, task_id).and_then(|t| t.worktree_path);
+    if let Some(p) = persisted {
+        if !p.is_empty() && Path::new(&p).exists() {
+            TASK_WORKTREES.lock().insert(task_id, p.clone());
+            return Some(p);
+        }
+    }
+    None
+}
+
+/// Remove the task's worktree once its work is safe on the remote (a PR exists
+/// or the branch was pushed). The branch ref is kept — commits stay reachable
+/// there and on the remote — so nothing is lost; a revision recreates the
+/// worktree from the branch on demand. No-op when the work isn't on the remote
+/// (local-only work keeps its worktree) or no worktree is recorded.
+/// See docs/concepts/work-lifecycle.md.
+pub fn remove_task_worktree_if_safe(
+    task: &tasks::Task,
+    working_dir: &str,
+    db: &DbPool,
+    app: &AppHandle,
+) {
+    let safe_on_remote = task.pr_url.as_deref().map(|u| !u.is_empty()).unwrap_or(false)
+        || task.pushed.unwrap_or(0) == 1;
+    if !safe_on_remote {
+        return;
+    }
+    let Some(wt_dir) = get_task_worktree(db, task.id) else {
+        return;
+    };
+    let run_git = |args: &[&str]| {
+        let mut c = Command::new("git");
+        c.args(args)
+            .current_dir(working_dir)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        #[cfg(target_os = "windows")]
+        c.creation_flags(CREATE_NO_WINDOW);
+        c.output().ok();
+    };
+    run_git(&["worktree", "remove", "--force", &wt_dir]);
+    if Path::new(&wt_dir).exists() {
+        std::fs::remove_dir_all(&wt_dir).ok();
+    }
+    run_git(&["worktree", "prune"]);
+    TASK_WORKTREES.lock().remove(&task.id);
+    tasks::set_worktree_path(db, task.id, None);
+
+    let reason = task
+        .pr_url
+        .as_deref()
+        .filter(|u| !u.is_empty())
+        .map(|u| format!("PR {}", u))
+        .unwrap_or_else(|| format!("branch {}", task.branch_name.as_deref().unwrap_or("")));
+    let msg = format!("Worktree removed — work safe on remote ({})", reason);
+    activity::add(
+        db,
+        task.project_id,
+        Some(task.id),
+        "worktree_removed",
+        &msg,
+        None,
+    );
+    tasks::add_log(db, task.id, &msg, "info", None);
+    emit_task_updated(db, app, task.id);
+    log::info!("Removed worktree for task {} ({})", task.id, reason);
 }
 
 fn scan_git_info(working_dir: &str, task_id: i64, db: &DbPool) {
@@ -572,6 +657,48 @@ pub fn auto_create_pr_public(
     auto_create_pr(task, working_dir, project, db, app);
 }
 
+/// Manual "Push branch" action (Testing) — push the task's branch to origin.
+/// Works even when auto_pr is off. Errors if the task has no branch yet.
+pub fn manual_push_branch(
+    task: &tasks::Task,
+    working_dir: &str,
+    db: &DbPool,
+    app: &AppHandle,
+) -> Result<(), String> {
+    let branch = task
+        .branch_name
+        .as_deref()
+        .filter(|b| !b.is_empty())
+        .ok_or("Task has no branch yet")?;
+    if push_task_branch(task, working_dir, branch, db, app) {
+        Ok(())
+    } else {
+        Err(format!("Failed to push branch {}", branch))
+    }
+}
+
+/// Manual "Create PR" action (Testing) — push and open a PR even when auto_pr
+/// is off. Idempotent: a no-op when a PR already exists.
+pub fn manual_create_pr(
+    task: &tasks::Task,
+    working_dir: &str,
+    project: &projects::Project,
+    db: &DbPool,
+    app: &AppHandle,
+) -> Result<(), String> {
+    let branch = task
+        .branch_name
+        .as_deref()
+        .filter(|b| !b.is_empty())
+        .ok_or("Task has no branch yet")?;
+    let base = project.pr_base_branch.as_deref().unwrap_or("main");
+    if branch == base {
+        return Err("Task is on the base branch — nothing to open a PR for".into());
+    }
+    do_create_pr(task, working_dir, project, db, app);
+    Ok(())
+}
+
 /// Merge the task's open PR (created at the Testing stage). Called when the
 /// task reaches Done — accepting a task merges its PR. A failed merge never
 /// blocks the Done transition: the PR stays open for a manual merge and the
@@ -607,6 +734,17 @@ pub fn merge_task_pr(
                 "pr_merged",
                 &format!("PR merged: {}", task.title),
                 None,
+            );
+            crate::services::notification::notify_pr_merged(
+                app,
+                &crate::services::notification::TaskNotification::new(&task.title, task.task_key.as_deref()),
+                pr_url,
+            );
+            crate::services::webhook::fire(
+                task.project_id,
+                "pr_merged",
+                &format!("PR merged: {}", task.title),
+                serde_json::json!({"taskId": task.id, "pr_url": pr_url}),
             );
             (
                 format!("PR merged on {}: {}", provider.display_name(), pr_url),
@@ -659,10 +797,90 @@ pub fn merge_task_pr(
     .ok();
 }
 
-/// Auto-create a PR/MR for the task's branch if auto_pr is enabled and no PR
-/// exists yet. Provider (GitHub / GitLab / Azure DevOps / Gitea) is detected
-/// from the project's `pr_provider` setting or the origin URL.
+/// Push the task's branch to origin. Logs the outcome (previously silent) and,
+/// on success, marks the task pushed and records the milestone (activity +
+/// notification + webhook). Shared by the auto-PR flow and the manual "Push
+/// branch" action. Returns whether the push succeeded.
+/// See docs/concepts/work-lifecycle.md.
+fn push_task_branch(
+    task: &tasks::Task,
+    working_dir: &str,
+    branch: &str,
+    db: &DbPool,
+    app: &AppHandle,
+) -> bool {
+    let mut push_cmd = Command::new("git");
+    push_cmd
+        .args(["push", "-u", "origin", branch])
+        .current_dir(working_dir)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(target_os = "windows")]
+    push_cmd.creation_flags(CREATE_NO_WINDOW);
+    let output = push_cmd.output();
+    let success = output.as_ref().map(|o| o.status.success()).unwrap_or(false);
+    if success {
+        tasks::set_pushed(db, task.id, true);
+        let msg = format!("Pushed branch {} to origin", branch);
+        tasks::add_log(db, task.id, &msg, "success", None);
+        app.emit("task:log", &serde_json::json!({"taskId": task.id, "message": msg, "logType": "success"})).ok();
+        activity::add(
+            db,
+            task.project_id,
+            Some(task.id),
+            "branch_pushed",
+            &format!("Branch pushed: {}", branch),
+            None,
+        );
+        crate::services::notification::notify_branch_pushed(
+            app,
+            &crate::services::notification::TaskNotification::new(&task.title, task.task_key.as_deref()),
+            branch,
+        );
+        crate::services::webhook::fire(
+            task.project_id,
+            "branch_pushed",
+            &format!("Branch pushed: {}", branch),
+            serde_json::json!({"taskId": task.id, "branch": branch}),
+        );
+        emit_task_updated(db, app, task.id);
+    } else {
+        let detail = output
+            .ok()
+            .map(|o| String::from_utf8_lossy(&o.stderr).trim().to_string())
+            .unwrap_or_default();
+        let msg = if detail.is_empty() {
+            format!("Push failed for branch {}", branch)
+        } else {
+            format!("Push failed for branch {}: {}", branch, detail)
+        };
+        tasks::add_log(db, task.id, &msg, "error", None);
+        app.emit("task:log", &serde_json::json!({"taskId": task.id, "message": msg, "logType": "error"})).ok();
+        log::warn!("Task {}: push failed for branch {}", task.id, branch);
+    }
+    success
+}
+
+/// Auto-create a PR/MR when auto_pr is enabled. The push+create body lives in
+/// `do_create_pr`, shared with the manual "Create PR" action.
 fn auto_create_pr(
+    task: &tasks::Task,
+    working_dir: &str,
+    project: &projects::Project,
+    db: &DbPool,
+    app: &AppHandle,
+) {
+    if effective_auto_pr(task, project) == 0 {
+        return;
+    }
+    do_create_pr(task, working_dir, project, db, app);
+}
+
+/// Push the branch and open a PR/MR — with **no** auto_pr gate (the gate lives
+/// in `auto_create_pr`). The manual "Create PR" action calls this directly, so
+/// it works even when auto_pr is off. Idempotent: skips when a PR already
+/// exists. Provider is detected from `pr_provider` or the origin URL.
+fn do_create_pr(
     task: &tasks::Task,
     working_dir: &str,
     project: &projects::Project,
@@ -671,9 +889,6 @@ fn auto_create_pr(
 ) {
     use crate::services::pr_providers::{self, PrCreateContext, PrCreateOutcome};
 
-    if effective_auto_pr(task, project) == 0 {
-        return;
-    }
     let branch = match task.branch_name.as_deref() {
         Some(b) if !b.is_empty() => b,
         _ => return,
@@ -682,22 +897,12 @@ fn auto_create_pr(
     if branch == base {
         return;
     }
-    if task.pr_url.is_some() {
+    if task.pr_url.as_deref().map(|u| !u.is_empty()).unwrap_or(false) {
         return;
     }
 
-    // Push branch (auto_pr implies push is needed for any provider).
-    {
-        let mut push_cmd = Command::new("git");
-        push_cmd
-            .args(["push", "-u", "origin", branch])
-            .current_dir(working_dir)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        #[cfg(target_os = "windows")]
-        push_cmd.creation_flags(CREATE_NO_WINDOW);
-        push_cmd.output().ok();
-    }
+    // Push branch first (any provider needs the branch on the remote).
+    push_task_branch(task, working_dir, branch, db, app);
 
     let provider =
         pr_providers::detect_remote_provider(working_dir, project.pr_provider.as_deref());
@@ -746,11 +951,33 @@ fn auto_create_pr(
                 &format!("Opened a pull request: {}", url),
                 Some(&url),
             );
-            let msg = format!("Auto-PR created on {}: {}", provider.display_name(), url);
+            let msg = format!("PR created on {}: {}", provider.display_name(), url);
             tasks::add_log(db, task.id, &msg, "success", None);
             app.emit("task:log", &serde_json::json!({"taskId": task.id, "message": msg.clone(), "logType": "success"})).ok();
+            activity::add(
+                db,
+                task.project_id,
+                Some(task.id),
+                "pr_created",
+                &format!("PR opened: {}", task.title),
+                None,
+            );
+            crate::services::notification::notify_pr_created(
+                app,
+                &crate::services::notification::TaskNotification::new(&task.title, task.task_key.as_deref()),
+                &url,
+            );
+            crate::services::webhook::fire(
+                task.project_id,
+                "pr_created",
+                &format!("PR opened: {}", task.title),
+                serde_json::json!({"taskId": task.id, "pr_url": url}),
+            );
+            // Live-update the board (PR badge + Work location) and trigger the
+            // client's PR toast (fires on pr_url null→value).
+            emit_task_updated(db, app, task.id);
             log::info!(
-                "Auto-PR created for task {} on {}: {}",
+                "PR created for task {} on {}: {}",
                 task.id,
                 provider.display_name(),
                 url
@@ -1517,6 +1744,9 @@ fn handle_process_lifecycle(
                         // Auto-approve reaches Done → merge the PR, same as manual acceptance.
                         merge_task_pr(&after_pr, working_dir, &proj, db, app);
                         cleanup_task_branch(&after_pr, project_working_dir, &proj, db);
+                        let after_merge =
+                            tasks::get_by_id(db, task_id).unwrap_or(after_pr.clone());
+                        remove_task_worktree_if_safe(&after_merge, project_working_dir, db, app);
 
                         if proj.github_sync_enabled.unwrap_or(0) == 1 {
                             if let Some(issue_num) = done_task.github_issue_number {
@@ -1963,7 +2193,7 @@ After all checks, you MUST output this exact JSON block as your final output:
         task_id,
     );
     // Reuse the task's worktree if one exists, otherwise fall back to project working dir
-    let effective_dir = get_task_worktree(task_id).unwrap_or_else(|| working_dir.to_string());
+    let effective_dir = get_task_worktree(&db, task_id).unwrap_or_else(|| working_dir.to_string());
     let project_working_dir = working_dir.to_string();
     let project_id = task.project_id;
     let task_title = task.title.clone();
@@ -2250,6 +2480,9 @@ After all checks, you MUST output this exact JSON block as your final output:
                                 // Auto-test pass reaches Done → merge the PR, same as manual acceptance.
                                 merge_task_pr(&after_pr, &effective_dir, &proj, &db, &app);
                                 cleanup_task_branch(&after_pr, &project_working_dir, &proj, &db);
+                                let after_merge =
+                                    tasks::get_by_id(&db, task_id).unwrap_or(after_pr.clone());
+                                remove_task_worktree_if_safe(&after_merge, &project_working_dir, &db, &app);
 
                                 // Auto-close linked GitHub issue
                                 if proj.github_sync_enabled.unwrap_or(0) == 1 {

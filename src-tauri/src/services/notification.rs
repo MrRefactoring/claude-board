@@ -12,6 +12,9 @@ struct Strings {
     test_failed: &'static str,
     revision_requested: &'static str,
     queue_started: &'static str,
+    pr_created: &'static str,
+    pr_merged: &'static str,
+    branch_pushed: &'static str,
     body_started: &'static str,
     body_completed: &'static str,
     body_failed: &'static str,
@@ -20,6 +23,9 @@ struct Strings {
     body_revision: &'static str,
     body_queue: &'static str,
     body_unknown_error: &'static str,
+    body_pr_created: &'static str,
+    body_pr_merged: &'static str,
+    body_branch_pushed: &'static str,
 }
 
 fn strings(lang: &str) -> Strings {
@@ -40,6 +46,12 @@ fn strings(lang: &str) -> Strings {
             body_revision:      "Claude\u{2019}a revizyon g\u{00f6}nderildi",
             body_queue:         "Kuyruktan otomatik ba\u{015f}lat\u{0131}ld\u{0131}",
             body_unknown_error: "bilinmeyen hata",
+            pr_created:         "PR A\u{00e7}\u{0131}ld\u{0131}",
+            pr_merged:          "PR Birle\u{015f}tirildi",
+            branch_pushed:      "Dal G\u{00f6}nderildi",
+            body_pr_created:    "Pull request a\u{00e7}\u{0131}ld\u{0131}",
+            body_pr_merged:     "Pull request birle\u{015f}tirildi",
+            body_branch_pushed: "Dal remote\u{2019}a g\u{00f6}nderildi",
         },
         _ => Strings {
             task_started:       "Task Started",
@@ -57,6 +69,12 @@ fn strings(lang: &str) -> Strings {
             body_revision:      "Revision feedback sent to Claude",
             body_queue:         "Auto-started from queue",
             body_unknown_error: "unknown error",
+            pr_created:         "PR Opened",
+            pr_merged:          "PR Merged",
+            branch_pushed:      "Branch Pushed",
+            body_pr_created:    "Pull request opened",
+            body_pr_merged:     "Pull request merged",
+            body_branch_pushed: "Branch pushed to remote",
         },
     }
 }
@@ -150,6 +168,36 @@ pub fn notify_test_failed(app: &AppHandle, info: &TaskNotification) {
     let i = strings(&s.language);
     let body = format!("{}\n\u{2718} {}", info.body_line(), i.body_test_failed);
     send(app, &format!("Claude Board \u{2014} {}", i.test_failed), &body);
+}
+
+// Git milestones (PR opened / merged, branch pushed) reuse the "task completed"
+// preference — they're positive completion-style events; see
+// docs/concepts/work-lifecycle.md.
+pub fn notify_pr_created(app: &AppHandle, info: &TaskNotification, url: &str) {
+    let db = db::get_db();
+    let s = settings::get(&db);
+    if !s.notify_task_completed { return; }
+    let i = strings(&s.language);
+    let body = format!("{}\n\u{2197} {}\n{}", info.body_line(), i.body_pr_created, url);
+    send(app, &format!("Claude Board \u{2014} {}", i.pr_created), &body);
+}
+
+pub fn notify_pr_merged(app: &AppHandle, info: &TaskNotification, url: &str) {
+    let db = db::get_db();
+    let s = settings::get(&db);
+    if !s.notify_task_completed { return; }
+    let i = strings(&s.language);
+    let body = format!("{}\n\u{2714} {}\n{}", info.body_line(), i.body_pr_merged, url);
+    send(app, &format!("Claude Board \u{2014} {}", i.pr_merged), &body);
+}
+
+pub fn notify_branch_pushed(app: &AppHandle, info: &TaskNotification, branch: &str) {
+    let db = db::get_db();
+    let s = settings::get(&db);
+    if !s.notify_task_completed { return; }
+    let i = strings(&s.language);
+    let body = format!("{}\n\u{2191} {}: {}", info.body_line(), i.body_branch_pushed, branch);
+    send(app, &format!("Claude Board \u{2014} {}", i.branch_pushed), &body);
 }
 
 // ─── Internal ───

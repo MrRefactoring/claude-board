@@ -154,7 +154,7 @@ pub fn change_task_status(app: AppHandle, id: i64, status: String, mcp_port: u16
         if let Some(project) = pq::get_by_id(&db, task.project_id) {
             if let Some(fresh) = tq::get_by_id(&db, id) {
                 let pr_dir =
-                    runner::get_task_worktree(id).unwrap_or_else(|| project.working_dir.clone());
+                    runner::get_task_worktree(&db, id).unwrap_or_else(|| project.working_dir.clone());
                 runner::auto_create_pr_public(&fresh, &pr_dir, &project, &db, &app);
             }
         }
@@ -220,7 +220,7 @@ fn execute_done_side_effects(db: &crate::db::DbPool, app: &AppHandle, id: i64, t
     if let Some(project) = pq::get_by_id(db, task.project_id) {
         let fresh_task = tq::get_by_id(db, id).unwrap_or(task.clone());
         // Use worktree dir for PR creation (where commits live), fall back to project dir
-        let pr_dir = runner::get_task_worktree(id).unwrap_or_else(|| project.working_dir.clone());
+        let pr_dir = runner::get_task_worktree(db, id).unwrap_or_else(|| project.working_dir.clone());
         // Fallback for tasks that skipped the Testing stage — normally the PR
         // already exists (opened when the task entered review).
         runner::auto_create_pr_public(&fresh_task, &pr_dir, &project, db, app);
@@ -230,6 +230,10 @@ fn execute_done_side_effects(db: &crate::db::DbPool, app: &AppHandle, id: i64, t
         runner::merge_task_pr(&after_pr, &pr_dir, &project, db, app);
         // Branch handling uses project root (manages worktrees and branches)
         runner::cleanup_task_branch(&after_pr, &project.working_dir, &project, db);
+        // Task accepted — drop the worktree once its work is safe on the remote
+        // (kept otherwise; the branch always survives). See work-lifecycle doc.
+        let after_merge = tq::get_by_id(db, id).unwrap_or(after_pr.clone());
+        runner::remove_task_worktree_if_safe(&after_merge, &project.working_dir, db, app);
 
         // Auto-close linked GitHub issue
         if project.github_sync_enabled.unwrap_or(0) == 1 {
@@ -288,6 +292,46 @@ pub fn get_task_logs(id: i64, limit: Option<i64>) -> Vec<tq::TaskLog> {
 pub fn stop_task(app: AppHandle, id: i64) {
     let db = db::get_db();
     runner::stop(id, &db, &app);
+}
+
+/// Emit `task:updated` with the live `is_running` flag folded into the payload.
+fn emit_task_updated(app: &AppHandle, task: &tq::Task) {
+    if let Ok(mut val) = serde_json::to_value(task) {
+        if let Some(obj) = val.as_object_mut() {
+            let running = runner::is_running(task.id) || runner::is_starting(task.id);
+            obj.insert("is_running".into(), serde_json::Value::Bool(running));
+        }
+        app.emit("task:updated", &val).ok();
+    }
+}
+
+/// Manual "Push branch" action from the Testing stage: push the task's branch
+/// to origin from its worktree. Works even when auto_pr is off. Tauri-only.
+/// See docs/concepts/work-lifecycle.md.
+#[tauri::command]
+pub fn push_task_branch(app: AppHandle, id: i64) -> Result<tq::Task, String> {
+    let db = db::get_db();
+    let task = tq::get_by_id(&db, id).ok_or("Task not found")?;
+    let project = pq::get_by_id(&db, task.project_id).ok_or("Project not found")?;
+    let dir = runner::get_task_worktree(&db, id).unwrap_or_else(|| project.working_dir.clone());
+    runner::manual_push_branch(&task, &dir, &db, &app)?;
+    let updated = tq::get_by_id(&db, id).ok_or("Task not found")?;
+    emit_task_updated(&app, &updated);
+    Ok(updated)
+}
+
+/// Manual "Create PR" action from the Testing stage: push and open a PR even
+/// when auto_pr is off. Tauri-only. See docs/concepts/work-lifecycle.md.
+#[tauri::command]
+pub fn create_task_pr(app: AppHandle, id: i64) -> Result<tq::Task, String> {
+    let db = db::get_db();
+    let task = tq::get_by_id(&db, id).ok_or("Task not found")?;
+    let project = pq::get_by_id(&db, task.project_id).ok_or("Project not found")?;
+    let dir = runner::get_task_worktree(&db, id).unwrap_or_else(|| project.working_dir.clone());
+    runner::manual_create_pr(&task, &dir, &project, &db, &app)?;
+    let updated = tq::get_by_id(&db, id).ok_or("Task not found")?;
+    emit_task_updated(&app, &updated);
+    Ok(updated)
 }
 
 #[tauri::command]
