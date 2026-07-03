@@ -15,6 +15,7 @@ import {
   CheckCircle,
   RotateCcw,
   GitBranch,
+  GitPullRequest,
   ArrowRight,
   AlertTriangle,
   FlaskConical,
@@ -429,6 +430,22 @@ const TaskCard = memo(function TaskCard({
               <GitBranch size={9} />
               {task.branch_name}
             </span>
+          )}
+          {task.pr_url && (
+            <a
+              href={task.pr_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 hover:text-purple-100"
+              title={task.pr_url}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GitPullRequest size={10} />
+              {(() => {
+                const prNum = task.pr_url.match(/\/(?:pull|merge_requests|pullrequest)\/(\d+)/)?.[1];
+                return prNum ? `#${prNum}` : 'PR';
+              })()}
+            </a>
           )}
           {task.github_issue_number && (
             <a

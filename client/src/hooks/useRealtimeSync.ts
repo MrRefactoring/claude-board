@@ -44,6 +44,17 @@ export function useRealtimeSync() {
       },
       'task:updated': (task) => {
         if (pendingUpdates.has(task.id)) return;
+        // Announce a newly-opened PR (pr_url null→value) with a toast so the
+        // user sees where the work went. See docs/concepts/work-lifecycle.md.
+        if (task.pr_url) {
+          const prev = queryClient
+            .getQueriesData<Task[]>({ queryKey: ['tasks'] })
+            .flatMap(([, list]) => list || [])
+            .find((t) => t.id === task.id);
+          if (prev && !prev.pr_url) {
+            useUIStore.getState().addToast(`PR opened: ${task.pr_url}`, 'success');
+          }
+        }
         patchTaskLists(queryClient, (prev) => prev.map((t) => (t.id === task.id ? { ...t, ...task } : t)));
       },
       'task:usage': (usage) => {

@@ -11,6 +11,11 @@ import {
   Settings,
   ArrowDown,
   Activity,
+  GitBranch,
+  GitPullRequest,
+  GitMerge,
+  Upload,
+  FolderX,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -42,6 +47,12 @@ const EVENT_CONFIG: Record<string, EventConfig> = {
   revision_requested: { icon: RotateCcw, color: 'text-orange-400', bg: 'bg-orange-500/10' },
   queue_auto_started: { icon: Activity, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
   project_created: { icon: Settings, color: 'text-surface-400', bg: 'bg-surface-500/10' },
+  // Git work lifecycle — see docs/concepts/work-lifecycle.md.
+  worktree_created: { icon: GitBranch, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+  branch_pushed: { icon: Upload, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  pr_created: { icon: GitPullRequest, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+  pr_merged: { icon: GitMerge, color: 'text-green-400', bg: 'bg-green-500/10' },
+  worktree_removed: { icon: FolderX, color: 'text-surface-400', bg: 'bg-surface-500/10' },
 };
 
 function getEventConfig(type: string): EventConfig {

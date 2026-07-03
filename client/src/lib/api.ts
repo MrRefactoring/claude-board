@@ -106,6 +106,11 @@ const coreApi = {
   getTaskLogs: (id: number, limit = 500): Promise<unknown> =>
     call('get_task_logs', 'GET', `/api/tasks/${id}/logs?limit=${limit}`, { id, limit }),
   stopTask: (id: number): Promise<void> => call('stop_task', 'POST', `/api/tasks/${id}/stop`, { id }),
+  // Manual Testing-stage git actions — Tauri-only (no HTTP route).
+  pushTaskBranch: (id: number): Promise<Task> =>
+    IS_TAURI ? tauriCall('push_task_branch', { id }) : Promise.reject(new Error('Tauri-only')),
+  createTaskPr: (id: number): Promise<Task> =>
+    IS_TAURI ? tauriCall('create_task_pr', { id }) : Promise.reject(new Error('Tauri-only')),
   restartTask: (id: number): Promise<void> =>
     call('restart_task', 'POST', `/api/tasks/${id}/restart`, { id, mcpPort: MCP_PORT }),
   requestChanges: (id: number, feedback: string): Promise<Task> =>

@@ -62,6 +62,10 @@ export interface Task {
   commits?: string;
   pr_url?: string;
   diff_stat?: string;
+  /** Where the task's work is checked out; cleared when the worktree is removed. */
+  worktree_path?: string;
+  /** 1 once the task's branch has reached the remote. */
+  pushed?: number;
   role_id?: number;
   task_key?: string;
   /** Parent in the epic→story→task→subtask tree (raw DB column). */
