@@ -10,6 +10,7 @@ The code must match these specs; a change that leaves its spec stale is a bug
 - [Board & Views](concepts/board.md) — The main project screen offers several ways to look at the same task set. All views update live from realtime events — no polling.
 - [Review System](concepts/review.md) — Human-in-the-loop gate between an agent finishing work and a task being accepted. Lets you approve or send work back with feedback.
 - [Tasks](concepts/tasks.md) — The core unit of work: a job for a Claude agent, tracked through a status lifecycle with usage/cost accounting.
+- [Task Work Lifecycle](concepts/work-lifecycle.md) — How work travels from a task to the remote: worktree → branch → commits → push → PR → merge → worktree removal, and how every step stays visible.
 
 ## Features
 

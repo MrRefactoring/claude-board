@@ -8,7 +8,7 @@ Per-project outbound notifications to Slack, Discord, Teams, or a custom HTTP en
 - A **Test** button (`test_webhook`) sends a sample payload to verify the URL/platform before relying on it.
 
 ## Events
-Selectable in the UI (`ALL_EVENTS`): `task_created`, `task_started`, `task_approved` (task moved to Done), `revision_requested`, `queue_auto_started`. Additional internal events (`task_timeout`, `circuit_breaker_activated`) also fire and are delivered under "All Events," but aren't individually selectable in the events list.
+Selectable in the UI (`ALL_EVENTS`): `task_created`, `task_started`, `task_approved` (task moved to Done), `revision_requested`, `queue_auto_started`. Additional internal events (`task_timeout`, `circuit_breaker_activated`, and the git lifecycle events `branch_pushed`/`pr_created`/`pr_merged`) also fire and are delivered under "All Events," but aren't individually selectable in the events list.
 
 > **Note:** event ids use underscore names (`task_started`, `task_approved`, ...), not the colon-style (`task:started`) names in an earlier version of this doc.
 

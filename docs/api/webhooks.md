@@ -11,7 +11,7 @@ Outbound notifications (Slack/Discord/custom) fired on task lifecycle events. Ta
 
 ## Notes
 - `create_webhook` requires `name` — the record isn't just `platform`/`url`/`events`.
-- Delivery (`services::webhook::fire`) is called from the task runner and queue, not from a generic event bus. The real `event_type` strings dispatched (and matchable in a webhook's `events` filter) are: `task_started`, `task_completed`, `task_failed`, `task_timeout`, `test_started`, `test_passed`, `test_failed`, `revision_requested`, `queue_auto_started`, `circuit_breaker_activated` — **not** colon-namespaced names like `task:completed`.
+- Delivery (`services::webhook::fire`) is called from the task runner and queue, not from a generic event bus. The real `event_type` strings dispatched (and matchable in a webhook's `events` filter) are: `task_started`, `task_completed`, `task_failed`, `task_timeout`, `test_started`, `test_passed`, `test_failed`, `revision_requested`, `queue_auto_started`, `circuit_breaker_activated`, `branch_pushed`, `pr_created`, `pr_merged` — **not** colon-namespaced names like `task:completed`. The git events (`branch_pushed`/`pr_created`/`pr_merged`) carry `taskId` plus `branch` or `pr_url` in their metadata; see `../concepts/work-lifecycle.md`.
 - Payload shape depends on `platform`: `discord` → Discord embed (color-coded by event type), `slack` → Slack `blocks` section, anything else (`custom`/unset) → `{ event, message, timestamp, metadata }`.
 - No HTTP route exists under `/api/.../webhooks` — CRUD and test-send are Tauri-only.
 

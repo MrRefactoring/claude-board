@@ -20,7 +20,7 @@ Native OS notifications (macOS/Windows, via `tauri-plugin-notification`) fired o
 
 ## Settings
 - `notify_task_started` (bool, default false)
-- `notify_task_completed` (bool, default true) — also gates the auto-test-passed notification
+- `notify_task_completed` (bool, default true) — also gates the auto-test-passed notification and the git milestones (`notify_pr_created`/`notify_pr_merged`/`notify_branch_pushed`; see `../concepts/work-lifecycle.md`)
 - `notify_task_failed` (bool, default true) — also gates the auto-test-failed notification
 - `notify_revision_requested` (bool, default true)
 - `notify_queue_started` (bool, default false)
