@@ -9,7 +9,7 @@ export default tseslint.config(
   // TypeScript sources (the whole tree is now .ts/.tsx).
   {
     files: ['src/**/*.{ts,tsx}'],
-    extends: [...tseslint.configs.recommended],
+    extends: [...tseslint.configs.strictTypeChecked],
     languageOptions: {
       parserOptions: {
         projectService: true,
@@ -37,6 +37,13 @@ export default tseslint.config(
       eqeqeq: ['warn', 'smart'],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      // strictTypeChecked calibration — option tweaks, not rule removals:
+      // arrow shorthand returning void (onClick={() => setX(...)}) is idiomatic React
+      '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],
+      // numbers/booleans interpolate unambiguously
+      '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true, allowBoolean: true }],
+      // async handlers on void-returning JSX attributes are safe (React ignores the promise)
+      '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
     },
   },
 

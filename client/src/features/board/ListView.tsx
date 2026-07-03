@@ -106,7 +106,7 @@ export default function ListView({
         bv = (b.input_tokens || 0) + (b.output_tokens || 0);
       }
       if (typeof av === 'string') return av.localeCompare(bv as string) * dir;
-      return (((av as number) || 0) - ((bv as number) || 0)) * dir;
+      return (((av) || 0) - ((bv as number) || 0)) * dir;
     });
     return arr;
   }, [tasks, sortField, sortDir]);

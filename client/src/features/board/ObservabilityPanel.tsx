@@ -172,7 +172,7 @@ export default function ObservabilityPanel({ projectId }: ObservabilityPanelProp
     if (!IS_TAURI) return;
     // 'agent:file_conflict' is emitted by the desktop shell but is not part of AppEventMap.
     return tauriListen('agent:file_conflict' as keyof AppEventMap, (payload) => {
-      const conflict = payload as unknown as ConflictInfo;
+      const conflict = payload as ConflictInfo;
       setConflicts((prev) => [...prev.slice(-19), { ...conflict, time: Date.now() }]);
     });
   }, []);

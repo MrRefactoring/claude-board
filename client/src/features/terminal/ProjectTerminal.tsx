@@ -3,7 +3,7 @@ import { Terminal as TerminalIcon, Columns3, Rows3, Pause, Play, Trash2, ArrowDo
 import { socket } from '@/lib/socket';
 import { tauriListen, IS_TAURI } from '@/lib/tauriEvents';
 import { TYPE_COLORS } from '@/lib/constants';
-import type { Task, TaskType } from '@/lib/types';
+import type { Task } from '@/lib/types';
 
 const MAX_LOGS = 3000;
 const TRIM_TO = Math.floor(MAX_LOGS * 0.7);
@@ -62,7 +62,7 @@ function formatTime(ts?: string): string {
 function LogLine({ entry, showTaskBadge = true }: { entry: ProjectLogEntry; showTaskBadge?: boolean }) {
   const colorClass = LOG_COLORS[entry.log_type ?? ''] || 'text-surface-400';
   const typeColor = entry.task
-    ? TYPE_COLORS[(entry.task.task_type ?? 'chore') as TaskType] || TYPE_COLORS.chore
+    ? TYPE_COLORS[(entry.task.task_type ?? 'chore')] || TYPE_COLORS.chore
     : TYPE_COLORS.chore;
   const taskKey = entry.task?.task_key || (entry.task ? `#${entry.task.id}` : `#${entry.taskId}`);
 
@@ -99,7 +99,7 @@ function TaskPane({ task, logs }: { task: Task; logs: ProjectLogEntry[] }) {
     }
   }, [logs, autoScroll]);
 
-  const typeColor = TYPE_COLORS[(task.task_type ?? 'chore') as TaskType] || TYPE_COLORS.chore;
+  const typeColor = TYPE_COLORS[(task.task_type ?? 'chore')] || TYPE_COLORS.chore;
 
   return (
     <div className="flex flex-col border border-surface-700/50 rounded-lg bg-surface-900/60 overflow-hidden min-h-0">

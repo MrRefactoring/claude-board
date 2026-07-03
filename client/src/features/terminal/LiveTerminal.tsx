@@ -431,7 +431,7 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
             }`}
           >
             {f.label}
-            {f.count && <span className={`${f.alert ? 'text-red-400' : 'text-surface-600'}`}>{f.count}</span>}
+            {f.count && <span className={f.alert ? 'text-red-400' : 'text-surface-600'}>{f.count}</span>}
           </button>
         ))}
         <div className="flex-1" />

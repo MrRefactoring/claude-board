@@ -3,7 +3,7 @@ import type { KeyboardEvent } from 'react';
 import { X, Send, Loader2, Bot, User, Trash2, Sparkles, ListTree, Check, Ban, CheckCircle2, Zap, ShieldQuestion, Wrench, Plus } from 'lucide-react';
 import MDEditor from '@uiw/react-md-editor';
 import { api } from '@/lib/api';
-import type { Task, TaskStatus, PendingPermission } from '@/lib/types';
+import type { TaskStatus, PendingPermission } from '@/lib/types';
 import { IS_TAURI, tauriListen } from '@/lib/tauriEvents';
 import { useChatTabs } from './useChatTabs';
 import type { ChatAction } from './useChatTabs';
@@ -199,7 +199,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
     try {
       const p = a.params || {};
       if (a.action === 'update_task') {
-        await api.updateTask(a.task_id, p as Partial<Task>);
+        await api.updateTask(a.task_id, p);
       } else if (a.action === 'set_status') {
         await api.updateStatus(a.task_id, String(p.status) as TaskStatus);
       } else if (a.action === 'set_pr_intent') {

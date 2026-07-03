@@ -122,7 +122,7 @@ export function PlanPhaseReview({
           {typeBreakdown.map(([type, count]) => (
             <span
               key={type}
-              className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${TYPE_COLORS[type as keyof typeof TYPE_COLORS] || 'bg-surface-500/15 text-surface-400'}`}
+              className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${TYPE_COLORS[type] || 'bg-surface-500/15 text-surface-400'}`}
             >
               {count} {type}
             </span>

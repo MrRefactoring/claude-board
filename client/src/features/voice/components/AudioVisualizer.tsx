@@ -88,7 +88,7 @@ export default function AudioVisualizer({ getAnalyser, isActive, className = '' 
       ref={canvasRef}
       width={200}
       height={28}
-      className={`${className}`}
+      className={className}
       style={{ imageRendering: 'pixelated' }}
     />
   );

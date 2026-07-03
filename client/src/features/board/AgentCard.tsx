@@ -148,7 +148,7 @@ export default function AgentCard({ task, onStop, onViewLogs }: AgentCardProps) 
         try {
           if (payload.meta) {
             meta =
-              typeof payload.meta === 'string' ? (JSON.parse(payload.meta) as ToolMeta) : (payload.meta as ToolMeta);
+              typeof payload.meta === 'string' ? (JSON.parse(payload.meta) as ToolMeta) : (payload.meta);
           }
         } catch {}
         const toolName = meta.toolName || meta.tool || payload.message?.match(/^(\w+)/)?.[1] || 'Tool';

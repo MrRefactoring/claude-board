@@ -113,7 +113,7 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
     setPrescanLoading(true);
     (api.prescanStats ? api.prescanStats(projectId) : Promise.resolve(null))
       .then((data) => {
-        if (data) setPrescan(data as Prescan);
+        if (data) setPrescan(data);
       })
       .catch(() => {})
       .finally(() => setPrescanLoading(false));
@@ -122,7 +122,7 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
   // Listen for scan events (scan:* events are emitted by the desktop shell but are not part of AppEventMap)
   useEffect(() => {
     const listen = (name: string, cb: (data: ScanEvent) => void) =>
-      tauriListen(name as keyof AppEventMap, (payload) => cb(payload as unknown as ScanEvent));
+      tauriListen(name as keyof AppEventMap, (payload) => cb(payload as ScanEvent));
     const unsubs = [
       listen('scan:started', (data) => {
         if (data.projectId !== projectId) return;

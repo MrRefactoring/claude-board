@@ -85,11 +85,11 @@ if (IS_TAURI) {
       }
     },
     emit() {},
-  } as unknown as AppSocket;
+  };
 } else {
   // Web mode: use Socket.IO
   const URL = import.meta.env.DEV ? 'http://localhost:4000' : '/';
-  socket = io(URL, { autoConnect: true }) as unknown as AppSocket;
+  socket = io(URL, { autoConnect: true });
 }
 
 export { socket };
