@@ -186,13 +186,13 @@ export default function CommandPalette({
           t.description?.toLowerCase().includes(q),
       );
       for (const t of filteredTasks.slice(0, 8)) {
-        const StatusIcon = STATUS_ICONS[t.status] || Clock;
+        const StatusIcon = STATUS_ICONS[t.status ?? 'backlog'] || Clock;
         results.push({
           id: `task-${t.id}`,
           label: t.title,
           hint: t.task_key,
           icon: StatusIcon,
-          iconColor: STATUS_COLORS[t.status] || 'text-surface-400',
+          iconColor: STATUS_COLORS[t.status ?? 'backlog'] || 'text-surface-400',
           category: 'task',
           action: () => onViewDetail?.(t),
           subActions: [

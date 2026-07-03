@@ -56,7 +56,7 @@ export function TaskDependenciesTab({
                   <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
                   <span className="text-[10px] text-surface-500 font-mono flex-shrink-0">{pt.task_key}</span>
                   <span className="text-xs text-surface-300 truncate flex-1">{pt.title}</span>
-                  <span className={`text-[9px] ${STATUS_COLORS[pt.status] || 'text-surface-500'}`}>
+                  <span className={`text-[9px] ${STATUS_COLORS[pt.status ?? 'backlog'] || 'text-surface-500'}`}>
                     {t('status.' + pt.status)}
                   </span>
                   {currentStatus === 'backlog' && (
@@ -110,7 +110,7 @@ export function TaskDependenciesTab({
                   <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
                   <span className="text-[10px] text-surface-500 font-mono flex-shrink-0">{ct.task_key}</span>
                   <span className="text-xs text-surface-300 truncate flex-1">{ct.title}</span>
-                  <span className={`text-[9px] ${STATUS_COLORS[ct.status] || 'text-surface-500'}`}>
+                  <span className={`text-[9px] ${STATUS_COLORS[ct.status ?? 'backlog'] || 'text-surface-500'}`}>
                     {t('status.' + ct.status)}
                   </span>
                   {currentStatus === 'backlog' && (

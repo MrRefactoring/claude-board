@@ -35,7 +35,7 @@ export interface Task {
   project_id: number;
   title: string;
   description?: string;
-  status: TaskStatus;
+  status?: TaskStatus;
   priority?: number;
   task_type?: TaskType;
   acceptance_criteria?: string;

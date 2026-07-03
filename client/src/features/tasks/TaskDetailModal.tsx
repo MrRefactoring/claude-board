@@ -50,7 +50,7 @@ export default function TaskDetailModal({ task, onClose, onStatusChange }: Props
   const [loading, setLoading] = useState(true);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [currentStatus, setCurrentStatus] = useState<TaskStatus>(task.status);
+  const [currentStatus, setCurrentStatus] = useState<TaskStatus>(task.status ?? 'backlog');
   const statusMenuRef = useRef<HTMLDivElement>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [deps, setDeps] = useState<TaskDependencies>({ parents: [], children: [] });

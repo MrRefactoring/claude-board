@@ -19,7 +19,7 @@ registerCommand({
 
     const byStatus: Record<string, number> = {};
     tasks.forEach((task) => {
-      byStatus[task.status] = (byStatus[task.status] || 0) + 1;
+      byStatus[task.status ?? 'backlog'] = (byStatus[task.status ?? 'backlog'] || 0) + 1;
     });
 
     const parts = Object.entries(byStatus)

@@ -67,7 +67,7 @@ interface MobileStatusTransitionProps {
 function MobileStatusTransition({ task, onStatusChange }: MobileStatusTransitionProps) {
   const { t } = useTranslation();
   const [showAll, setShowAll] = useState(false);
-  const currentIdx = STATUS_FLOW.indexOf(task.status);
+  const currentIdx = STATUS_FLOW.indexOf(task.status ?? 'backlog');
   const nextStatus =
     task.status === 'failed'
       ? FAILED_NEXT
@@ -75,7 +75,7 @@ function MobileStatusTransition({ task, onStatusChange }: MobileStatusTransition
         ? STATUS_FLOW[currentIdx + 1]
         : null;
   const prevStatus = currentIdx > 0 ? STATUS_FLOW[currentIdx - 1] : null;
-  const flowLabelKey = FLOW_LABEL_KEYS[task.status];
+  const flowLabelKey = FLOW_LABEL_KEYS[task.status ?? 'backlog'];
   const otherStatuses = STATUS_OPTIONS_RAW.filter((s) => s.id !== task.status && s.id !== nextStatus);
 
   return (

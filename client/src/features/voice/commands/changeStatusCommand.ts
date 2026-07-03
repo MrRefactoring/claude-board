@@ -49,7 +49,7 @@ registerCommand({
       }
 
       refs.statusTarget = match;
-      const next = STATUS_NEXT[match.status];
+      const next = STATUS_NEXT[match.status ?? 'backlog'];
       if (!next) {
         return { flow: 'idle', message: t('status.alreadyDone', lang, { title: match.title }) };
       }
@@ -69,7 +69,7 @@ registerCommand({
       if (!task) return { flow: 'idle', message: t('status.error', lang) };
 
       if (intent?.id === 'confirm') {
-        const next = STATUS_NEXT[task.status];
+        const next = STATUS_NEXT[task.status ?? 'backlog'];
         if (next) {
           return {
             flow: 'idle',

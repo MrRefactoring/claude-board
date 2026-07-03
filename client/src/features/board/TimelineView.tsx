@@ -286,7 +286,7 @@ export default function TimelineView({ tasks, waves, edges, onTaskClick }: Timel
             const barW = Math.max(MIN_BAR_W, x2 - x1);
             const barY = y + 8;
             const barH = ROW_H - 16;
-            const colors = STATUS_COLORS[task.status] || STATUS_COLORS.backlog;
+            const colors = STATUS_COLORS[task.status ?? 'backlog'] || STATUS_COLORS.backlog;
             if (!colors) return null;
             const isHovered = hoveredId === task.id;
 

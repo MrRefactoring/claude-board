@@ -101,7 +101,7 @@ export default function DependencySelector({ taskId, allTasks, dependencies, onA
               className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-blue-500/8 border border-blue-500/20 group"
             >
               <div
-                className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[pt.status] || STATUS_DOT.backlog}`}
+                className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[pt.status ?? 'backlog'] || STATUS_DOT.backlog}`}
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -130,7 +130,7 @@ export default function DependencySelector({ taskId, allTasks, dependencies, onA
               className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-surface-800/40 border border-surface-700/30"
             >
               <div
-                className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[ct.status] || STATUS_DOT.backlog}`}
+                className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[ct.status ?? 'backlog'] || STATUS_DOT.backlog}`}
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -207,7 +207,7 @@ export default function DependencySelector({ taskId, allTasks, dependencies, onA
                     className="w-full text-left px-2.5 py-2 flex items-center gap-2 hover:bg-surface-700/50 transition-colors group/item"
                   >
                     <div
-                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[task.status] || STATUS_DOT.backlog}`}
+                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[task.status ?? 'backlog'] || STATUS_DOT.backlog}`}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="text-[11px] text-surface-200 truncate">{task.title}</div>
