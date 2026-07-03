@@ -162,20 +162,22 @@ interface ParticlesProps {
   colors: string[];
 }
 
+// Deliberately impure: one-shot random particle layout, generated once per
+// mount (memoized below) — visual noise, not render-derived data.
+function makeParticles(count: number, colors: string[]) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    y: Math.random() * 100,
+    size: 2 + Math.random() * 4,
+    dur: 3 + Math.random() * 4,
+    delay: Math.random() * 3,
+    color: colors[i % colors.length],
+  }));
+}
+
 function Particles({ count = 20, colors }: ParticlesProps) {
-  const particles = useMemo(
-    () =>
-      Array.from({ length: count }, (_, i) => ({
-        id: i,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: 2 + Math.random() * 4,
-        dur: 3 + Math.random() * 4,
-        delay: Math.random() * 3,
-        color: colors[i % colors.length],
-      })),
-    [count, colors],
-  );
+  const particles = useMemo(() => makeParticles(count, colors), [count, colors]);
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">

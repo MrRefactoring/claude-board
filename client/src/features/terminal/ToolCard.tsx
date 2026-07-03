@@ -58,6 +58,7 @@ export function ToolCard({ call, result, isExpanded, onToggle }: ToolCardProps) 
           {fmtTime(call?.created_at || result?.created_at)}
         </span>
         {statusEl}
+        {/* eslint-disable-next-line react-hooks/static-components -- getToolIcon returns stable module-level lucide components, not fresh ones */}
         <Icon size={14} className={`${color} flex-shrink-0`} />
         <span className={`font-semibold ${color}`}>{toolName}</span>
 

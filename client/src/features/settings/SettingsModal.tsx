@@ -45,11 +45,7 @@ export default function SettingsModal({ onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const { models } = useModels();
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const data = await api.getAppSettings();
       setSettings(data as AppSettings);
@@ -58,7 +54,12 @@ export default function SettingsModal({ onClose }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: settings load once on mount
+    void loadSettings();
+  }, [loadSettings]);
 
   const handleChange = useCallback(
     async (key: string, value: SettingValue) => {

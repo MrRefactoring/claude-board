@@ -116,6 +116,7 @@ export function useProjectForm(
   // Force git automation toggles off when the working dir is confirmed non-repo.
   useEffect(() => {
     if (gitDisabled) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate constraint sync: git automation toggles are forced off when the dir is confirmed non-repo
       if (autoBranch) setAutoBranch(false);
       if (autoPr) setAutoPr(false);
       if (autoPush) setAutoPush(false);
@@ -144,6 +145,7 @@ export function useProjectForm(
 
   useEffect(() => {
     if (tab !== 'github' || githubRepo || !workingDir) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync detecting-flag toggle marks the lookup start
     setGithubDetecting(true);
     api
       .githubDetectRepo(workingDir)

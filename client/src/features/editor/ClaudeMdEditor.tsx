@@ -40,11 +40,7 @@ export default function ClaudeMdEditor({ projectId, projectName, onClose }: Clau
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    loadFile();
-  }, [projectId]); // loadFile is intentionally omitted — it's not wrapped in useCallback and adding it would cause infinite re-renders
-
-  const loadFile = async () => {
+  const loadFile = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -63,7 +59,12 @@ export default function ClaudeMdEditor({ projectId, projectName, onClose }: Clau
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
+    void loadFile();
+  }, [loadFile]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);

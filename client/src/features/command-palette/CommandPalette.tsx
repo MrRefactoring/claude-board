@@ -83,6 +83,7 @@ export default function CommandPalette({
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate reset of query/selection when the palette opens
       setQuery('');
       setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -266,6 +267,7 @@ export default function CommandPalette({
 
   // Reset selection on query change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate reset of the selection when the query changes
     setSelectedIndex(0);
   }, [query]);
 

@@ -21,8 +21,13 @@ export default tseslint.config(
       '@eslint-react': eslintReact,
     },
     rules: {
-      'react-hooks/exhaustive-deps': 'warn',
-      'react-hooks/rules-of-hooks': 'error',
+      // Full react-hooks preset (includes the React Compiler rules:
+      // set-state-in-effect, purity, refs, immutability, …). Everything at
+      // error — the preset's own warn-level entries are promoted below.
+      ...reactHooks.configs.recommended.rules,
+      'react-hooks/exhaustive-deps': 'error',
+      'react-hooks/incompatible-library': 'error',
+      'react-hooks/unsupported-syntax': 'error',
       '@eslint-react/no-missing-key': 'error',
       '@eslint-react/no-array-index-key': 'warn',
       'no-debugger': 'error',

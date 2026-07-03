@@ -47,7 +47,11 @@ const HEADER_H = 32;
 const WAVE_GAP = 8;
 const MIN_BAR_W = 6;
 
-function computeTimeScale(tasks: Task[], containerWidth: number): TimeScale | null {
+// Opaque lazy initializer for the live clock — Date.now() may not be called
+// directly during render (react-hooks/purity).
+const nowMs = () => Date.now();
+
+function computeTimeScale(tasks: Task[], containerWidth: number, now: number): TimeScale | null {
   const chartW = containerWidth - LABEL_W;
   if (chartW <= 0) return null;
 
@@ -58,11 +62,11 @@ function computeTimeScale(tasks: Task[], containerWidth: number): TimeScale | nu
   const ends = withTime.map((t) => {
     if (t.completed_at) return new Date(t.completed_at).getTime();
     if (t.work_duration_ms && t.started_at) return new Date(t.started_at).getTime() + t.work_duration_ms;
-    return Date.now();
+    return now;
   });
 
   let minT = Math.min(...starts);
-  let maxT = Math.max(...ends, Date.now());
+  let maxT = Math.max(...ends, now);
   const range = maxT - minT;
   if (range < 60000) {
     // min 1 minute range
@@ -111,7 +115,7 @@ export default function TimelineView({ tasks, waves, edges, onTaskClick }: Timel
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(800);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(nowMs);
 
   // Live clock for running tasks
   useEffect(() => {
@@ -163,7 +167,7 @@ export default function TimelineView({ tasks, waves, edges, onTaskClick }: Timel
     return { rows, waveLabels };
   }, [tasks, waves]);
 
-  const scale = useMemo(() => computeTimeScale(tasks, containerWidth), [tasks, containerWidth, now]);
+  const scale = useMemo(() => computeTimeScale(tasks, containerWidth, now), [tasks, containerWidth, now]);
 
   const lastRow = rows[rows.length - 1];
   const totalH = lastRow ? lastRow.y + ROW_H + 8 : 100;

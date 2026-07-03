@@ -19,6 +19,10 @@ const LOG_COLORS: Record<string, string> = {
 };
 
 /** A log line rendered by the project-wide terminal (built from `task:log` events). */
+// Opaque display-only snapshot of a ref-buffered array's length (direct ref
+// reads during render are forbidden by react-hooks/refs).
+const refLen = (r: { current: unknown[] }) => r.current.length;
+
 interface ProjectLogEntry {
   /** Monotonic render key — the log buffer is trimmed from the front, so array indexes shift. */
   id: number;
@@ -243,6 +247,11 @@ export default function ProjectTerminal({ tasks }: { tasks?: Task[] }) {
     return byId;
   }, [logs, visibleTasks]);
 
+  // Best-effort snapshot for the pause badge (buffered pushes deliberately
+  // don't re-render — that is the point of pausing).
+  // eslint-disable-next-line react-hooks/refs -- display-only snapshot of the ref-buffered queue; mirroring it in state would re-render per buffered log and defeat pausing
+  const pausedQueuedCount = refLen(pausedRef);
+
   return (
     <div className="flex flex-col h-full bg-surface-950">
       {/* Header */}
@@ -283,7 +292,7 @@ export default function ProjectTerminal({ tasks }: { tasks?: Task[] }) {
         <button
           onClick={() => (paused ? resume() : setPaused(true))}
           className={`p-1 rounded transition-colors ${paused ? 'text-amber-400 bg-amber-500/10' : 'text-surface-500 hover:text-surface-300'}`}
-          title={paused ? `Resume (${pausedRef.current.length} queued)` : 'Pause stream'}
+          title={paused ? `Resume (${pausedQueuedCount} queued)` : 'Pause stream'}
         >
           {paused ? <Play size={10} /> : <Pause size={10} />}
         </button>

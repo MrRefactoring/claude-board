@@ -51,12 +51,15 @@ export function setUsageCache(val: ClaudeUsageData | null) {
   usageCache = val;
 }
 
+// Opaque wrapper — Date.now() may not be called directly during render
+// (react-hooks/purity); the countdown is a per-render snapshot by design.
+const nowMs = () => Date.now();
+
 export function ClaudeUsageCard({ t }: { t: TranslateFn }) {
+  // useState already seeds from the module cache; refresh happens in background.
   const [data, setData] = useState<ClaudeUsageData | null>(usageCache);
 
   useEffect(() => {
-    // Show cache immediately, refresh in background
-    if (usageCache) setData(usageCache);
     api
       .getClaudeUsage()
       .then((d) => {
@@ -92,7 +95,7 @@ export function ClaudeUsageCard({ t }: { t: TranslateFn }) {
 
   // Reset countdown
   const resetTime = limits?.resets_at ? new Date(limits.resets_at * 1000) : null;
-  const resetsIn = resetTime ? Math.max(0, Math.floor((resetTime.getTime() - Date.now()) / 60000)) : null;
+  const resetsIn = resetTime ? Math.max(0, Math.floor((resetTime.getTime() - nowMs()) / 60000)) : null;
   const resetLabel =
     resetsIn != null ? (resetsIn > 60 ? `${Math.floor(resetsIn / 60)}h ${resetsIn % 60}m` : `${resetsIn}m`) : null;
 

@@ -94,8 +94,11 @@ function AppInner() {
   // Auto-open terminal when task NEWLY starts running (respects auto_open_terminal setting)
   const runningIdsRef = useRef<Set<number>>(new Set());
   const suppressRef = useRef(true);
+  // Latest-ref pattern: consumers are event handlers, so post-render sync is fine.
   const terminalRef = useRef(terminal);
-  terminalRef.current = terminal;
+  useEffect(() => {
+    terminalRef.current = terminal;
+  });
   const autoOpenRef = useRef(false);
 
   useEffect(() => {

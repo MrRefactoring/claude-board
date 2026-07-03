@@ -66,6 +66,7 @@ export default function PipelineView({ tasks, onViewLogs, onViewDetail }: Pipeli
   // Load all dependency data
   useEffect(() => {
     if (!IS_TAURI || tasks.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
       setLoading(false);
       return;
     }
@@ -157,6 +158,7 @@ export default function PipelineView({ tasks, onViewLogs, onViewDetail }: Pipeli
 
   // Reset local queue when tasks change externally
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate reset of local UI state when the data set changes
     setLocalQueue(null);
   }, [tasks]);
 

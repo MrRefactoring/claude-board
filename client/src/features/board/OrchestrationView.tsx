@@ -109,11 +109,13 @@ export default function OrchestrationView({
 
   // Reload on task changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
     loadGraph();
   }, [loadGraph, tasks]);
 
   // Reload saved positions when project changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate reset from localStorage on project switch; the state is mutated later by drag saves
     setSavedPositions(loadPositions(projectId));
   }, [projectId]);
 

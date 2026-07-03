@@ -152,6 +152,7 @@ export function useModels() {
       });
     } else {
       // Cache was already populated — sync to it.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- covers the render-to-effect race when another consumer populated the module cache in between
       setModels(cache);
     }
     return () => {

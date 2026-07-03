@@ -26,6 +26,7 @@ export function useProjects() {
         window.history.replaceState({ slug: match.slug }, '', `/${match.slug}`);
       }
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot boot latch after initial slug resolution; guarded by booted
     setBooted(true);
   }, [isLoading, booted, projects]);
 

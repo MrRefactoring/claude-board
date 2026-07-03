@@ -112,13 +112,17 @@ export function ClaudeText({ message, time, isThinking }: { message?: string; ti
       });
     }
 
-    // Standalone JSON object (entire message is JSON-like)
+    // Standalone JSON object (entire message is JSON-like). Only the parse
+    // belongs in the try — building JSX inside it trips error-boundaries lint.
     if (message.trim().startsWith('{') && message.trim().endsWith('}')) {
+      let pretty: string | null = null;
       try {
-        const parsed = JSON.parse(message.trim());
-        return <CodeBlock code={JSON.stringify(parsed, null, 2)} lang="json" />;
+        pretty = JSON.stringify(JSON.parse(message.trim()), null, 2);
       } catch {
         // Not valid JSON, render as text
+      }
+      if (pretty !== null) {
+        return <CodeBlock code={pretty} lang="json" />;
       }
     }
 

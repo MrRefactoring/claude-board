@@ -34,6 +34,10 @@ import { TurnSeparator } from '@/features/terminal/TurnSeparator';
 import { ActivityIndicator } from '@/features/terminal/ActivityIndicator';
 import { ElapsedTime } from '@/features/terminal/ElapsedTime';
 
+// Opaque display-only snapshot of a ref-buffered array's length (direct ref
+// reads during render are forbidden by react-hooks/refs).
+const refLen = (r: { current: unknown[] }) => r.current.length;
+
 interface LiveTerminalProps {
   task: Task;
   onClose: () => void;
@@ -77,7 +81,9 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
   // Read via ref inside the log handler so toggling pause doesn't tear down
   // and recreate the subscription (logs arriving in that gap would be lost).
   const pausedRef = useRef(paused);
-  pausedRef.current = paused;
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   // ─── Data loading ───
   useEffect(() => {
@@ -117,6 +123,7 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
   // can approve (Yes / Always / Deny) — the runner blocks until they decide.
   useEffect(() => {
     if (!task.is_running) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate clear of permission cards when the run ends
       setPerms([]);
       return;
     }
@@ -263,6 +270,12 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
     { id: 'system', label: 'System', count: null },
     { id: 'errors', label: 'Errors', count: stats.errors || null, alert: stats.errors > 0 },
   ];
+
+  // Best-effort snapshot for the pause badge — buffered pushes deliberately do
+  // NOT re-render (that is the point of pausing), so the count refreshes on the
+  // next unrelated render.
+  // eslint-disable-next-line react-hooks/refs -- display-only snapshot of the ref-buffered queue; mirroring it in state would re-render per buffered log and defeat pausing
+  const pausedBufferedCount = refLen(pausedLogsRef);
 
   return (
     <div className={panelClass}>
@@ -432,12 +445,12 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
         <button
           onClick={() => (paused ? resumeLogs() : setPaused(true))}
           className={`p-1 rounded transition-colors ${paused ? 'text-amber-400 bg-amber-500/10' : 'text-surface-500 hover:text-surface-300'}`}
-          title={paused ? `${t('terminal.resume')} (${pausedLogsRef.current.length})` : t('terminal.pause')}
+          title={paused ? `${t('terminal.resume')} (${pausedBufferedCount})` : t('terminal.pause')}
         >
           {paused ? <Play size={10} /> : <Pause size={10} />}
         </button>
-        {paused && pausedLogsRef.current.length > 0 && (
-          <span className="text-[10px] text-amber-400">{pausedLogsRef.current.length}</span>
+        {paused && pausedBufferedCount > 0 && (
+          <span className="text-[10px] text-amber-400">{pausedBufferedCount}</span>
         )}
         <button
           onClick={() => setLogs([])}

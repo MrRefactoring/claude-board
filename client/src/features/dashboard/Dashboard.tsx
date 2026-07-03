@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import {
   Plus,
@@ -130,20 +130,7 @@ export default function Dashboard({
   const [loading, setLoading] = useState(!summaryCache);
   const [dashTab, setDashTab] = useState<DashTab>('projects');
 
-  const handleDeleteProject = (project: ProjectSummary) => {
-    if (!onDeleteProject) return;
-    onDeleteProject(project, () => {
-      summaryCache = null;
-      groupsCache = null;
-      loadSummary();
-    });
-  };
-
-  useEffect(() => {
-    loadSummary();
-  }, [projects]); // loadSummary is intentionally omitted — it's not wrapped in useCallback and adding it would cause infinite re-renders
-
-  const loadSummary = async () => {
+  const loadSummary = useCallback(async () => {
     if (!summaryCache) setLoading(true);
     try {
       // Load only the fast DB query first — never block on CLI calls
@@ -191,7 +178,21 @@ export default function Dashboard({
           console.error('Failed to load suggestions:', e);
         });
     }
+  }, [projects]);
+
+  const handleDeleteProject = (project: ProjectSummary) => {
+    if (!onDeleteProject) return;
+    onDeleteProject(project, () => {
+      summaryCache = null;
+      groupsCache = null;
+      void loadSummary();
+    });
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
+    void loadSummary();
+  }, [loadSummary]);
 
   const { totalProjects, totalTasks, totalDone, totalActive, allTokens, allCost } = useMemo(() => {
     let tasks = 0,

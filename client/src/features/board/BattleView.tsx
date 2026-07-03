@@ -182,19 +182,21 @@ interface ExplosionProps {
   isCrit: boolean;
 }
 
+// Deliberately impure: one-shot random particle layout, generated once per
+// explosion (memoized below) — visual noise, not render-derived data.
+function makeExplosionParticles(count: number, isCrit: boolean) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i,
+    angle: (i / count) * 360 + Math.random() * 30,
+    dist: 20 + Math.random() * (isCrit ? 40 : 20),
+    size: 2 + Math.random() * (isCrit ? 4 : 2),
+    delay: Math.random() * 0.1,
+  }));
+}
+
 function Explosion({ x, y, attack, isCrit }: ExplosionProps) {
   const count = isCrit ? 12 : 6;
-  const particles = useMemo(
-    () =>
-      Array.from({ length: count }, (_, i) => ({
-        id: i,
-        angle: (i / count) * 360 + Math.random() * 30,
-        dist: 20 + Math.random() * (isCrit ? 40 : 20),
-        size: 2 + Math.random() * (isCrit ? 4 : 2),
-        delay: Math.random() * 0.1,
-      })),
-    [count, isCrit],
-  );
+  const particles = useMemo(() => makeExplosionParticles(count, isCrit), [count, isCrit]);
 
   return (
     <div
@@ -445,15 +447,18 @@ export default function BattleView({ tasks, projectId }: BattleViewProps) {
 
   // Init HP
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- HP is real game state seeded once per agent (later mutated by battle events); the updater bails out when already seeded
     setHpMap((prev) => {
+      let changed = false;
       const next = { ...prev };
       for (const a of arenaAgents) {
         if (next[a.id] === undefined) {
           const tokens = (a.input_tokens || 0) + (a.output_tokens || 0);
           next[a.id] = Math.max(0, 200 - Math.min(200, Math.round(tokens / 1000)));
+          changed = true;
         }
       }
-      return next;
+      return changed ? next : prev;
     });
   }, [arenaAgents]);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   X,
   RefreshCw,
@@ -173,7 +173,7 @@ export default function StatsPanel({ projectId, onClose }: { projectId: number; 
   const [stats, setStats] = useState<ProjectStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = (await api.getStats(projectId)) as ProjectStats;
@@ -183,11 +183,12 @@ export default function StatsPanel({ projectId, onClose }: { projectId: number; 
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
-    load();
-  }, [projectId]); // load is intentionally omitted — it's not wrapped in useCallback and adding it would cause infinite re-renders
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
+    void load();
+  }, [load]);
 
   const totalTasks = stats?.byStatus?.reduce((sum, s) => sum + s.count, 0) || 0;
   const doneCount = stats?.byStatus?.find((s) => s.label === 'done')?.count || 0;

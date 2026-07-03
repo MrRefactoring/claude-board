@@ -60,6 +60,7 @@ export default function ListView({
 
   // Reset pagination and selection when tasks change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate reset of local UI state when the data set changes
     setPage(1);
     setSelectedIds(new Set());
   }, [tasks]);

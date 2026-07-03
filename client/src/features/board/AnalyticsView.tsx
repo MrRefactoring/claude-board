@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Coins,
   Cpu,
@@ -180,7 +180,7 @@ export default function AnalyticsView({ tasks, projectId }: AnalyticsViewProps) 
   const [sortField, setSortField] = useState('total_cost');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await api.getStats(projectId);
@@ -190,11 +190,12 @@ export default function AnalyticsView({ tasks, projectId }: AnalyticsViewProps) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
-    load();
-  }, [projectId]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync setLoading(true) marks the refetch start
+    void load();
+  }, [load]);
 
   // Compute analytics from tasks + stats
   const analytics = useMemo(() => {
@@ -291,7 +292,7 @@ export default function AnalyticsView({ tasks, projectId }: AnalyticsViewProps) 
     }
   };
 
-  const SortIcon = ({ field }: { field: string }) => {
+  const sortIcon = (field: string) => {
     if (sortField !== field) return <ArrowUpDown size={10} className="text-surface-600" />;
     return sortDir === 'desc' ? (
       <ChevronDown size={10} className="text-claude" />
@@ -457,7 +458,7 @@ export default function AnalyticsView({ tasks, projectId }: AnalyticsViewProps) 
                     onClick={() => toggleSort('duration')}
                   >
                     <span className="flex items-center justify-end gap-1">
-                      {t('analytics.duration')} <SortIcon field="duration" />
+                      {t('analytics.duration')} {sortIcon('duration')}
                     </span>
                   </th>
                   <th
@@ -465,7 +466,7 @@ export default function AnalyticsView({ tasks, projectId }: AnalyticsViewProps) 
                     onClick={() => toggleSort('tokens')}
                   >
                     <span className="flex items-center justify-end gap-1">
-                      {t('analytics.tokens')} <SortIcon field="tokens" />
+                      {t('analytics.tokens')} {sortIcon('tokens')}
                     </span>
                   </th>
                   <th
@@ -473,7 +474,7 @@ export default function AnalyticsView({ tasks, projectId }: AnalyticsViewProps) 
                     onClick={() => toggleSort('total_cost')}
                   >
                     <span className="flex items-center justify-end gap-1">
-                      {t('analytics.cost')} <SortIcon field="total_cost" />
+                      {t('analytics.cost')} {sortIcon('total_cost')}
                     </span>
                   </th>
                 </tr>

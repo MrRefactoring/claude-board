@@ -102,6 +102,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
   // (origin === 'chat') so we can show a Yes / Always / Deny card.
   useEffect(() => {
     if (!busy) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate clear of the permission-card list when the chat run ends
       setPending([]);
       return;
     }

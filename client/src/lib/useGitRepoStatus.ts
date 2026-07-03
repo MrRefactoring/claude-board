@@ -28,6 +28,7 @@ export function useGitRepoStatus(
 
   useEffect(() => {
     if (!enabled || !path || !path.trim()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate reset when the path is cleared/disabled; the fetch itself is debounced+async
       setStatus(null);
       setError(null);
       setLoading(false);

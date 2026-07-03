@@ -258,10 +258,15 @@ export default function Board({
     }
     return grouped;
   }, [filteredTasks]);
-  const columnTasks = (colId: string) => groupedTasks[colId] || [];
-  // Drag handlers are declared above this memo — reach the current grouping via a ref.
-  const columnTasksRef = useRef(columnTasks);
-  columnTasksRef.current = columnTasks;
+  const columnTasks = useCallback((colId: string) => groupedTasks[colId] || [], [groupedTasks]);
+  // Drag handlers are declared above this memo — reach the current grouping via
+  // a latest-ref (synced post-render; consumers only run during drag events,
+  // which cannot happen before the first effect pass).
+  const columnTasksRef = useRef<(colId: string) => Task[]>(() => []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability -- latest-ref pattern: post-render ref sync is sanctioned (identical to terminalRef in App.tsx, which the rule accepts)
+    columnTasksRef.current = columnTasks;
+  });
 
   // Only show awaiting_approval column when require_approval is enabled
   const visibleColumns = useMemo(

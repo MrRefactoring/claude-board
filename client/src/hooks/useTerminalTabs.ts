@@ -14,6 +14,7 @@ export function useTerminalTabs(tasks: Task[]) {
   // Keep tabs in sync with task data. Must return `prev` when nothing changed:
   // an always-new array here + an unstable `tasks` identity = infinite loop.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate external-sync of open tab copies with task data; the updater bails out (returns prev) when nothing changed
     setTabs((prev) => {
       if (prev.length === 0) return prev;
       let changed = false;

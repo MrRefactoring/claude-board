@@ -24,6 +24,7 @@ export function PlanRow({ plan, onRefresh }: PlanRowProps) {
   }, [plan.id, expanded]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
     loadTasks();
   }, [loadTasks]);
 

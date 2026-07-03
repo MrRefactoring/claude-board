@@ -258,7 +258,10 @@ export function VoiceAssistantProvider({
     continuous: false,
     onResult: processInput,
   });
-  voiceRef.current = voice;
+  // Latest-ref pattern: consumers are async callbacks, post-render sync is fine.
+  useEffect(() => {
+    voiceRef.current = voice;
+  }, [voice]);
 
   // Sound effects on listen state changes
   const prevListening = useRef(false);

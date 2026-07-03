@@ -103,11 +103,13 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
       }, 1000);
     }
     return () => clearInterval(timerRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- elapsed is a one-shot resume seed pinned by startRef; adding it would recreate the interval every tick
   }, [phase]);
 
   // Load pre-scan stats on mount
   useEffect(() => {
     if (phase !== 'idle') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
     setPrescanLoading(true);
     (api.prescanStats ? api.prescanStats(projectId) : Promise.resolve(null))
       .then((data) => {

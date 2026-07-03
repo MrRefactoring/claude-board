@@ -71,6 +71,7 @@ export default function GitHubIssuesPanel({ projectId, onClose }: GitHubIssuesPa
   }, [projectId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
     fetchIssues();
   }, [fetchIssues]);
 
