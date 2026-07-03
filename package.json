@@ -19,7 +19,7 @@
     "tauri": "tauri",
     "tauri:dev": "npx tauri dev",
     "tauri:build": "npx tauri build",
-    "lint": "cd client && npx eslint src/",
+    "lint": "cd client && npx eslint src/ --max-warnings 0",
     "lint:fix": "cd client && npx eslint src/ --fix",
     "type-check": "cd client && npx tsc --noEmit && npx tsc --noEmit -p tsconfig.node.json",
     "format": "prettier --write \"client/src/**/*.{ts,tsx}\"",
@@ -38,7 +38,7 @@
   },
   "lint-staged": {
     "client/src/**/*.{ts,tsx}": [
-      "eslint --max-warnings 10"
+      "eslint --max-warnings 0"
     ]
   },
   "dependencies": {

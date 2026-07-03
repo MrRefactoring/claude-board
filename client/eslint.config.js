@@ -29,14 +29,18 @@ export default tseslint.config(
       'react-hooks/incompatible-library': 'error',
       'react-hooks/unsupported-syntax': 'error',
       '@eslint-react/no-missing-key': 'error',
-      '@eslint-react/no-array-index-key': 'warn',
+      // Positional identity is the norm here: the flagged lists are static
+      // derivations (split lines, ticks, particles) re-created wholesale on
+      // data change; mutable lists carry real keys (enforced in review) and
+      // no-missing-key stays at error. Off, not warn — the gate is zero-warning.
+      '@eslint-react/no-array-index-key': 'off',
       'no-debugger': 'error',
       'no-duplicate-case': 'error',
-      'no-empty': ['warn', { allowEmptyCatch: true }],
-      'prefer-const': 'warn',
-      eqeqeq: ['warn', 'smart'],
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'prefer-const': 'error',
+      eqeqeq: ['error', 'smart'],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       // strictTypeChecked calibration — option tweaks, not rule removals:
       // arrow shorthand returning void (onClick={() => setX(...)}) is idiomatic React
       '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],

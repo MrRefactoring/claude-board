@@ -137,7 +137,14 @@ export async function speak(text: string, lang: string = 'en-US'): Promise<void>
       utterance.lang = voice.lang;
     }
 
-    let keepAlive: ReturnType<typeof setInterval>;
+    const keepAlive = setInterval(() => {
+      if (!synth.speaking) {
+        clearInterval(keepAlive);
+        return;
+      }
+      synth.pause();
+      synth.resume();
+    }, 10000);
     utterance.onend = () => {
       clearInterval(keepAlive);
       resolve();
@@ -148,14 +155,6 @@ export async function speak(text: string, lang: string = 'en-US'): Promise<void>
     };
 
     synth.speak(utterance);
-    keepAlive = setInterval(() => {
-      if (!synth.speaking) {
-        clearInterval(keepAlive);
-        return;
-      }
-      synth.pause();
-      synth.resume();
-    }, 10000);
   });
 }
 

@@ -32,3 +32,9 @@ npm run type-check && npm run lint && npm run test && npm run build
 ```
 
 Rust side (when `src-tauri/` is touched): `cargo check` and `cargo test` in `src-tauri/`.
+
+Lint policy is **zero-warning** (`--max-warnings 0` in scripts and the pre-commit
+hook): every rule is either `error` or `off` with a rationale comment in
+`client/eslint.config.js`. An `eslint-disable` is only acceptable as a targeted
+`eslint-disable-next-line <rule> -- <reason>`; never blanket-disable a rule for
+a file and never disable without the reason.
