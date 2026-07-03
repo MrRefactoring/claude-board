@@ -395,13 +395,13 @@ export default function OnboardingTour({ active, onComplete, hasProject }: Onboa
           </div>
 
           {/* Arrow */}
-          {!isCenter && cur.position?.startsWith('bottom') && hlStyle && (
+          {!isCenter && cur.position.startsWith('bottom') && hlStyle && (
             <div
               className="absolute -top-[7px] w-3.5 h-3.5 rotate-45 bg-[#111118]/95 border-l border-t border-white/[0.08]"
               style={{ left: Math.max(16, hlStyle.left + hlStyle.width / 2 - ((tipStyle.left as number) || 0)) }}
             />
           )}
-          {!isCenter && cur.position?.startsWith('top') && hlStyle && (
+          {!isCenter && cur.position.startsWith('top') && hlStyle && (
             <div
               className="absolute -bottom-[7px] w-3.5 h-3.5 rotate-45 bg-[#111118]/95 border-r border-b border-white/[0.08]"
               style={{ left: Math.max(16, hlStyle.left + hlStyle.width / 2 - ((tipStyle.left as number) || 0)) }}

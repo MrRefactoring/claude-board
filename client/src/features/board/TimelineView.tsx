@@ -146,7 +146,7 @@ export default function TimelineView({ tasks, waves, edges, onTaskClick }: Timel
       waves.forEach((wave, wi) => {
         waveLabels.push({ label: `Wave ${wi}`, y });
         wave.forEach((task) => {
-          if (task) rows.push({ task, y });
+          rows.push({ task, y });
           y += ROW_H;
         });
         y += WAVE_GAP;
@@ -253,7 +253,7 @@ export default function TimelineView({ tasks, waves, edges, onTaskClick }: Timel
                   </text>
                 )}
                 <text x={26} y={y + ROW_H / 2 + 8} fill="#D1D5DB" fontSize={11} fontWeight={500}>
-                  {task.title?.length > 22 ? task.title.slice(0, 22) + '...' : task.title}
+                  {task.title.length > 22 ? task.title.slice(0, 22) + '...' : task.title}
                 </text>
               </g>
             );

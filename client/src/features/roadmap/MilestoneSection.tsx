@@ -117,7 +117,7 @@ export function MilestoneSection({
         acceptanceCriteria: `AUDIT.md exists at .planning/milestone-${milestone.version}/ with verdict`,
         tags: JSON.stringify([`milestone:${milestone.version}`, 'gsd-audit']),
       } as Partial<Task>);
-      if (task?.id) {
+      if (task.id) {
         await api.restartTask(task.id);
       }
       onRefresh();

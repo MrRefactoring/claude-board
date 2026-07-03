@@ -38,7 +38,7 @@ export default function DailyBarChart<T extends { day: string }>({
         <Tooltip
           cursor={{ fill: 'rgba(255,255,255,0.04)' }}
           content={({ active, payload }) =>
-            active && payload?.[0] ? (
+            active && payload[0] ? (
               <div className="bg-surface-800 border border-surface-700 rounded-lg px-2.5 py-1.5 text-[10px] text-surface-200 shadow-xl">
                 {formatTooltip(payload[0].payload as T)}
               </div>

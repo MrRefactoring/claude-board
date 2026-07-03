@@ -32,7 +32,7 @@ const storageKey = (projectId: number) => `chat:tabs:${projectId}`;
 
 function makeId(): string {
   try {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    if (typeof crypto !== 'undefined') return crypto.randomUUID();
   } catch {
     /* fall through */
   }

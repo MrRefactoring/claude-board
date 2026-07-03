@@ -50,7 +50,7 @@ function autoLayout(tasks: GraphTask[], edges: GraphEdge[], waves: GraphTask[][]
   // Build edge lookup to find connected tasks
   const edgeSet = new Set<number>();
   const taskParents: Record<number, number[]> = {};
-  (edges || []).forEach((e) => {
+  edges.forEach((e) => {
     edgeSet.add(e.from);
     edgeSet.add(e.to);
     if (!taskParents[e.to]) taskParents[e.to] = [];
@@ -559,7 +559,7 @@ export default function DependencyGraph({
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onStartTask?.(task);
+                    onStartTask(task);
                   }}
                   style={{ cursor: 'pointer' }}
                 >

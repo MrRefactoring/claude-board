@@ -57,7 +57,7 @@ export function useGitRepoStatus(
       } catch (e) {
         if (cancelled) return;
         setStatus(null);
-        setError((e as { message?: string })?.message || String(e));
+        setError((e as { message?: string } | undefined)?.message || String(e));
       } finally {
         if (!cancelled) setLoading(false);
       }

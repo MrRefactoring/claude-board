@@ -65,8 +65,8 @@ export default function ModalHost({
             task={editingTask}
             onSubmit={editingTask ? (data) => taskActions.onUpdate(editingTask, data) : taskActions.onCreate}
             onClose={() => closeModal('task')}
-            templates={templates || []}
-            roles={roles || []}
+            templates={templates}
+            roles={roles}
             allTasks={tasks}
           />
         </ErrorBoundary>

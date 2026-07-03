@@ -186,7 +186,7 @@ export function PhaseCard({
         acceptanceCriteria: `ASSUMPTIONS.md exists at .planning/phase-${phase.phase_number}/ with numbered assumptions and open questions`,
         tags: JSON.stringify([`phase:${phase.phase_number}`, 'gsd-assumptions']),
       } as Partial<Task>);
-      if (task?.id) {
+      if (task.id) {
         await api.restartTask(task.id);
       }
       onRefresh();
@@ -228,7 +228,7 @@ export function PhaseCard({
         acceptanceCriteria: `VALIDATION.md exists at .planning/phase-${phase.phase_number}/ with a verdict on each success criterion`,
         tags: JSON.stringify([`phase:${phase.phase_number}`, 'gsd-validate']),
       } as Partial<Task>);
-      if (task?.id) {
+      if (task.id) {
         await api.restartTask(task.id);
       }
       onRefresh();

@@ -158,7 +158,7 @@ export function useTaskHandlers({ tasks, t, terminal, currentProject }: UseTaskH
 
   const onBulkDelete = useCallback(
     (selectedTasks: Task[]) => {
-      if (!selectedTasks?.length) return;
+      if (selectedTasks.length === 0) return;
       setConfirm({
         title: t('toast.bulkDeleteTitle'),
         message: t('toast.bulkDeleteMessage', { count: selectedTasks.length }),

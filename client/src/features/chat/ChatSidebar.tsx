@@ -92,7 +92,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
     api
       .getAppSettings()
       .then((s) => {
-        const v = (s as { chat_bypass_permissions?: boolean })?.chat_bypass_permissions;
+        const v = (s as { chat_bypass_permissions?: boolean } | undefined)?.chat_bypass_permissions;
         if (typeof v === 'boolean') setBypass(v);
       })
       .catch(() => {});

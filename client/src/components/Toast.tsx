@@ -31,7 +31,7 @@ export default function Toast({ toasts }: Props) {
           className={`px-4 py-2.5 rounded-lg border text-sm shadow-lg animate-slide-up flex items-center gap-2 ${STYLES[t.type] || STYLES.info}`}
         >
           {(() => {
-            const Icon = ICONS[t.type] || ICONS.info;
+            const Icon = ICONS[t.type];
             return <Icon size={16} className="flex-shrink-0" />;
           })()}
           {t.message}

@@ -62,7 +62,7 @@ async function tauriCall<T = unknown>(cmd: string, args: Record<string, unknown>
   try {
     return await internals.invoke<T>(cmd, args);
   } catch (e) {
-    const msg = typeof e === 'string' ? e : (e as { message?: string })?.message || 'Unknown error';
+    const msg = typeof e === 'string' ? e : (e as { message?: string } | undefined)?.message || 'Unknown error';
     notifyError(msg);
     throw new Error(msg);
   }
