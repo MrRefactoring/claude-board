@@ -133,7 +133,7 @@ export function useProjectForm(
       await api.initGitRepo(workingDir.trim(), prBaseBranch.trim() || 'main');
       refreshGitStatus();
     } catch (e) {
-      setGitInitError((e as Error)?.message || String(e));
+      setGitInitError((e as Error | undefined)?.message || String(e));
     } finally {
       setGitInitBusy(false);
     }

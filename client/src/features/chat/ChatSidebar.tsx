@@ -179,7 +179,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
         { role: 'assistant', content: text, action, actionState: action ? 'pending' : undefined },
       ]);
     } catch (e) {
-      const detail = (e as Error)?.message || (e as string) || 'Failed to get response';
+      const detail = (e as Error | undefined)?.message || (e as string) || 'Failed to get response';
       updateTabMessages(tabId, (prev) => [
         ...prev,
         { role: 'assistant', content: `Error: ${detail}`, isError: true },
@@ -208,7 +208,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
         await api.addTaskComment(a.task_id, typeof p.body === 'string' ? p.body : JSON.stringify(p.body ?? ''));
       }
     } catch (e) {
-      const detail = (e as Error)?.message || 'Failed to apply';
+      const detail = (e as Error | undefined)?.message || 'Failed to apply';
       updateTabMessages(activeId, (prev) =>
         prev.map((msg, i) => (i === idx ? { ...msg, actionState: 'error', actionError: detail } : msg)),
       );

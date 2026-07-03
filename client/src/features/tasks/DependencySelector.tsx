@@ -71,7 +71,7 @@ export default function DependencySelector({ taskId, allTasks, dependencies, onA
       await onAdd(taskId, depId);
       setSearch('');
     } catch (e) {
-      const msg = (e as Error)?.message || String(e);
+      const msg = (e as Error | undefined)?.message || String(e);
       setCycleError(msg.toLowerCase().includes('cycle') ? msg : 'Failed to add dependency');
       return;
     }

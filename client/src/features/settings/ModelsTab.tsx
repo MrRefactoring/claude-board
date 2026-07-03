@@ -77,7 +77,7 @@ export default function ModelsTab({ t, models }: ModelsTabProps) {
       await refreshModels();
       setEditing(null);
     } catch (e) {
-      setError((e as Error)?.message || String(e));
+      setError((e as Error | undefined)?.message || String(e));
     } finally {
       setBusy(false);
     }
@@ -90,7 +90,7 @@ export default function ModelsTab({ t, models }: ModelsTabProps) {
       await api.deleteCustomModel(id);
       await refreshModels();
     } catch (e) {
-      setError((e as Error)?.message || String(e));
+      setError((e as Error | undefined)?.message || String(e));
     } finally {
       setBusy(false);
     }

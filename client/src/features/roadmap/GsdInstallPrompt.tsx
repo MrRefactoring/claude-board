@@ -19,7 +19,7 @@ export function GsdInstallPrompt({ projectId, onInstalled }: GsdInstallPromptPro
       await api.gsdInstall(projectId, scope);
       onInstalled();
     } catch (e) {
-      setError(typeof e === 'string' ? e : (e as Error)?.message || 'Installation failed');
+      setError(typeof e === 'string' ? e : (e as Error | undefined)?.message || 'Installation failed');
     } finally {
       setInstalling(false);
     }

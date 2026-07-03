@@ -32,7 +32,7 @@ export function PhasePlanningModal({ phase, projectId, onClose, onRefresh }: Pha
       const result = (await api.planPhase(projectId, phase.id, model, 'medium')) as { planId?: string };
       if (result?.planId) setActivePlanId(result.planId);
     } catch (e) {
-      const msg = typeof e === 'string' ? e : (e as Error)?.message || 'Failed to start planning';
+      const msg = typeof e === 'string' ? e : (e as Error | undefined)?.message || 'Failed to start planning';
       setErrorMsg(msg);
       setStatus('idle');
     }
@@ -103,7 +103,7 @@ export function PhasePlanningModal({ phase, projectId, onClose, onRefresh }: Pha
       onRefresh();
       onClose();
     } catch (e) {
-      const msg = typeof e === 'string' ? e : (e as Error)?.message || 'Failed to approve plan';
+      const msg = typeof e === 'string' ? e : (e as Error | undefined)?.message || 'Failed to approve plan';
       setErrorMsg(msg);
       setStatus('proposals');
     }
