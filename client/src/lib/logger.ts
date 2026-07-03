@@ -78,9 +78,9 @@ export async function installGlobalErrorHandlers(): Promise<void> {
 
   // Uncaught synchronous errors
   window.addEventListener('error', (event) => {
-    const message = event?.error
+    const message = event.error
       ? safeStringify(event.error)
-      : `${event?.message || 'Unknown error'} @ ${event?.filename || '?'}:${event?.lineno || 0}`;
+      : `${event.message || 'Unknown error'} @ ${event.filename || '?'}:${event.lineno || 0}`;
     backend.error(`[frontend] uncaught: ${message}`);
   });
 
@@ -93,17 +93,15 @@ export async function installGlobalErrorHandlers(): Promise<void> {
   // Mirror console.error into the backend log so existing call sites benefit
   // without needing a codebase-wide rewrite. console.error continues to print
   // to the devtools console as well.
-  const origError = window.console?.error?.bind(window.console);
-  if (origError) {
-    window.console.error = (...args: unknown[]) => {
-      try {
-        backend.error(`[console.error] ${joinArgs(args)}`);
-      } catch {
-        // never let logging break the app
-      }
-      origError(...args);
-    };
-  }
+  const origError = window.console.error.bind(window.console);
+  window.console.error = (...args: unknown[]) => {
+    try {
+      backend.error(`[console.error] ${joinArgs(args)}`);
+    } catch {
+      // never let logging break the app
+    }
+    origError(...args);
+  };
 
   // Confirm wiring is live. Shows up in the log file on every boot so we can
   // tell whether the user is on a build that has logging enabled.
