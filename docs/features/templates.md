@@ -1,55 +1,20 @@
----
-title: "Prompt Templates"
-description: "Reusable prompt templates with variables and presets"
-icon: "file-lines"
----
+# Prompt Templates
 
-Prompt templates let you define reusable instruction patterns for tasks. Instead of writing the same boilerplate in every task description, create a template and apply it automatically.
+Per-project, per-task-type reusable instruction blocks that get injected into a task's prompt automatically, so common boilerplate doesn't need to be retyped per task.
 
-## How Templates Work
+## Behavior
+- A template has a `task_type` (one of `feature`/`bugfix`/`refactor`/`docs`/`test`/`chore`), a name/description, template text, and an optional `model`/`thinking_effort`.
+- When a task starts, the backend looks up the most recent template with an exact `task_type` match for the project (`find_for_task`) — there is no manual "apply template" step at task creation.
+- The matched template's raw text is inserted verbatim into the prompt as a `## Prompt Template: <name>` section, above the task title/description.
+- The editor supports `{{variable_name}}` placeholders with user-defined name/label/placeholder/default, but this is **preview-only**: the live preview in the Templates modal substitutes each variable's default/placeholder value client-side. The actual prompt sent to Claude does **not** perform substitution — `{{...}}` placeholders are injected as literal text.
 
-A template is a text block with optional **variables** that get replaced when a task starts. The rendered template is prepended to the task description before sending to Claude.
+> **Note:** The doc previously described built-in variables (`{{project_name}}`, `{{task_title}}`, etc.) resolved at task start, and `model`/`thinking_effort` overriding task defaults. Neither is implemented: `model`/`thinking_effort` are stored on the template and editable in the UI but are never read when a task runs — only the template text is used.
 
-```
-You are working on the {{project_name}} project.
-Task type: {{task_type}}
-Priority: {{priority}}
+## Edge cases
+- No template matches the task's type → no template section is added; task runs with just its own description/criteria.
 
-Always write tests for new code.
-Follow the existing code style.
-Commit with descriptive messages.
-```
-
-## Variables
-
-Templates support these built-in variables:
-
-| Variable | Resolves To |
-|----------|-------------|
-| `{{project_name}}` | The project's name |
-| `{{task_title}}` | The task's title |
-| `{{task_type}}` | `feature`, `bugfix`, `refactor`, etc. |
-| `{{priority}}` | `low`, `medium`, `high`, `urgent` |
-| `{{model}}` | `opus`, `sonnet`, `haiku` |
-
-## Task Type Defaults
-
-Assign a default template to each task type. When a new task of that type is created, the template is automatically applied:
-
-| Task Type | Example Template Focus |
-|-----------|----------------------|
-| `feature` | Architecture guidelines, test requirements |
-| `bugfix` | Reproduce first, minimal fix, add regression test |
-| `refactor` | No behavior changes, maintain test coverage |
-| `docs` | Follow style guide, update table of contents |
-| `test` | Coverage targets, edge cases, mocking strategy |
-
-## Model and Effort Presets
-
-Templates can also specify default **model** and **thinking effort** values. When applied, these override the task defaults unless the user explicitly changes them.
-
-<Tip>Create a "quick fix" template with `haiku` model and `low` effort for trivial tasks, and a "deep feature" template with `opus` and `high` effort for complex work.</Tip>
-
-## Managing Templates
-
-Create, edit, and delete templates via project settings or the [Templates API](/api/templates).
+## Key code
+- `src-tauri/src/db/templates.rs` — `prompt_templates` table, `find_for_task` (exact type match, newest first)
+- `src-tauri/src/claude/runner.rs` — looks up the template before building the prompt
+- `src-tauri/src/claude/prompt.rs` — `build_prompt` inserts `tmpl.template` verbatim
+- `client/src/features/templates/TemplatesModal.tsx` — CRUD UI, variable editor, client-side `TemplatePreview` substitution

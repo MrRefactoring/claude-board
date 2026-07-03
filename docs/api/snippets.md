@@ -1,72 +1,17 @@
----
-title: "Snippets API"
-description: "CRUD endpoints for context snippets"
-icon: "puzzle-piece"
----
+# Snippets API
 
-## List Snippets
+Reusable text blocks injected into an agent's prompt context. Tauri IPC only — no HTTP route exists.
 
-```http
-GET /api/projects/:projectId/snippets
-```
+## Commands
+- `get_snippets(projectId)` — all snippets for a project.
+- `create_snippet(projectId, title, content)` — creates and returns the `Snippet`, emits `snippet:created`.
+- `update_snippet(id, title, content, enabled)` — all three fields required (no partial update), emits `snippet:updated`.
+- `delete_snippet(id)` — emits `snippet:deleted`.
 
-Returns all context snippets for a project.
+## Notes
+- The field is `title`, not `name`. There is no `enabled` default on create — `update_snippet` requires it explicitly on every call.
+- `services/http_api.rs` defines no `/api/.../snippets` routes at all — snippet CRUD only works inside the Tauri app, unlike what a REST-style `/api/projects/:id/snippets` path might suggest.
 
-```json
-[
-  {
-    "id": 1,
-    "projectId": 1,
-    "name": "Code Style",
-    "content": "Use TypeScript strict mode...",
-    "enabled": true,
-    "createdAt": "2025-01-15T10:00:00Z"
-  }
-]
-```
-
-## Get Snippet
-
-```http
-GET /api/projects/:projectId/snippets/:id
-```
-
-## Create Snippet
-
-```http
-POST /api/projects/:projectId/snippets
-Content-Type: application/json
-```
-
-```json
-{
-  "name": "Code Style",
-  "content": "Use TypeScript strict mode.\nPrefer functional components.\nUse named exports.",
-  "enabled": true
-}
-```
-
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `name` | Yes | — | Display name for the snippet |
-| `content` | Yes | — | Text injected into Claude's prompt |
-| `enabled` | No | `true` | Whether to include in prompts |
-
-## Update Snippet
-
-```http
-PUT /api/projects/:projectId/snippets/:id
-Content-Type: application/json
-```
-
-Accepts the same fields as Create. Only included fields are updated.
-
-<Tip>Toggle a snippet off by sending `{ "enabled": false }` — this preserves the content while excluding it from future prompts.</Tip>
-
-## Delete Snippet
-
-```http
-DELETE /api/projects/:projectId/snippets/:id
-```
-
-<Note>Deleting a snippet is permanent. If you want to temporarily remove it from prompts, disable it instead.</Note>
+## Key code
+- `src-tauri/src/commands/snippets.rs` — Tauri commands
+- `src-tauri/src/db/snippets.rs` — `Snippet` struct

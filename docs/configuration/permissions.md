@@ -1,62 +1,33 @@
----
-title: "Permissions"
-description: "Control what tools Claude agents can use"
-icon: "shield-halved"
----
+# Permissions
 
-Permission modes determine how Claude interacts with your system. Since Claude Board runs with `--no-input` (no interactive prompts), permission configuration is critical.
+Per-project setting controlling which tools an agent can use without a human in the loop. Values: `permission_mode` = `"auto-accept"` | `"allow-tools"` | `"default"`.
 
-## Permission Modes
+## Behavior
 
-<Tabs>
-  <Tab title="Auto Accept">
-    Claude can use **all** tools without asking for permission. This is the most productive mode — Claude won't get stuck waiting for approval.
+Applied when building the `claude` CLI args (`runner.rs::build_claude_args`):
 
-    ```
-    claude --no-input --dangerously-skip-permissions
-    ```
+### Auto Accept (`auto-accept`)
+Passes `--dangerously-skip-permissions`. Full tool access, no prompts. Default for new projects.
 
-    <Warning>This gives Claude full access to read, write, and execute commands in your project directory. Only use on trusted codebases or sandboxed environments.</Warning>
-  </Tab>
-  <Tab title="Allowed Tools">
-    Only the tool categories you specify are permitted. Claude can use these freely but cannot access anything else.
+### Allowed Tools (`allow-tools`)
+Passes `--allowedTools <tool>` once per entry in `allowed_tools` (comma-separated, e.g. `Bash, Read, Write, Edit, Glob, Grep`). If the list is empty, falls back to `--dangerously-skip-permissions` rather than blocking every tool.
 
-    ```
-    claude --no-input --allowedTools "Read,Edit,Write,Bash"
-    ```
+### Default (`default`)
+Since the CLI runs headless (`-p`, no TTY) it can't show an interactive permission prompt. Claude Board instead routes permission requests through an MCP tool: any explicitly `allowed_tools` are pre-approved, and `--permission-prompt-tool mcp__claude-board__approve_permission` is registered for everything else. When Claude wants an unapproved tool, it calls that MCP tool, which creates a pending request (`services/permissions.rs`) shown to the user as an approval card (Yes / Yes-always / Deny) in the UI. The task is not blocked forever — the sidecar polls with a timeout (~5 min) and pending requests are cleaned up after ~10 min.
 
-    This is a good middle ground — you control the blast radius while keeping Claude autonomous.
-  </Tab>
-  <Tab title="Default">
-    Uses Claude CLI's built-in permission system. This may cause agents to stall if they need a tool that requires interactive approval.
+> **Note:** This is not "may cause agents to stall" — it's a live approval workflow. It does mean the task pauses until someone responds to the card (or it times out).
 
-    <Note>Not recommended for Claude Board since `--no-input` prevents interactive permission prompts.</Note>
-  </Tab>
-</Tabs>
+## Tool names
 
-## Tool Categories
+Actual tool identifiers used by the `allow-tools` UI (`PermissionsSection.tsx` hint text): `Bash, Read, Write, Edit, Glob, Grep, Agent, WebSearch, WebFetch, NotebookEdit`. These are the Claude Code CLI's own tool names, not a Claude-Board-defined category list.
 
-When using Allowed Tools mode, you can permit any combination of:
+## "Always allow" scope
 
-| Tool | What It Does |
-|------|--------------|
-| `Read` | Read file contents from disk |
-| `Edit` | Modify existing files |
-| `Write` | Create new files |
-| `Bash` | Execute shell commands |
-| `Glob` | Search for files by pattern |
-| `Grep` | Search file contents by regex |
+"Remember" on an approval card adds the tool to an in-memory, session-only allow-set (`PermState.remembered`) — nothing is persisted to disk or the DB. It resets on app restart. This applies to both the task runner and the separate AI chat feature (which has its own `chat_bypass_permissions` app setting).
 
-## Recommendations
+## Key code
 
-<AccordionGroup>
-  <Accordion title="Getting started">
-    Use **Auto Accept** to avoid agents getting stuck. This is the fastest way to see results.
-  </Accordion>
-  <Accordion title="Production projects">
-    Use **Allowed Tools** with `Read,Edit,Write,Bash,Glob,Grep` for full functionality with explicit control.
-  </Accordion>
-  <Accordion title="Read-only analysis">
-    Use **Allowed Tools** with only `Read,Glob,Grep` if you want Claude to analyze code without making changes.
-  </Accordion>
-</AccordionGroup>
+- `src-tauri/src/claude/runner.rs::build_claude_args` — mode → CLI flags
+- `src-tauri/src/services/permissions.rs` — pending-request registry, resolve/remember logic, cleanup
+- `src-tauri/src/commands/permissions.rs` — `get_pending_permissions` / `resolve_permission` (desktop); `services::http_api` exposes the same for the MCP sidecar and web mode
+- `client/src/features/projects/PermissionsSection.tsx` — mode picker UI

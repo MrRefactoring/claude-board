@@ -1,96 +1,40 @@
----
-title: "Orchestration View"
-description: "Mission control for multi-agent parallel execution with DAG graph, timeline, and live observability"
-icon: "sitemap"
----
+# Orchestration View
 
-The Orchestration View is your mission control for managing multiple Claude agents running in parallel. It provides three viewing modes: dependency graph, execution timeline, and live observability dashboard.
+Mission control for multi-agent parallel execution: visualizes the task DAG, execution timeline, and live agent activity, kept fresh via realtime events instead of polling.
 
-## View Modes
+## Behavior
+- Four view modes toggled top-right (`OrchestrationView.tsx`): **Graph**, **Timeline**, **Live**, **Battle**.
+- **Graph** (`DependencyGraph.tsx`) — SVG DAG. Nodes colored by status: backlog gray, in_progress amber, testing purple, done green, failed red. Edges colored/dashed by `condition_type`: `always` (gray solid), `on_success` (green dashed), `on_failure` (red dashed). Hover highlights a node's edges; click opens task detail; shift+drag between nodes creates a dependency edge; plain drag repositions a node and persists its position.
+- **Timeline** (`TimelineView.tsx`) — Gantt-style bars grouped by wave, auto-scaling time axis, "NOW" marker, dependency overlays.
+- **Live** (`ObservabilityPanel.tsx`) — per-agent activity cards (task, model, elapsed time, tool-call count, tokens, cost, active files), a file heatmap, and a chronological tool-call feed with pause.
+- **Battle** (`BattleView.tsx`) — gamified arena view (avatar sprites, HP bars driven by token usage, conflict duels); separate feature, not detailed here.
+- View auto-refreshes on the `task:updated` event (status changes, dependency edits, new tasks) — no polling.
 
-Switch between modes using the toggle buttons at the top right of the orchestration view.
+## Wave execution & dispatch
+- `db/dependencies.rs::get_execution_waves` groups tasks into waves: wave 0 = no unmet dependencies, wave N = deps satisfied by waves `0..N-1`. Used for the Graph/Timeline visualization.
+- Actual runtime dispatch does **not** walk waves directly: `services/queue.rs::start_next_queued` repeatedly pulls `dependencies::get_ready_tasks` (DAG-ready backlog tasks) and starts up to the number of free concurrency slots.
 
-<Tabs>
-  <Tab title="Graph">
-    Interactive SVG dependency graph showing tasks as nodes and dependencies as directed edges. Nodes are color-coded by status: gray (backlog), amber (in progress), green (done). Running tasks pulse with an animated progress bar.
+## Agent identity
+- Each started task gets a random name from a themed pool (`Nova`, `Atlas`, `Spark`, `Echo`, ... — `claude/runner.rs::AGENT_NAMES`, 30 names) via `assign_agent_name`, persisted on `tasks.agent_name`. UI displays "Agent \<name\>", falling back to `Agent <id>` if unset.
 
-    **Conditional edges** are color-coded:
-    - **Gray solid** — Always (default dependency)
-    - **Green dashed** — On Success (runs only if parent succeeds)
-    - **Red dashed** — On Failure (runs only if parent fails)
-  </Tab>
-  <Tab title="Timeline">
-    Gantt-style horizontal timeline showing when each task started, how long it ran, and wave groupings. Features include:
-    - Auto-scaling time axis (minutes/hours/days)
-    - "NOW" marker (red dashed line)
-    - Running task bars with pulse animation
-    - Hover tooltips with token/cost/model info
-    - Dependency edge overlays with conditional coloring
-  </Tab>
-  <Tab title="Live">
-    Real-time observability dashboard showing all active agents, file access patterns, and a live activity feed.
+## File conflict detection
+- `claude/events.rs` emits `agent:file_conflict` when multiple agents touch the same file. `ObservabilityPanel.tsx` listens for it (the event is cast at the call site since it isn't part of the shared `AppEventMap`) and highlights conflicts in the Live heatmap and on agent cards.
 
-    **Agent Activity Cards** — Each running agent shows: task title, model, elapsed time, tool call count, token usage, cost, and active files being accessed.
+## Settings
+Project-level (`db/projects.rs` / `schema.rs`):
+- `max_concurrent` (int, default 1) — concurrency cap enforced in `queue::start_next_queued`; counts only tasks whose process is actually alive (`runner::is_running`/`is_starting`), not just DB status
+- `auto_queue` (bool) — must be on for `start_next_queued` to do anything
+- `circuit_breaker_threshold` / `circuit_breaker_active` / `consecutive_failures` — after N consecutive task failures the queue auto-pauses (`activate_circuit_breaker`) until manually reset
 
-    **File Heatmap** — Visual map of which files are being accessed by which agents. Conflicts (multiple agents accessing the same file) are highlighted in red.
+## Edge cases
+- An edge with no `condition_type` defaults to `"always"`.
+- On failure, a task retries up to `EngineConfig.max_retries` with backoff (`retry_delay`) before permanently moving to `failed`; permanent failures increment the circuit-breaker counter.
+- A background queue-poll thread runs every 15s, calling `runner::enforce_timeouts` before each dispatch pass, so a hung/timed-out task frees its concurrency slot without requiring a UI action.
 
-    **Live Feed** — Chronological stream of all tool calls across all agents with timestamps, tool names, and file paths. Includes a pause button.
-
-    **Stats Bar** — Total agents running, tool calls, tokens, cost, and conflict count.
-  </Tab>
-  <Tab title="Battle">
-    Gamified arena view where running agents appear as avatar sprites on a 2D map. Features include:
-    - Emoji projectiles that fly between agents on token usage
-    - HP bars that decrease as tokens are consumed
-    - Explosion effects with shrapnel particles on impact
-    - Critical hit damage numbers floating up
-    - File conflict lines with "VS" markers
-    - Victory crowns and defeat skulls
-    - Idle bobbing animation for active agents
-
-    See [Battle View](/features/battle-view) for full details.
-  </Tab>
-</Tabs>
-
-## Wave Execution
-
-Tasks are grouped into **waves** based on their dependency structure:
-
-```
-Wave 0: [Tasks with no dependencies]     → run in parallel
-Wave 1: [Tasks depending on Wave 0]      → start when Wave 0 completes
-Wave 2: [Tasks depending on Wave 0 + 1]  → start when deps complete
-```
-
-## Live Agent Cards
-
-Each running Claude agent gets a named card in the sidebar with a unique avatar (e.g., 'Agent Nova') (Graph/Timeline modes) showing:
-
-- Task title and key
-- Model (Haiku/Sonnet/Opus) and elapsed time
-- Live token usage (input/output breakdown)
-- Real-time cost estimate
-- Last tool call with file path
-- Turn count
-- Token progress bar
-
-## File Conflict Detection
-
-When multiple agents access the same file simultaneously, Claude Board detects potential conflicts:
-
-- **Write/Edit conflicts** trigger an `agent:file_conflict` event
-- The Live view highlights conflicting files in red
-- Agent cards show conflict warnings
-
-<Tip>Set max concurrent agents to 2-3 and use task dependencies to prevent agents from editing overlapping files simultaneously.</Tip>
-
-## Graph Interaction
-
-- **Hover** a node to highlight its dependency edges
-- **Click** a node to open task details
-- **Shift+drag** from one node to another to create a dependency edge
-- **Drag** nodes to reposition them (positions are saved)
-
-## Auto-Refresh
-
-The view automatically refreshes on `task:updated` events — instant updates when tasks change status, dependencies are modified, or new tasks are created.
+## Key code
+- `src-tauri/src/services/queue.rs` — concurrency slots, DAG-ready dispatch, retry/circuit-breaker, parent-task roll-up
+- `src-tauri/src/db/dependencies.rs` — wave computation, ready-task query, `condition_type` semantics
+- `src-tauri/src/claude/runner.rs` — agent name assignment, process tracking
+- `src-tauri/src/claude/events.rs` — `agent:file_conflict` emission
+- `client/src/features/board/OrchestrationView.tsx` — view-mode switch, event subscriptions
+- `client/src/features/board/DependencyGraph.tsx`, `TimelineView.tsx`, `ObservabilityPanel.tsx`, `BattleView.tsx`, `AgentCard.tsx` — per-mode rendering

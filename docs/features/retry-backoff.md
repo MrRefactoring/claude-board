@@ -1,73 +1,39 @@
----
-title: "Retry & Backoff"
-description: "Exponential backoff retry strategy for failed tasks"
-icon: "rotate"
----
+# Retry & Backoff
 
-When a task fails, Claude Board automatically retries it with increasing delays to avoid hammering rate limits and give transient issues time to resolve.
+Automatic retry of failed tasks with exponential backoff and jitter, so transient failures and rate limits get a delay before the queue retries them.
 
-## How It Works
+## Behavior
 
-Failed tasks follow an exponential backoff strategy with jitter:
+- On task failure, `handle_task_failure` compares `task.retry_count` against `EngineConfig.max_retries` (resolved per project).
+  - If `retry_count < max_retries`: increments `retry_count`, moves the task to `backlog`, computes a backoff delay, stamps `retry_after = now + delay`, and logs it. The queue poller/`get_ready_tasks` skips the task until `retry_after` passes, then it's picked up like any other ready task.
+  - If exhausted: increments `retry_count` once more, moves the task to `failed` permanently, and feeds the project's circuit-breaker consecutive-failure counter.
+- **Delay formula:** `delay = min(retry_base_delay_secs * 2^retry_count, retry_max_delay_secs)`, then ±20% jitter is applied and the result is floored at 10s. Defaults: base 30s, max 600s (matches the doc's schedule: 1st ~30s, 2nd ~60s, 3rd ~120s, 4th ~240s, 5th+ capped at 600s).
+- Both `retry_base_delay_secs` and `retry_max_delay_secs` are **per-project configurable**, not fixed constants — see Settings.
 
-<Tabs>
-  <Tab title="Delay Schedule">
-    | Retry | Base Delay | With Jitter (±20%) |
-    |-------|-----------|---------------------|
-    | 1st | 30s | 24–36s |
-    | 2nd | 60s | 48–72s |
-    | 3rd | 120s | 96–144s |
-    | 4th | 240s | 192–288s |
-    | 5th+ | 600s (max) | 480–600s |
-  </Tab>
-  <Tab title="Formula">
-    ```
-    delay = min(30s × 2^retry_count, 600s) + random_jitter(±20%)
-    ```
+## Settings
 
-    The jitter prevents multiple failed tasks from retrying at exactly the same time (thundering herd problem).
-  </Tab>
-</Tabs>
+Project settings (Engine section):
 
-## Retry Flow
+| Setting | Field | Default | Range |
+|---|---|---|---|
+| Max Retries | `max_retries` | 2 (0 in form = "use default") | 0–10 |
+| Retry Base Delay | `retry_base_delay_secs` | 30s | 0–3600 |
+| Retry Max Delay | `retry_max_delay_secs` | 600s | 0–7200 |
 
-<Steps>
-  <Step title="Task fails" icon="xmark">
-    The Claude process exits with a non-zero exit code (crash, rate limit, timeout, etc.)
-  </Step>
-  <Step title="Retry check" icon="rotate">
-    Claude Board checks if `retry_count < max_retries`. If yes, the task is moved back to **Backlog** with a `retry_after` timestamp.
-  </Step>
-  <Step title="Backoff delay" icon="clock">
-    The queue poller skips the task until the `retry_after` timestamp expires.
-  </Step>
-  <Step title="Auto-restart" icon="play">
-    Once the delay expires, the queue picks up the task and starts a new agent.
-  </Step>
-</Steps>
+`0`/unset for any of these means "use the built-in default," per `EngineConfig::resolve`. Setting Max Retries to 0 disables retrying — failed tasks go straight to `failed`.
 
-If all retries are exhausted, the task moves to [**Failed** status](/features/failed-status) permanently.
+## Edge cases
 
-## Configuration
+- Manually moving a task to `backlog`, or to `in_progress` from `failed`, resets `retry_count` to 0 and clears `retry_after` (`reset_retry_count`) — matches the doc's manual-reset behavior.
+- Auto-test rejection follows a separate auto-revision cycle (`max_auto_revisions`, default 3) before a task ever reaches the retry/backoff path described here.
+- Circuit breaker: once `max_retries` is exhausted, the project's consecutive-failure counter increments; if it reaches `circuit_breaker_threshold`, the queue pauses (see `docs/features/circuit-breaker.md`).
 
-Set max retries per project in **Project Settings > Automation**:
+## Key code
 
-| Setting | Default | Range | Description |
-|---------|---------|-------|-------------|
-| Max Retries | 2 | 0–10 | Number of retry attempts before permanent failure |
-
-<Tip>Set max retries to **0** to disable automatic retrying. Failed tasks will immediately move to Failed status.</Tip>
-
-## Manual Reset
-
-Moving a failed task back to **Backlog** or **In Progress** resets the retry counter to 0, giving it a fresh start.
-
-## When Retries Trigger
-
-Retries activate when a task fails due to:
-- **Rate limiting** — Claude API returns 429
-- **Process crash** — unexpected exit code
-- **Timeout** — task exceeds the [configured timeout](/features/task-timeout)
-- **Auto-test rejection** — tests fail and auto-revision is enabled
-
-<Info>Tasks that complete successfully but fail during auto-testing follow a separate [auto-revision](/features/auto-test) flow before entering the retry cycle.</Info>
+- `src-tauri/src/services/queue.rs` — `handle_task_failure` (retry vs. permanent-fail branch, circuit-breaker hook).
+- `src-tauri/src/claude/state_machine.rs` — `EngineConfig` (defaults, `from_project`, `retry_delay` formula).
+- `src-tauri/src/db/dependencies.rs` — `get_ready_tasks` filters on `retry_count`/`retry_after`.
+- `src-tauri/src/db/tasks.rs` — `increment_retry`, `set_retry_after`, `reset_retry_count`.
+- `src-tauri/src/commands/tasks.rs` — resets `retry_count` on manual status change to `backlog`/`in_progress`.
+- `client/src/features/projects/EngineSection.tsx` — Retry Base/Max Delay fields.
+- `client/src/features/projects/AutomationSection.tsx` — Max Retries field.

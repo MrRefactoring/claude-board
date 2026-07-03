@@ -1,90 +1,21 @@
----
-title: "Webhooks API"
-description: "CRUD and test endpoints for webhook configuration"
-icon: "bell"
----
+# Webhooks API
 
-## List Webhooks
+Outbound notifications (Slack/Discord/custom) fired on task lifecycle events. Tauri IPC only — no HTTP route exists.
 
-```http
-GET /api/projects/:projectId/webhooks
-```
+## Commands
+- `get_webhooks(projectId)` — all webhooks for a project.
+- `create_webhook(projectId, name, url, platform?, events?)` — `platform` and `events` (list of event-type strings to filter on; empty = all) are optional. Emits `webhook:created`.
+- `update_webhook(id, name, url, platform?, events?, enabled?)` — `enabled` defaults `true`. Emits `webhook:updated`.
+- `delete_webhook(id)` — emits `webhook:deleted`.
+- `test_webhook(id)` — POSTs a synthetic `{ event: "test", message, timestamp }` payload to the webhook URL, returns `"Status: <code>"`.
 
-Returns all webhooks configured for a project.
+## Notes
+- `create_webhook` requires `name` — the record isn't just `platform`/`url`/`events`.
+- Delivery (`services::webhook::fire`) is called from the task runner and queue, not from a generic event bus. The real `event_type` strings dispatched (and matchable in a webhook's `events` filter) are: `task_started`, `task_completed`, `task_failed`, `task_timeout`, `test_started`, `test_passed`, `test_failed`, `revision_requested`, `queue_auto_started`, `circuit_breaker_activated` — **not** colon-namespaced names like `task:completed`.
+- Payload shape depends on `platform`: `discord` → Discord embed (color-coded by event type), `slack` → Slack `blocks` section, anything else (`custom`/unset) → `{ event, message, timestamp, metadata }`.
+- No HTTP route exists under `/api/.../webhooks` — CRUD and test-send are Tauri-only.
 
-```json
-[
-  {
-    "id": 1,
-    "projectId": 1,
-    "platform": "slack",
-    "url": "https://hooks.slack.com/services/...",
-    "events": ["task:completed", "task:approved"],
-    "enabled": true
-  }
-]
-```
-
-## Get Webhook
-
-```http
-GET /api/projects/:projectId/webhooks/:id
-```
-
-## Create Webhook
-
-```http
-POST /api/projects/:projectId/webhooks
-Content-Type: application/json
-```
-
-```json
-{
-  "platform": "slack",
-  "url": "https://hooks.slack.com/services/T00/B00/xxx",
-  "events": ["task:completed", "task:approved"],
-  "enabled": true
-}
-```
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `platform` | Yes | `slack`, `discord`, `teams`, `custom` |
-| `url` | Yes | Webhook endpoint URL |
-| `events` | Yes | Array of event types to subscribe to |
-| `enabled` | No | Default `true` |
-
-### Available Events
-
-| Event | Trigger |
-|-------|---------|
-| `task:created` | New task added |
-| `task:started` | Task moved to In Progress |
-| `task:completed` | Agent finished, task in Testing |
-| `task:approved` | Task approved, moved to Done |
-| `task:changes_requested` | Reviewer requested revisions |
-
-## Update Webhook
-
-```http
-PUT /api/projects/:projectId/webhooks/:id
-Content-Type: application/json
-```
-
-Accepts the same fields as Create.
-
-## Delete Webhook
-
-```http
-DELETE /api/projects/:projectId/webhooks/:id
-```
-
-## Test Webhook
-
-```http
-POST /api/projects/:projectId/webhooks/:id/test
-```
-
-Sends a sample payload to the webhook URL using the configured platform format. Returns the HTTP status code from the target endpoint.
-
-<Tip>Always test webhooks after creation to verify the URL and authentication are correct.</Tip>
+## Key code
+- `src-tauri/src/commands/webhooks.rs` — Tauri CRUD + `test_webhook`
+- `src-tauri/src/services/webhook.rs` — `fire`/`dispatch`, per-platform payload building
+- `src-tauri/src/claude/runner.rs`, `src-tauri/src/commands/tasks.rs`, `src-tauri/src/services/queue.rs` — call sites for `webhook::fire`

@@ -1,52 +1,26 @@
----
-title: "Analytics"
-description: "Cost tracking, performance metrics, model comparison, and efficiency dashboard"
-icon: "chart-mixed"
----
+# Analytics
 
-The Analytics view provides comprehensive cost tracking, model comparison, efficiency metrics, and a sortable task performance table. Access it from the board toolbar (TrendingUp icon).
+Per-project cost, token, and performance dashboard, computed client-side from task usage fields plus the `get_project_stats` aggregate.
 
-## Cost Summary
+## Behavior
+- Accessible from the board toolbar as the `analytics` view mode (`TrendingUp` icon), rendered by `AnalyticsView`.
+- Summary cards: Total Cost, Total Tokens (input/output split), Avg Cost/Task, Avg Tokens/Task — computed from all tasks' `total_cost`, `input_tokens`, `output_tokens` (averages only over tasks with `total_cost > 0`).
+- Model Comparison: bar chart grouping tasks by normalized model (`haiku`/`sonnet`/`opus`/`unknown`, matched by substring on `model_used`/`model`), showing task count, tokens, and cost per model, sorted by cost descending.
+- Cost Trend: daily bar chart built from `stats.recentCompleted` (from `get_project_stats`), bucketed by day; hover shows cost, tokens, and task count for that day.
+- Efficiency metrics:
+  - **Throughput** — completed tasks (`status` in `done`/`testing`) per hour of summed `work_duration_ms`.
+  - **Success Rate** — `completed / total` tasks, colored green (>80%), amber (>50%), red otherwise.
+  - **Cache Rate** — `cache_read_tokens / input_tokens` across all tasks.
+  - **Avg Turns** — mean `num_turns` over tasks with cost data.
+- Task Performance table: tasks with `started_at` and some usage data, sortable by Cost (default), Tokens, or Duration (click column header, toggles asc/desc), capped to the top 20 rows. Top 3 rows are flagged with a warning icon when sorted by cost descending.
+- Data refresh is manual via the refresh button (no polling/live updates).
 
-Four stat cards at the top show:
+## Edge cases
+- If there are no tasks at all, the view renders an empty state (`analytics.noData`) instead of the dashboard.
+- Model Comparison, Cost Trend, and Task Performance sections are hidden entirely when their underlying data is empty.
 
-| Metric | Description |
-|--------|-------------|
-| **Total Cost** | Cumulative API cost across all tasks |
-| **Total Tokens** | Input + output tokens with breakdown |
-| **Avg Cost/Task** | Average cost per task with usage |
-| **Avg Tokens/Task** | Average token consumption |
-
-## Model Comparison
-
-A bar chart comparing models by cost and token usage:
-
-- Each model (Haiku, Sonnet, Opus) shows task count, total tokens, and total cost
-- Color-coded by model: green (Haiku), blue (Sonnet), purple (Opus)
-- Helps identify which model is most cost-effective for your workload
-
-## Cost Trend
-
-Daily cost chart showing spending over time. Hover for exact values per day (cost, tokens, task count).
-
-## Efficiency Metrics
-
-Four efficiency cards:
-
-| Metric | Description |
-|--------|-------------|
-| **Throughput** | Tasks completed per hour of work time |
-| **Success Rate** | Percentage of tasks reaching done/testing vs total |
-| **Cache Rate** | Prompt cache hit percentage (higher = cheaper) |
-| **Avg Turns** | Average conversation turns per task |
-
-## Task Performance Table
-
-A sortable table of all tasks with usage data:
-
-- **Sort by**: Cost (default), Tokens, or Duration — click column headers
-- **Columns**: Task key, title, model, duration, tokens, cost
-- **Top 3 most expensive** tasks are highlighted with a warning icon
-- Paginated to 20 rows
-
-<Tip>Sort by cost descending to identify expensive tasks. Consider using a cheaper model (Haiku) for simple tasks like docs or chores.</Tip>
+## Key code
+- `client/src/features/board/AnalyticsView.tsx` — all analytics computation and rendering
+- `client/src/features/board/Board.tsx` — registers the `analytics` view mode / toolbar entry
+- `client/src/lib/api.ts` — `getStats` (backs the cost-trend timeline)
+- `src-tauri/src/commands/stats.rs`, `src-tauri/src/db/stats.rs` — `get_project_stats` aggregate endpoint

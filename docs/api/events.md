@@ -1,144 +1,48 @@
----
-title: "Tauri Events"
-description: "Real-time events via the Tauri event system"
-icon: "bolt"
----
+# Realtime Events
 
-Claude Board uses [Tauri's event system](https://v2.tauri.app/develop/calling-rust/#event-system) for real-time communication between the Rust backend and the frontend. All board updates, terminal logs, and usage metrics are delivered through Tauri events.
+Typed event bus shared by the Tauri desktop shell (native events) and the web fallback (Socket.IO), keyed by name in `client/src/lib/events.ts` (`AppEventMap`).
 
-## Listening for Events
+## How it's emitted
+- Tauri command handlers call `app.emit(name, payload)` directly.
+- Code without an `AppHandle` (e.g. the Axum HTTP handlers used by the MCP sidecar) goes through `services::events::emit(name, payload)`, a global bridge that stashes the `AppHandle` at startup (`services/events.rs`) and no-ops if no Tauri shell is attached.
+- Listen on the frontend via `lib/tauriEvents.ts` (Tauri) or `lib/socket.ts` (web); both are typed against `AppEventMap`.
 
-Subscribe to events on the frontend using the Tauri events API:
+## Task events
+- `task:created` — payload: full `Task`.
+- `task:updated` — payload: `Partial<Task> & { id }`.
+- `task:deleted` — `{ id }`.
+- `task:log` — streamed agent output: `{ taskId, message, logType, meta? }`. `logType` ∈ `claude | tool | system | error | success | info`.
+- `task:usage` — `{ taskId, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, total_tokens, total_cost? }` (cost only on the final usage event).
+- `task:attachments` — `{ taskId, attachments: Attachment[] }` (full list, after an upload).
+- `task:attachmentDeleted` — `{ taskId, id }`.
+- `task:test_started` — `{ taskId, model }` (auto-test run begins).
+- `task:test_completed` — `{ taskId, verdict, summary?, autoRevision?, maxRevisionsReached? }`. `verdict` ∈ `approve | reject | error | skipped | unknown`.
+- `comment:created` — `{ taskId, comment: TaskComment }`.
 
-```javascript
-import { listen } from "@tauri-apps/api/event";
+## Agent / process events
+- `claude:finished` — `{ taskId, exitCode }` (Claude process exited).
+- `claude:limits` — `{ rateLimitType, status, resets_at, overageStatus, isUsingOverage }`.
+- `agent:file_conflict` — emitted on a Write/Edit tool call when another task is already touching the same file: `{ taskId, conflictingTaskId, filePath, toolName }`.
+- `chat:activity` — Tauri-only, compact AI-chat activity log: `{ kind, label }`.
 
-const unlisten = await listen("task:updated", (event) => {
-  console.log("Task updated:", event.payload);
-});
+## Project / CRUD events
+- `project:created` / `project:updated` — full `Project`. `project:deleted` — `{ id }`.
+- `project:circuit_breaker` — `{ projectId, active }`.
+- `snippet:created` / `snippet:updated` / `snippet:deleted` — `Snippet` / `Snippet` / `{ id }`.
+- `template:created` / `template:updated` / `template:deleted` — `Template` / `Template` / `{ id }`.
+- `role:created` / `role:updated` / `role:deleted` — `Role` / `Role` / `{ id }`.
+- `webhook:created` / `webhook:updated` / `webhook:deleted` — `Webhook` / `Webhook` / `{ id }`.
 
-// Call unlisten() to unsubscribe when no longer needed
-```
+## Planning events (Tauri-only)
+`plan:started`, `plan:phase`, `plan:progress`, `plan:log`, `plan:stats`, `plan:completed`, `plan:cancelled` — see `docs/api/planning.md` for payload shapes. Emitted directly via `app.emit` from `commands/planning.rs`, not through the shared `services::events` bridge, and not in the Socket.IO fallback list in `socket.ts`.
 
-## Task Events
+## Other
+- `gsd:installing` / `gsd:installed` / `gsd:install_failed`, `roadmap:updated`, `scan:started` / `scan:stats` / `scan:progress` / `scan:completed` — roadmap/GSD and codebase-scan progress events (see `docs/api/claude-manager.md`).
+- `menu:preferences`, `update:available`, `update:ready` — desktop-shell only, not part of the Socket.IO event set.
 
-### task:created
+> **Note:** Filter by `taskId` / `projectId` on the frontend — events are broadcast globally, not scoped per subscriber.
 
-Emitted when a new task is added to any project.
-
-```json
-{
-  "task": { "id": 1, "title": "Add login", "status": "backlog", "projectId": 1 }
-}
-```
-
-### task:updated
-
-Emitted when a task's fields or status change.
-
-```json
-{
-  "task": { "id": 1, "title": "Add login", "status": "in_progress", "projectId": 1 }
-}
-```
-
-### task:deleted
-
-Emitted when a task is removed.
-
-```json
-{ "taskId": 1, "projectId": 1 }
-```
-
-## Agent Events
-
-### task:log
-
-Streamed in real-time as the Claude agent produces output.
-
-```json
-{
-  "taskId": 1,
-  "type": "tool",
-  "content": "Reading file: src/app.ts",
-  "timestamp": "2025-01-15T10:30:00Z"
-}
-```
-
-Log types: `claude`, `tool`, `tool_result`, `system`, `error`
-
-### task:usage
-
-Periodic token usage updates for a running task.
-
-```json
-{
-  "taskId": 1,
-  "inputTokens": 5000,
-  "outputTokens": 1200,
-  "cacheRead": 800,
-  "cacheCreation": 200,
-  "cost": 0.45
-}
-```
-
-### claude:limits
-
-Emitted when the agent encounters API rate limits.
-
-```json
-{
-  "taskId": 1,
-  "retryAfter": 30,
-  "message": "Rate limit reached, retrying in 30s"
-}
-```
-
-### claude:finished
-
-Emitted when the Claude agent process exits.
-
-```json
-{
-  "taskId": 1,
-  "exitCode": 0,
-  "duration": 45000
-}
-```
-
-## Collaboration Events
-
-### agent:file_conflict
-
-Emitted when multiple agents access the same file simultaneously (specifically on Write/Edit operations).
-
-```json
-{
-  "taskId": 5,
-  "conflictingTaskId": 8,
-  "filePath": "src/main.rs",
-  "toolName": "Edit"
-}
-```
-
-### task:test_started
-
-Emitted when auto-test verification begins.
-
-```json
-{ "taskId": 1 }
-```
-
-### task:test_completed
-
-Emitted when auto-test verification finishes.
-
-```json
-{
-  "taskId": 1,
-  "verdict": "approve",
-  "summary": "All checks passed"
-}
-```
-
-<Note>All events are emitted globally. Filter by `projectId` or `taskId` on the frontend to show only relevant updates.</Note>
+## Key code
+- `client/src/lib/events.ts` — `AppEventMap` (source of truth for payload types)
+- `src-tauri/src/services/events.rs` — cross-context emit bridge
+- `src-tauri/src/claude/events.rs`, `src-tauri/src/claude/runner.rs` — task/agent event emission

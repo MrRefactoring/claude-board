@@ -1,61 +1,19 @@
----
-title: "Live Terminal"
-description: "Watch Claude work in real-time with filtered log output"
-icon: "terminal"
----
+# Live Terminal
 
-The live terminal streams every action a Claude agent takes. Open it by clicking the terminal icon on any in-progress task card.
+Real-time, filterable log stream of everything a Claude agent does during a task run.
 
-<Frame><img src="/images/feature-terminal.svg" alt="Live Terminal" /></Frame>
+## Behavior
+- Opened from the terminal icon on a task card; streams `task:log` events over the realtime transport (Tauri events / socket.io) as the agent runs, and auto-scrolls unless the user has scrolled up.
+- All logs persist to the database, so completed tasks (including ones moved to Done) can be reopened for review.
+- Layout toggles between a side panel (wide screens, board + terminal visible together) and a bottom panel (narrow screens or full board width); the bottom panel additionally supports split terminal.
 
 ## Log Types
-
-Each log entry has a type that determines its styling and filterability:
-
-| Type | Icon | Description |
-|------|------|-------------|
-| `claude` | Brain | Claude's reasoning and text output |
-| `tool` | Wrench | Tool calls (file read, edit, bash, etc.) |
-| `tool_result` | Check | Results returned from tool execution |
-| `system` | Info | System messages (start, stop, status changes) |
-| `error` | Warning | Errors from the CLI or tool failures |
+Each log has a `log_type` used for styling and filtering: `claude` (reasoning/text, with a separate `isThinking` sub-flag), `tool` (tool calls), `tool_result`, `system`/`info`, `error`.
 
 ## Filters
+Filter chips: **All**, **Claude**, **Thinking**, **Tools** (tool + tool_result), **System** (system + info), **Errors** — each shows a live count. A search box filters the visible logs by message text.
 
-Use the filter toolbar to show or hide specific log types. This helps you focus on what matters:
-
-<Tabs>
-  <Tab title="All">
-    Shows everything. Default view.
-  </Tab>
-  <Tab title="Claude Only">
-    See just Claude's reasoning output — useful for understanding its thought process.
-  </Tab>
-  <Tab title="Tools Only">
-    See file edits, bash commands, and their results — useful for tracking code changes.
-  </Tab>
-  <Tab title="Errors Only">
-    Quickly spot failures without scrolling through successful operations.
-  </Tab>
-</Tabs>
-
-## Search
-
-The search bar filters logs by text content. Type a filename, function name, or keyword to find relevant entries instantly.
-
-## Layout Options
-
-<Columns cols={2}>
-  <Card title="Side Panel" icon="table-columns">
-    Terminal opens on the right side of the board. Good for wide screens — view the board and terminal simultaneously.
-  </Card>
-  <Card title="Bottom Panel" icon="window-minimize">
-    Terminal opens at the bottom. Better for narrow screens or when you want full board width.
-  </Card>
-</Columns>
-
-## Log Persistence
-
-All terminal logs are saved to the database. You can revisit logs for completed tasks by clicking on the task card even after it moves to **Done**.
-
-<Info>Logs stream in real-time via WebSocket using the `task:log` event. The terminal auto-scrolls to the latest entry unless you scroll up manually.</Info>
+## Key code
+- `src-tauri/src/claude/events.rs` — `add_log`, emits `task:log`
+- `client/src/features/terminal/LiveTerminal.tsx` — filters, search, log rendering, side/bottom layout
+- `client/src/features/terminal/terminalConstants.ts` — tool icon/color registry

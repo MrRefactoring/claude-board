@@ -1,194 +1,23 @@
----
-title: "Projects API"
-description: "CRUD endpoints for managing projects"
-icon: "folder"
----
+# Projects API
 
-## List Projects
+Project CRUD plus per-project automation/git/test/GitHub settings.
 
-```http
-GET /api/projects
-```
+## Endpoints / commands
+- `GET /api/projects` — all projects (`projects::get_all`).
+- `GET /api/projects/summary` — all projects with per-status task counts (`projects::get_summary`).
+- `GET /api/projects/{id}` — single project with full settings, 404 if missing.
+- Tauri command `get_projects()` / `get_projects_summary()` / `get_project(id)` — same data, IPC form.
+- Tauri command `create_project(name, slug, workingDir, icon?, iconSeed?, permissionMode?, allowedTools?, ...automation/git/test/timeout/retry/github/engine/circuitBreaker/approval/prProvider fields)` — validates `name`/`slug`/`workingDir` non-empty and `slug` unique; only writes the grouped settings whose fields were actually supplied (others keep DB defaults). Emits `project:created`.
+- Tauri command `update_project(id, ...same fields, all optional)` — partial update, same grouped-write behavior. Emits `project:updated`.
+- Tauri command `delete_project(id)` — stops any running agents for the project's tasks, deletes the project (cascades tasks/logs/webhooks/snippets/templates/attachments), emits `project:deleted`.
+- Tauri command `reset_circuit_breaker(id)` — clears the circuit-breaker-active flag, emits `project:circuit_breaker` + `project:updated`, and resumes the queue.
+- Tauri command `get_project_groups()` — groups all projects by detected namespace (git remote org/group, else parent directory name); used for the project picker.
 
-Returns all projects with basic info.
+## Notes
+- **`POST /api/projects`, `PUT /api/projects/{id}`, and `DELETE /api/projects/{id}` do not exist in `services/http_api.rs`** — only the three `GET` routes above are registered. `client/src/lib/api.ts`'s `createProject`/`updateProject`/`deleteProject` HTTP fallbacks will 404; project mutation only works inside the Tauri app.
+- Settings are grouped server-side: queue (`autoQueue`/`maxConcurrent`), git/PR (`autoBranch`/`autoPr`/`autoPush`/`autoMerge`/`prBaseBranch`), auto-test (`autoTest`/`testPrompt`), timeout, retries, GitHub sync (`githubRepo`/`githubSyncEnabled`), engine (`maxAutoRevisions`/retry backoff/`autoTestModel`), circuit breaker threshold, `requireApproval`, `prProvider`. Each group only writes if at least one of its fields is present in the call.
+- Deleting a project is destructive and cascades everything under it — no soft-delete.
 
-```json
-[
-  {
-    "id": 1,
-    "name": "My App",
-    "slug": "my-app",
-    "workingDir": "/home/user/my-app",
-    "createdAt": "2025-01-15T10:00:00Z"
-  }
-]
-```
-
-## Get Project Summary
-
-```http
-GET /api/projects/summary
-```
-
-Returns all projects with task counts per status. Useful for dashboard overview.
-
-```json
-[
-  {
-    "id": 1,
-    "name": "My App",
-    "slug": "my-app",
-    "workingDir": "/home/user/my-app",
-    "backlogCount": 5,
-    "inProgressCount": 2,
-    "testingCount": 1,
-    "doneCount": 12
-  }
-]
-```
-
-## Get Project
-
-```http
-GET /api/projects/:id
-```
-
-Returns a single project with full settings including permission mode, allowed tools, queue configuration, git settings, auto-test, and GitHub integration.
-
-```json
-{
-  "id": 1,
-  "name": "My App",
-  "slug": "my-app",
-  "workingDir": "/home/user/my-app",
-  "icon": null,
-  "iconSeed": null,
-  "permissionMode": "auto-accept",
-  "allowedTools": null,
-  "autoQueue": 1,
-  "maxConcurrent": 2,
-  "autoBranch": 1,
-  "autoPr": 0,
-  "prBaseBranch": "main",
-  "autoTest": 0,
-  "testPrompt": "",
-  "taskTimeoutMinutes": null,
-  "maxRetries": 0,
-  "githubRepo": "owner/repo",
-  "githubSyncEnabled": 0,
-  "createdAt": "2025-01-15T10:00:00Z"
-}
-```
-
-## Create Project
-
-```http
-POST /api/projects
-Content-Type: application/json
-```
-
-```json
-{
-  "name": "My App",
-  "slug": "my-app",
-  "workingDir": "/home/user/my-app",
-  "permissionMode": "auto-accept",
-  "allowedTools": [],
-  "icon": null,
-  "iconSeed": null
-}
-```
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | Yes | Project display name |
-| `slug` | Yes | URL-safe identifier (must be unique) |
-| `workingDir` | Yes | Absolute path to codebase |
-| `permissionMode` | No | `auto-accept`, `allow-tools`, `default` |
-| `allowedTools` | No | Comma-separated tool names (for `allow-tools` mode) |
-| `icon` | No | Custom icon identifier |
-| `iconSeed` | No | Seed for auto-generated icon |
-
-<Info>Additional settings like queue, git, auto-test, and GitHub integration are configured via Update Project after creation.</Info>
-
-## Update Project
-
-```http
-PUT /api/projects/:id
-Content-Type: application/json
-```
-
-Accepts any combination of the fields below. Only included fields are updated.
-
-```json
-{
-  "name": "My App (Updated)",
-  "autoQueue": true,
-  "maxConcurrent": 3,
-  "autoBranch": true,
-  "autoPr": true,
-  "prBaseBranch": "develop",
-  "autoTest": true,
-  "testPrompt": "Run npm test and verify all pass",
-  "taskTimeoutMinutes": 30,
-  "maxRetries": 3,
-  "githubRepo": "owner/repo",
-  "githubSyncEnabled": 1
-}
-```
-
-### Basic Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Project display name |
-| `slug` | string | URL-safe identifier |
-| `workingDir` | string | Absolute path to codebase |
-| `icon` | string | Custom icon identifier |
-| `iconSeed` | string | Seed for auto-generated icon |
-| `permissionMode` | string | `auto-accept`, `allow-tools`, `default` |
-| `allowedTools` | string | Comma-separated tool names |
-
-### Queue Settings
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `autoQueue` | boolean | Auto-start queued tasks when slots available |
-| `maxConcurrent` | integer | Max concurrent agents (1–5) |
-
-### Git & PR Settings
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `autoBranch` | boolean | Auto-create feature branches per task |
-| `autoPr` | boolean | Auto-create pull request when task completes |
-| `prBaseBranch` | string | Target branch for auto-PRs (default: `main`) |
-
-### Auto-Test Settings
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `autoTest` | boolean | Enable automatic test verification after task completion |
-| `testPrompt` | string | Custom prompt for the test verification agent |
-
-### Retry & Timeout Settings
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `taskTimeoutMinutes` | integer | Kill agent after N minutes (0 = no timeout) |
-| `maxRetries` | integer | Auto-retry failed tasks up to N times (0 = no retries, default max: 2) |
-
-### GitHub Integration
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `githubRepo` | string | GitHub repository in `owner/repo` format |
-| `githubSyncEnabled` | integer | Enable GitHub issue sync (1 = enabled, 0 = disabled) |
-
-## Delete Project
-
-```http
-DELETE /api/projects/:id
-```
-
-<Warning>Deleting a project stops all running agents and removes all tasks, logs, webhooks, snippets, templates, and attachments. This cannot be undone.</Warning>
+## Key code
+- `src-tauri/src/services/http_api.rs` — the 3 read-only HTTP routes
+- `src-tauri/src/commands/projects.rs` — full Tauri CRUD + settings + namespace grouping

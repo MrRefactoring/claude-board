@@ -1,65 +1,17 @@
----
-title: "Attachments API"
-description: "File attachments for tasks"
-icon: "paperclip"
----
+# Attachments API
 
-## Get Attachments
+File attachments on tasks — Tauri IPC only, no HTTP route exists for this surface.
 
-```javascript
-invoke('get_attachments', { taskId: 1 })
-```
+## Commands
+- Tauri command `get_attachments(taskId)` — returns `Vec<Attachment>` for a task. Registered but not called from `client/src` (attachments are normally read via `getTaskDetail`, which embeds them).
+- Tauri command `upload_attachment(taskId, fileData, fileName, mimeType)` — writes `fileData` (byte array) to `<dataDir>/../uploads/<uuid>.<ext>`, inserts a DB row, and returns the created `Attachment`. Emits `task:attachments` with `{ taskId, attachments }` (full list for the task).
+- Tauri command `delete_attachment(id)` — deletes the stored file (best-effort) and the DB row. Emits `task:attachmentDeleted` with `{ id, taskId }`.
 
-Returns all attachments for a task.
+## Notes
+- `client/src/lib/api.ts` defines a web-fallback path for this feature (`uploadAttachments` posts multipart to `POST /api/tasks/:taskId/attachments`, `deleteAttachment` calls `DELETE /api/attachments/:id`), but `src-tauri/src/services/http_api.rs` registers no routes under `/api/attachments` or `/api/tasks/:id/attachments`. **Attachments only work in the Tauri desktop app** — the HTTP/web-fallback path 404s.
+- The frontend uploads multiple files by calling `upload_attachment` once per file.
+- Attachments are also embedded (read-only) in the `task_detail` / `get_task_detail` responses documented in `docs/api/tasks.md`.
 
-```json
-[
-  {
-    "id": 1,
-    "taskId": 1,
-    "fileName": "design-spec.pdf",
-    "mimeType": "application/pdf",
-    "size": 245000,
-    "createdAt": "2025-01-15T10:00:00Z"
-  }
-]
-```
-
-## Upload Attachments (Tauri IPC)
-
-```javascript
-invoke('upload_attachment', {
-  taskId: 1,
-  fileData: [...],       // Uint8Array as number array
-  fileName: "spec.pdf",
-  mimeType: "application/pdf"
-})
-```
-
-Uploads a single file attachment to a task. The frontend handles multiple files by calling this for each file sequentially.
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `taskId` | Yes | Target task ID |
-| `fileData` | Yes | File contents as byte array |
-| `fileName` | Yes | Original file name |
-| `mimeType` | Yes | MIME type (e.g. `application/pdf`, `image/png`) |
-
-## Upload Attachments (HTTP)
-
-```http
-POST /api/tasks/:taskId/attachments
-Content-Type: multipart/form-data
-```
-
-Upload one or more files using standard multipart form data. Files should be sent under the `files` field name.
-
-## Delete Attachment
-
-```javascript
-invoke('delete_attachment', { id: 1 })
-```
-
-Permanently removes an attachment and its stored file data.
-
-<Note>Attachments are stored in the local SQLite database. They are included in the task detail view and can be referenced by Claude agents during task execution.</Note>
+## Key code
+- `src-tauri/src/commands/attachments.rs` — Tauri commands
+- `client/src/lib/api.ts` — `uploadAttachments` / `deleteAttachment` wrappers

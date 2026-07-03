@@ -1,67 +1,54 @@
----
-title: "Failed Status"
-description: "Dedicated status column for permanently failed tasks"
-icon: "circle-xmark"
----
+# Failed Status
 
-Tasks that exhaust all retry attempts are moved to a dedicated **Failed** status. This gives you clear visibility into what went wrong and easy recovery options.
+Terminal task status (`failed`) for tasks that exhausted retries or were manually marked as failed. Recoverable by moving back to `backlog`/`in_progress`, which resets the retry counter.
 
-## Visual Indicators
+## Behavior
 
-The Failed status is clearly marked with red indicators across every view:
+`failed` is reached one of two ways:
 
-<Tabs>
-  <Tab title="Board View">
-    A dedicated red **Failed** column appears on the Kanban board. Cards show the retry count and failure reason.
-  </Tab>
-  <Tab title="List View">
-    Red status dot with failure details. Sortable by failure time.
-  </Tab>
-  <Tab title="Graph View">
-    Red-filled node with red stroke in the dependency DAG. Downstream tasks show a blocked indicator.
-  </Tab>
-  <Tab title="Timeline View">
-    Red bar segment with the retry attempts visible as smaller bars before the final failure.
-  </Tab>
-</Tabs>
+1. **Automatic, via `handle_task_failure`** (`src-tauri/src/services/queue.rs`), triggered when the Claude process exits non-zero/crashes or a task times out (`src-tauri/src/claude/runner.rs`):
+   - If `retry_count < project.max_retries`: increment `retry_count`, move the task back to `backlog`, and set `retry_after` using exponential backoff with jitter (`EngineConfig::retry_delay`).
+   - Once `retry_count >= max_retries`: increment `retry_count` once more and move the task to `failed` permanently. The task will not auto-start again; it requires a manual status move.
+2. **Manual**, via `change_task_status`: a user can move a task straight to `failed` from `backlog` (cancel a queued task), `testing` (mark as failed), or `awaiting_approval` (reject permanently).
 
-## Task Lifecycle
+Each permanent failure also increments the project's `consecutive_failures` counter; if it reaches `circuit_breaker_threshold`, the circuit breaker activates and the queue stops auto-starting new tasks for that project (`project:circuit_breaker` event, `circuit_breaker_activated` webhook).
 
-```
-Backlog ──▶ In Progress ──▶ Testing ──▶ Done
-                │               │
-                ▼               ▼
-             Failed ◀───────────┘
-                │
-                ▼ (manual action)
-             Backlog (retry count resets)
-```
+## States & transitions
 
-A task reaches Failed status when:
-1. The agent process crashes or exits with an error
-2. The task has already used all configured [retry attempts](/features/retry-backoff)
-3. No more retries are available
+Status enum: `backlog`, `in_progress`, `testing`, `done`, `failed`, `awaiting_approval` (`TaskStatus` in `src-tauri/src/claude/state_machine.rs`). `failed` and `done` are the only terminal states (`is_terminal`).
 
-## Recovery
+Valid transitions into `failed`: `in_progress → failed`, `testing → failed`, `backlog → failed`, `awaiting_approval → failed`.
 
-<Steps>
-  <Step title="Review the failure" icon="magnifying-glass">
-    Open the task to see the terminal output and understand what went wrong. Check the last tool calls and error messages.
-  </Step>
-  <Step title="Fix the issue" icon="wrench">
-    Common fixes: update the task description with more context, change the model to Opus for complex tasks, fix a broken dependency, or resolve a git conflict.
-  </Step>
-  <Step title="Retry the task" icon="rotate">
-    Move the task back to **Backlog** or **In Progress**. The retry counter automatically resets to 0.
-  </Step>
-</Steps>
+Valid transitions out of `failed`: `failed → backlog`, `failed → in_progress`. Both reset `retry_count` to 0 and clear `retry_after` (`reset_retry_count`).
 
-<Tip>If a task keeps failing, try breaking it into smaller sub-tasks with dependencies. Complex tasks have a higher success rate when decomposed.</Tip>
+## Settings
 
-## Conditional Dependencies
+Project-level, resolved via `EngineConfig::from_project` (0/unset falls back to the default):
 
-Failed tasks can trigger [on_failure dependencies](/features/dependencies). This lets you build recovery workflows:
+- `max_retries` — retry attempts before permanent failure (default 2)
+- `retry_base_delay_secs` / `retry_max_delay_secs` — exponential backoff bounds (defaults 30s / 600s), applied with ±20% jitter
+- `circuit_breaker_threshold` — consecutive permanent failures before the queue pauses for the project (0 = disabled)
 
-- Task A fails → Task B (debug/fix task) starts automatically
-- Notification webhook fires with failure details
-- A simpler version of the task can be attempted with a different model
+## UI indicators
+
+- Board (Kanban): dedicated red **Failed** column (`COLUMNS` in `client/src/lib/constants.ts`)
+- List view: red status dot (`ListView.tsx`)
+- Orchestration Graph: red-filled, red-stroke node (`DependencyGraph.tsx` `STATUS_COLORS.failed`)
+- Timeline view: red bar segment (`TimelineView.tsx`)
+- Pipeline view: collapsible red "Failed" section
+
+## Edge cases
+
+- Reopening a failed task (to `backlog` or `in_progress`) always resets `retry_count` to 0 — there's no way to retry without resetting the counter.
+- An `on_failure` dependency (see `dependencies.md`) is satisfied by `status = 'failed'` regardless of whether the parent got there via retry exhaustion or a manual fail/cancel.
+- Timeout-triggered failure only calls `handle_task_failure` if the task is still `in_progress` when the timeout fires — if the user already moved it elsewhere, the timeout is a no-op for retry purposes.
+
+## Key code
+
+- `src-tauri/src/claude/state_machine.rs` — `TaskStatus` enum, `is_valid_transition`, `EngineConfig` (retry/backoff)
+- `src-tauri/src/services/queue.rs` — `handle_task_failure` (retry vs. permanent fail), circuit breaker increment/activation
+- `src-tauri/src/claude/runner.rs` — calls `handle_task_failure` on process crash/non-zero exit and on task timeout
+- `src-tauri/src/commands/tasks.rs` — `change_task_status` (manual transitions, retry reset on leaving `failed`)
+- `src-tauri/src/db/tasks.rs` — `retry_count`/`retry_after` columns, `increment_retry`, `reset_retry_count`, `set_retry_after`
+- `client/src/lib/constants.ts` — `COLUMNS` (board column labels/colors)
+- `client/src/features/board/PipelineView.tsx`, `ListView.tsx`, `TimelineView.tsx`, `DependencyGraph.tsx` — status visualization

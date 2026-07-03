@@ -1,44 +1,19 @@
----
-title: "Split Terminal"
-description: "View multiple agent outputs side by side"
-icon: "columns-2"
----
+# Split Terminal
 
-Monitor multiple running agents simultaneously with the split terminal view.
+Side-by-side or stacked view of two live terminals, for watching multiple running agents at once.
 
-## Activating Split View
+## Behavior
+- Lives in the bottom terminal panel's tab bar. Each open task has a tab; the split controls (vertical/horizontal icons) sit on the right side of the bar and are disabled until 2+ tabs are open.
+- Clicking **vertical** (`Columns2`) splits side by side; clicking **horizontal** (`Rows2`) splits top/bottom; clicking the active mode's icon again turns split off.
+- Enabling split auto-assigns a second (non-active) tab to the split pane if none is set. Once split is active, clicking a tab that isn't already the primary or split tab reassigns it to the split pane; otherwise clicking a tab switches the primary pane.
+- Primary pane has no distinct border; the split pane is separated by a border. Closing the split pane's tab exits split mode; closing the primary tab does not.
+- The panel height is resizable by dragging the handle above the tab bar. A layout button switches the whole terminal between bottom-panel and side-panel modes (side panel does not support split).
 
-1. Open terminal logs for two or more tasks (click "Logs" on task cards or start multiple tasks)
-2. In the bottom terminal panel, look for the split icons on the **right side** of the tab bar
-3. Click **Columns** (||) for side-by-side split
-4. Click **Rows** (=) for top-bottom split
+## States & transitions
+- `splitMode`: `null` → `vertical` | `horizontal` → `null`
+- `splitTabId`: unset while `splitMode` is `null`; auto-populated on split, cleared when split is turned off or the split tab is closed
 
-## Split Modes
-
-| Mode | Icon | Layout |
-|------|------|--------|
-| **Vertical** | `\|\|` | Two terminals side by side |
-| **Horizontal** | `=` | Two terminals stacked |
-| **Off** | Click active icon again | Single terminal |
-
-## Tab Management
-
-- Each open task has its own tab in the tab bar
-- **Primary pane** — highlighted with the accent color border
-- **Split pane** — highlighted with a purple border
-- Click a tab to assign it to the active pane
-- When split is active, clicking an unassigned tab moves it to the split pane
-
-## Controls
-
-- **Resize** — drag the top edge of the terminal panel to adjust height
-- **Layout toggle** — switch between bottom panel and side panel modes
-- **Close tab** — click the × on any tab to close it (closing a split tab exits split mode)
-
-<Tip>Split buttons appear disabled (grayed out) when only one tab is open. Open a second task's logs to enable splitting.</Tip>
-
-## Best Practices
-
-- Use split view when running parallel tasks in orchestration mode
-- Combine with the **Orchestration View** to monitor the DAG while watching agent output
-- Vertical split works best for wide screens, horizontal for narrower displays
+## Key code
+- `client/src/app/TerminalBottomPanel.tsx` — tab bar, split controls, primary/split pane layout
+- `client/src/hooks/useTerminalTabs.ts` — `toggleSplit`, `splitMode`, `splitTabId` state
+- `client/src/features/terminal/LiveTerminal.tsx` — terminal instance rendered in each pane

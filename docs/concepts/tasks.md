@@ -1,60 +1,41 @@
----
-title: "Tasks"
-description: "Task lifecycle, fields, and configuration"
-icon: "list-check"
----
+# Tasks
 
-Tasks are the core unit of work in Claude Board. Each task represents a job for a Claude agent to complete.
+The core unit of work: a job for a Claude agent, tracked through a status lifecycle with usage/cost accounting.
 
-## Lifecycle
+## States & transitions
 
-<Steps>
-  <Step title="Backlog" icon="inbox">
-    The task is created and waiting. No agent is running. Edit the title, description, or settings freely.
-  </Step>
-  <Step title="In Progress" icon="play">
-    A Claude agent spawns and begins working. The live terminal streams output in real-time. The smart timer tracks active coding time.
-  </Step>
-  <Step title="Testing" icon="flask">
-    Claude has finished. The timer pauses. Review the changes — approve to mark done, or request changes to send Claude back to work.
-  </Step>
-  <Step title="Done" icon="check">
-    The task is complete. Token usage, duration, and logs are preserved for reference.
-  </Step>
-</Steps>
+Statuses: `backlog`, `in_progress`, `testing`, `awaiting_approval`, `done`, `failed`. Valid transitions are declared centrally in `state_machine.rs::is_valid_transition` — normal flow (`backlog → in_progress → testing → done`), the approval gate (`testing → awaiting_approval → done`), revision loop (`testing/done → in_progress`), retries (`failed → backlog|in_progress`), and manual overrides (e.g. closing a backlog task straight to `done`/`failed`, reopening a `done` task). Invalid transitions are rejected at the command boundary (`change_task_status`).
 
-## Task Fields
+Entering `in_progress` starts (or resumes) the smart timer; entering `testing` from `in_progress` pauses it; `done` finalizes it. A task blocked by an unmet dependency cannot move to `in_progress` (manual or auto-queue).
 
-| Field | Description |
-|-------|-------------|
-| **Title** | Short summary of the work |
-| **Description** | Detailed instructions for Claude |
-| **Type** | `feature`, `bugfix`, `refactor`, `docs`, `test`, `chore` |
-| **Priority** | 0 (low) to 3 (urgent) — affects queue order |
-| **Model** | `opus`, `sonnet`, or `haiku` |
-| **Thinking Effort** | Controls Claude's reasoning depth: `low`, `medium`, `high` |
+## Task fields
 
-## Model Selection
+| Field | Notes |
+|-------|-------|
+| `title`, `description` | Prompt input |
+| `status` | See above |
+| `priority` | `0`–`3`: `0`=None, `1`=Low, `2`=Medium, `3`=High |
+| `task_type` | `feature`, `bugfix`, `refactor`, `docs`, `test`, `chore` |
+| `model` | `haiku`, `sonnet`, `opus`, or a configured custom model (Settings → Models) |
+| `thinking_effort` | `low`, `medium` (default), `high`, `xhigh`, `max` — passed as `claude --effort` when not `medium` |
+| `acceptance_criteria` | Folded into the prompt |
+| `depends_on` / dependency graph | Gates auto-start and manual start until the blocker is `done` |
+| `task_level` | Optional `epic`/`story`/`task`/`subtask` hierarchy (roadmap) |
+| `auto_pr` | Per-task override of the project's `auto_pr` (unset = inherit) |
 
-<Tabs>
-  <Tab title="Opus">
-    Best for complex, multi-file features. Highest token usage and cost, but strongest reasoning.
-  </Tab>
-  <Tab title="Sonnet">
-    Balanced choice for most tasks. Good reasoning with moderate cost. **Recommended default.**
-  </Tab>
-  <Tab title="Haiku">
-    Fast and cheap. Use for simple fixes, docs updates, or boilerplate generation.
-  </Tab>
-</Tabs>
+## Priority
 
-## Priority Levels
+Higher number = higher priority in queue ordering. There is no "Urgent" level in the current schema — the ceiling is `3` (High).
 
-When [auto-queue](/features/queue) is enabled, higher-priority tasks start first:
+## Edge cases
 
-- **Urgent (3)** — runs immediately if a slot is available
-- **High (2)** — next in line
-- **Medium (1)** — default
-- **Low (0)** — runs last
+- Once `in_progress`, only `description`/feedback (via revision) meaningfully changes agent behavior — other fields can still be edited but won't retroactively affect a running process.
+- `revision_count` and `TaskRevision` rows accumulate across the review loop; each revision's feedback is appended to a fresh prompt build (see `docs/concepts/review.md`).
+- Restarting a task (`restart_task`) clears its logs and force-starts a fresh run regardless of current status.
 
-<Tip>You can change a task's model, type, and priority while it is still in backlog. Once in progress, only the description can be updated (for revision feedback).</Tip>
+## Key code
+
+- `src-tauri/src/db/tasks.rs` — `Task` struct, field set
+- `src-tauri/src/claude/state_machine.rs` — status enum, transition table, timer/retry config
+- `src-tauri/src/commands/tasks.rs` — CRUD + status-change command
+- `client/src/lib/constants.ts` — `PRIORITY_OPTIONS`, `TASK_TYPE_OPTIONS`, `MODEL_OPTIONS`, `EFFORT_OPTIONS`

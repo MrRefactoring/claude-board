@@ -1,53 +1,17 @@
----
-title: "Task Keys"
-description: "Jira-style identifiers for every task"
-icon: "key"
----
+# Task Keys
 
-Every task in Claude Board gets an auto-generated key in the format `{TYPE}-{PROJECT}-{NUMBER}`, similar to Jira issue keys.
+Auto-generated Jira-style identifier for every task, in the format `{TYPE}-{PROJECT}-{NUMBER}` (e.g. `FTR-CB-1001`).
 
-<Frame><img src="/images/feature-task-keys.svg" alt="Task Keys" /></Frame>
+## Behavior
+- Generated on task creation by atomically incrementing the project's `task_counter` (starts at 1000, so first key is `...-1001`) and combining it with the task-type prefix and the project key.
+- When a task's `task_type` changes, the key's prefix is replaced in place (old prefix → new prefix), preserving the project key and number.
+- On server startup, any task missing a `task_key` is backfilled using the same prefix/project-key/counter logic.
+- Displayed everywhere a task ID was previously shown: board cards, list view, timeline, task detail header, live terminal header.
 
 ## Format
+- Type prefix: `feature`→`FTR`, `bugfix`→`BUG`, `refactor`→`RFT`, `docs`→`DOC`, `test`→`TST`, `chore`→`CHR`; any other type falls back to `TSK`.
+- Project key: derived from the project slug — 2+ hyphen-separated words use up to the first 4 initials uppercased (`claude-board`→`CB`, `utd-games-website`→`UGW`); a single-word slug uses its first 3 alphabetic characters uppercased (`renkler`→`RNK`); empty/non-alphabetic slugs fall back to `PRJ`.
 
-```
-FTR-CB-1001
- │   │   │
- │   │   └── Sequential counter per project (starts at 1001)
- │   └────── Project key (derived from project slug)
- └────────── Task type prefix
-```
-
-## Type Prefixes
-
-| Task Type | Prefix |
-|-----------|--------|
-| Feature | `FTR` |
-| Bug Fix | `BUG` |
-| Refactor | `RFT` |
-| Docs | `DOC` |
-| Test | `TST` |
-| Chore | `CHR` |
-
-## Project Key
-
-The project key is automatically derived from the project slug:
-
-- Multi-word slugs use initials: `claude-board` → `CB`, `utd-games-website` → `UGW`
-- Single-word slugs use first 3 characters: `renkler` → `RNK`
-
-## Where Keys Appear
-
-Task keys are displayed everywhere the task ID was previously shown:
-
-- **Task cards** on the Kanban board
-- **List view** rows
-- **Timeline view** labels
-- **Task detail modal** header
-- **Live terminal** header
-
-## Automatic Updates
-
-- Keys are generated on task creation
-- When a task's type changes (e.g., feature → bugfix), the prefix updates automatically (`FTR-CB-1001` → `BUG-CB-1001`)
-- Existing tasks are backfilled with keys on server startup
+## Key code
+- `src-tauri/src/db/tasks.rs` — `generate_task_key` (atomic counter increment via `RETURNING`, with UPDATE+SELECT fallback for older SQLite), key update on type change
+- `src-tauri/src/db/schema.rs` — `get_type_prefix`, `generate_project_key`, `backfill_task_keys` (startup migration)

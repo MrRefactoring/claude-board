@@ -1,84 +1,17 @@
----
-title: "Templates API"
-description: "CRUD endpoints for prompt templates"
-icon: "file-lines"
----
+# Templates API
 
-## List Templates
+Prompt templates for pre-filling new tasks. Tauri IPC only — no HTTP route exists.
 
-```http
-GET /api/projects/:projectId/templates
-```
+## Commands
+- `get_templates(projectId)` — all templates for a project.
+- `create_template(projectId, name, description?, template, variables?, taskType?, model?, thinkingEffort?)` — `taskType` defaults `feature`, `model` defaults `sonnet`, `thinkingEffort` defaults `medium`. Emits `template:created`.
+- `update_template(id, name, description?, template, variables?, taskType?, model?, thinkingEffort?)` — same shape, emits `template:updated`.
+- `delete_template(id)` — emits `template:deleted`.
 
-Returns all prompt templates for a project.
+## Notes
+- The template body field is `template`, not `content`; there's also a separate `variables` field (not templated substitution done server-side — variable resolution, if any, happens client-side).
+- `services/http_api.rs` defines no `/api/.../templates` routes — despite `client/src/lib/api.ts` shaping calls as `GET/POST /api/projects/:id/templates` and `PUT/DELETE /api/templates/:id`, those only resolve in the Tauri app.
 
-```json
-[
-  {
-    "id": 1,
-    "projectId": 1,
-    "name": "Feature Template",
-    "content": "You are working on {{project_name}}...",
-    "taskType": "feature",
-    "model": "sonnet",
-    "thinkingEffort": "medium",
-    "createdAt": "2025-01-15T10:00:00Z"
-  }
-]
-```
-
-## Get Template
-
-```http
-GET /api/projects/:projectId/templates/:id
-```
-
-## Create Template
-
-```http
-POST /api/projects/:projectId/templates
-Content-Type: application/json
-```
-
-```json
-{
-  "name": "Feature Template",
-  "content": "You are working on {{project_name}}.\nTask: {{task_title}}\nType: {{task_type}}\n\nWrite clean, tested code.",
-  "taskType": "feature",
-  "model": "sonnet",
-  "thinkingEffort": "medium"
-}
-```
-
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `name` | Yes | — | Template display name |
-| `content` | Yes | — | Template text with optional `{{variables}}` |
-| `taskType` | No | — | Auto-apply to this task type |
-| `model` | No | — | Default model when template is used |
-| `thinkingEffort` | No | — | Default thinking effort |
-
-### Template Variables
-
-| Variable | Resolves To |
-|----------|-------------|
-| `{{project_name}}` | Project name |
-| `{{task_title}}` | Task title |
-| `{{task_type}}` | Task type (feature, bugfix, etc.) |
-| `{{priority}}` | Priority level |
-| `{{model}}` | Selected model |
-
-## Update Template
-
-```http
-PUT /api/projects/:projectId/templates/:id
-Content-Type: application/json
-```
-
-Accepts the same fields as Create.
-
-## Delete Template
-
-```http
-DELETE /api/projects/:projectId/templates/:id
-```
+## Key code
+- `src-tauri/src/commands/templates.rs` — Tauri commands
+- `src-tauri/src/db/templates.rs` — `Template` struct

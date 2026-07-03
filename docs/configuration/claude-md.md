@@ -1,62 +1,21 @@
----
-title: "CLAUDE.md Editor"
-description: "Edit your project's CLAUDE.md configuration from the UI"
-icon: "file-code"
----
+# CLAUDE.md Editor
 
-`CLAUDE.md` is a special file that Claude reads automatically when it starts working on a project. It contains project-specific instructions, conventions, and context. Claude Board includes a built-in editor for managing this file.
+In-app editor for the project's `CLAUDE.md` — the file the `claude` CLI reads automatically from its working directory at the start of a run. Claude Board does not inject its contents into the prompt itself; the CLI process picks it up from disk because it's launched with `cwd` set to the task's working directory (or worktree).
 
-## What is CLAUDE.md?
+## Behavior
 
-A `CLAUDE.md` file at the root of your project tells Claude:
+- Opened from a header button (`Header.tsx`) or the command palette ("Edit CLAUDE.md"), not nested in project settings.
+- `get_claude_md(project_id)` reads `<project.working_dir>/CLAUDE.md`; if missing, the editor pre-fills a default template and shows a "New file" badge instead of erroring.
+- `save_claude_md(project_id, content)` writes the file directly to `<project.working_dir>/CLAUDE.md`, overwriting it.
+- Markdown editor (`MDEditor`) with live preview; `Ctrl/Cmd+S` saves.
 
-- How the project is structured
-- What conventions to follow
-- Which commands to use for building and testing
-- Important architectural decisions
+## Edge cases
 
-```markdown
-# Project: My API
+- Writing fails (surfaced as an error in the UI) if the working directory doesn't exist or isn't writable.
+- No versioning/diffing in the editor — it's a direct overwrite. Git history (if the file is tracked) is the only undo mechanism.
 
-## Stack
-- Node.js + Express + TypeScript
-- PostgreSQL with Prisma ORM
-- Jest for testing
+## Key code
 
-## Commands
-- `npm run build` — compile TypeScript
-- `npm test` — run all tests
-- `npm run lint` — check code style
-
-## Conventions
-- Use Prisma for all database access
-- All endpoints return JSON with `{ data, error }` shape
-- Write integration tests for every new endpoint
-```
-
-## Built-in Editor
-
-Claude Board provides a text editor in the project settings for viewing and editing the `CLAUDE.md` file. Changes are saved directly to the file in your project's working directory.
-
-<Steps>
-  <Step title="Open project settings">
-    Click the gear icon on your project dashboard.
-  </Step>
-  <Step title="Navigate to CLAUDE.md tab">
-    Select the CLAUDE.md section.
-  </Step>
-  <Step title="Edit and save">
-    Modify the content and click Save. The file is written to your project's working directory.
-  </Step>
-</Steps>
-
-## CLAUDE.md vs Context Snippets
-
-| Feature | CLAUDE.md | Context Snippets |
-|---------|-----------|-----------------|
-| **Location** | File in your repo | Stored in Claude Board's database |
-| **Versioned** | Yes, committed to git | No |
-| **Toggling** | Always active | Can be enabled/disabled individually |
-| **Scope** | Read by Claude CLI directly | Injected by Claude Board into prompt |
-
-<Tip>Use `CLAUDE.md` for stable project conventions that should live in the repo. Use context snippets for temporary rules or instructions that change frequently.</Tip>
+- `client/src/features/editor/ClaudeMdEditor.tsx` — editor UI
+- `src-tauri/src/commands/stats.rs::get_claude_md` / `save_claude_md` — read/write `CLAUDE.md` at the project root
+- `client/src/lib/api.ts` — `getClaudeMd` / `saveClaudeMd` (`GET`/`PUT` `/api/projects/:id/claude-md` in web mode)

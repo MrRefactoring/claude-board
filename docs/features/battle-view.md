@@ -1,55 +1,25 @@
----
-title: "Battle View"
-description: "Gamified arena view where agents fight with projectiles, HP bars, and explosions"
-icon: "swords"
----
+# Battle View
 
-The Battle View transforms multi-agent execution into a visual arena where Claude agents battle each other in real-time.
+An alternate visualization of the orchestration board: running/completed/failed tasks are rendered as agents fighting in an arena, driven by the same realtime task events as the rest of the board.
 
-## Accessing
+## Behavior
+- Accessed from the Orchestration view's view-type switcher (`graph` / `timeline` / `live` / `battle`), Battle tab with a sword icon.
+- Up to 6 fixed arena positions hold agents: running tasks (`in_progress` + actively executing) are "active", the 3 most recently finished tasks are "victory", the 2 most recently failed are "defeat".
+- Each agent sprite shows: an assigned `agent_name` (server-generated, persisted on the task), a `boring-avatars` beam-style avatar keyed by that name, an HP bar, current token usage/cost, and a speech bubble with the last tool name (from `task:log` events where `logType === 'tool'`).
+- HP: starts at 200, reduced by `tokens / 1000` from the task's accumulated token usage at mount.
+- On each `task:usage` event, the attacking agent fires a projectile at a random other active agent (skipped if fewer than 2 active agents).
+- Attack type is `ATTACK_TYPES[taskId % 6]` (fireball, lightning, plasma, ice, poison, bomb) — deterministic per task ID.
+- Projectile size/power: `min(20, max(4, tokens / 15000))`. Damage: `min(40, max(1, tokens / 8000))`. Critical hit when power >= 14, shown as "CRIT! -N".
+- On impact: target flashes/shakes, HP bar decreases (color transitions green → amber → red), an explosion (radial flash + shrapnel particles, larger on crits) and a floating damage number are rendered.
+- File conflicts: polled every 3s via `getAgentActivity`; conflicting agent pairs get a dashed "VS" line drawn between them and a chip in the battle log below the arena.
+- `task:updated` events with `status: 'done'`/`'testing'` or `'failed'` trigger a temporary victory/defeat flourish (trophy/skull, 5s) even for agents outside the fixed victory/defeat slots.
+- Active agents bob with a sine-wave idle animation.
 
-Navigate to **Orchestration** view → click the **Battle** tab (sword icon, amber colored).
+## Edge cases
+- No running/recently-finished/recently-failed tasks → empty-state placeholder ("The Arena Awaits").
+- Battle events (`task:usage`, `task:log`, `task:updated`) and conflict polling are Tauri-only (`IS_TAURI`); the web fallback mode renders the arena without live combat/conflict updates.
 
-## Arena
-
-Agents are positioned on a dark arena map with a dot-grid background. Each agent appears as an avatar sprite with:
-
-- **Name tag** — randomly assigned agent name (Nova, Atlas, Spark, etc.)
-- **Avatar** — unique beam-style avatar generated from the name
-- **HP Bar** — health bar that decreases as tokens are consumed (200 max HP, 1 HP per 1K tokens)
-- **Power indicator** — current token usage and cost
-- **Action bubble** — shows the last tool call in a speech bubble
-
-## Combat Mechanics
-
-### Projectiles
-When an agent uses tokens (every `task:usage` event), it fires a projectile at a random other active agent:
-- **6 attack types**: Fireball, Lightning, Plasma, Ice, Poison, Bomb
-- Each agent has a consistent attack type based on their ID
-- Projectiles fly in an arc with colored trail particles
-- Higher token usage = larger projectile + more damage
-
-### Damage
-- Damage scales with token count: `tokens / 8000` (max 40)
-- **Critical hits** at power >= 14: shows "CRIT! -35" with large text and burst effect
-- Target agent shakes and flashes white on hit
-- HP bar decreases with color transition (green → yellow → red)
-
-### Explosions
-On impact:
-- Radial gradient flash (larger on crits)
-- Shrapnel particles fly outward
-- Critical hits show a large explosion effect
-
-## File Conflicts
-When agents access the same file:
-- Red dashed SVG lines connect conflicting agents with "VS" marker
-- Conflict files listed in the battle log below the arena
-- Clash count shown in the arena header
-
-## Victory & Defeat
-- **Completed tasks**: Gold trophy crown, emerald glow, bounce animation
-- **Failed tasks**: Skull icon, grayscale, reduced opacity
-
-## Agent Idle Animation
-Active agents bob up and down with a sine-wave animation, giving the arena a lively feel.
+## Key code
+- `client/src/features/board/BattleView.tsx` — arena, sprite, projectile/explosion/damage-number rendering, combat math.
+- `client/src/features/board/OrchestrationView.tsx` — view-type switcher and Battle tab entry point.
+- `src-tauri/src/claude/runner.rs` — `assign_agent_name` (server-side name assignment persisted to `tasks.agent_name`).

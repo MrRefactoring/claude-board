@@ -1,75 +1,21 @@
----
-title: "Roles API"
-description: "CRUD endpoints for agent roles (system prompts)"
-icon: "user-gear"
----
+# Roles API
 
-Roles define custom system prompts that shape how Claude agents behave when working on tasks. A role can be assigned to individual tasks to customize agent behavior.
+Reusable agent configs (name + prompt + optional model/allowed-tools/color) assignable to tasks.
 
-## List Roles
+## Endpoints / commands
+- `GET /api/projects/{project_id}/roles` — roles for a project (`db::roles::get_by_project`; includes global roles, `project_id IS NULL`).
+- Tauri command `get_roles(projectId)` — same, IPC form.
+- Tauri command `get_global_roles()` — roles with no `project_id`.
+- Tauri command `create_role(projectId?, name, description?, prompt?, color?, model?, allowedTools?, taskTypeAffinity?)` — `color` defaults `#6B7280`. Emits `role:created`.
+- Tauri command `update_role(id, name, description?, prompt?, color?, model?, allowedTools?, taskTypeAffinity?)` — emits `role:updated`.
+- Tauri command `delete_role(id)` — emits `role:deleted`. Tasks previously assigned this role keep their `role_id` reference but lose the associated prompt.
+- Tauri command `get_agent_suggestions(projectId)` — recurring ad-hoc `(model, task_type)` combos used often enough to be worth saving as a role (`services::agent_recurrence::suggest`, top 4).
 
-```javascript
-invoke('get_roles', { projectId: 1 })
-```
+## Notes
+- The real `Role` record has `description`, `prompt`, `color`, `model`, `allowed_tools`, `task_type_affinity` — there is no `systemPrompt` or `isGlobal` field; "global" is simply `project_id IS NULL`.
+- Role mutation (`create`/`update`/`delete`) is **Tauri-only** — `services/http_api.rs` exposes just the one `GET` list route.
 
-Returns all roles for a project.
-
-```json
-[
-  {
-    "id": 1,
-    "projectId": 1,
-    "name": "Backend Developer",
-    "systemPrompt": "You are a senior backend developer...",
-    "isGlobal": false,
-    "createdAt": "2025-01-15T10:00:00Z"
-  }
-]
-```
-
-## List Global Roles
-
-```javascript
-invoke('get_global_roles')
-```
-
-Returns all roles not tied to a specific project. Global roles are available across all projects.
-
-## Create Role
-
-```javascript
-invoke('create_role', {
-  projectId: 1,
-  name: "Backend Developer",
-  systemPrompt: "You are a senior backend developer specializing in Rust and TypeScript...",
-  isGlobal: false
-})
-```
-
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `projectId` | Yes | -- | Project to associate the role with |
-| `name` | Yes | -- | Role display name |
-| `systemPrompt` | Yes | -- | System prompt injected into Claude's context |
-| `isGlobal` | No | `false` | Make role available across all projects |
-
-## Update Role
-
-```javascript
-invoke('update_role', {
-  id: 1,
-  name: "Senior Backend Developer",
-  systemPrompt: "Updated system prompt...",
-  isGlobal: false
-})
-```
-
-Accepts the same fields as Create. All fields are required on update.
-
-## Delete Role
-
-```javascript
-invoke('delete_role', { id: 1 })
-```
-
-<Warning>Deleting a role does not affect tasks that were previously assigned to it. Those tasks will continue to work without a role-specific system prompt.</Warning>
+## Key code
+- `src-tauri/src/services/http_api.rs` — `GET /api/projects/{id}/roles`
+- `src-tauri/src/commands/roles.rs` — Tauri CRUD + suggestions
+- `src-tauri/src/db/roles.rs` — `Role` struct

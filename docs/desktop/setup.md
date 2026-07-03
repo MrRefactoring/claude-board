@@ -1,66 +1,39 @@
----
-title: "Desktop Setup"
-description: "6-step setup wizard, system validation, and first-project configuration"
-icon: "desktop"
----
+# Desktop Setup
 
-The Claude Board desktop app is a native application built with Tauri v2 and a Rust backend. On first launch, a guided setup wizard walks you through system configuration and creates your first project.
+First-launch setup wizard (`client/public/setup.html`, a standalone HTML/JS view — not part of the main React app) shown when no `config.json` exists yet. Backed by Tauri commands in `src-tauri/src/setup.rs`.
 
-## Setup Wizard
+## Behavior
 
-The setup wizard consists of 6 steps with system validation, language selection, and project configuration:
+`lib.rs`'s `setup` hook checks for a config file: if present, it goes straight to the main window; if absent, it opens a dedicated `setup` webview window (`setup.html`, 620×720, undecorated) instead.
 
-<Steps>
-  <Step title="Welcome" icon="hand-wave">
-    Splash screen with animated logo and loading indicator while the Rust backend initializes.
-  </Step>
-  <Step title="Language Selection" icon="globe">
-    Choose your preferred language (English or Turkish). This sets the UI language for the entire application.
-  </Step>
-  <Step title="System Check" icon="check-circle">
-    Automated validation of your environment:
-    - **Claude CLI** — verifies `claude` is installed and accessible on PATH
-    - **Node.js** — checks for Node.js 18+ compatibility
-    - **Git** — confirms git is available for branch automation
-    - **Port availability** — validates the MCP server port (default 4000)
-  </Step>
-  <Step title="Data Directory" icon="folder">
-    Choose where Claude Board stores its SQLite database, uploads, and configuration. Defaults to the OS-specific application data path.
-  </Step>
-  <Step title="MCP Server Port" icon="plug">
-    Configure the port for the built-in MCP HTTP server used by Claude runner integration. The wizard verifies the port is available before proceeding.
-  </Step>
-  <Step title="First Project" icon="rocket">
-    Create your first project with a name and working directory. This project will appear on your board immediately after setup completes.
-  </Step>
-</Steps>
+## Wizard steps
 
-## Splash Screen
+6 steps (`N=6` in `setup.html`), not a fixed language-selection step — language is chosen inline on step 0:
 
-While the Rust backend initializes, a splash screen displays the Claude Board logo with ambient animations and a loading indicator. The main window opens once the backend is ready.
+1. **Welcome** — logo, language toggle (English / Türkçe), feature pills. No separate "language selection" step.
+2. **System Check** — calls `check_system(port)`: verifies `claude` on PATH, `git` on PATH, the chosen port is free, and (optional, non-blocking) `gh` CLI presence + `gh auth token`. There is no Node.js check.
+3. **Storage** — data directory (`get_default_dir` prefills it, `browse_folder` opens a native picker) and server port in one step, not two.
+4. **First Project** — name + working directory, plus collapsible sections for Permissions (auto-accept toggle), Auto Queue (+ max concurrent agents), and Git Integration (auto-branch + base branch). Skippable ("Skip — I'll create a project later").
+5. **Preferences** — default model (Sonnet/Opus/Haiku) and desktop notification toggle.
+6. **Ready** — configuration summary, then `finish(...)`.
 
-## Single Instance Lock
+`finish` (`setup.rs`) persists `config.json`, runs the Electron-era data migration if applicable, initializes the SQLite DB, saves language to `app_settings`, optionally creates the first project, starts the MCP HTTP server on the chosen port, opens the main window, and closes the setup window.
 
-Only one instance of Claude Board can run at a time. If you try to open a second instance:
+## Single instance
 
-- The existing window is brought to the front
-- The second instance exits silently
+`tauri_plugin_single_instance` — a second launch focuses the existing main window instead of opening a new process; it does not open a second window.
 
-<Info>This prevents database locking issues from multiple processes accessing the same data directory.</Info>
+## System tray
 
-## System Tray
+A tray icon (Show / Quit) is always created. Whether closing the main window hides it to the tray vs. quitting the app is governed by the `minimize_to_tray` app setting — **default is off**, so by default closing the window behaves like a normal app quit; only when the user enables it does the tray-hide behavior kick in.
 
-The desktop app minimizes to the system tray. Right-click the tray icon for options:
+## Changing settings after setup
 
-- **Show** — bring the window to front
-- **Quit** — stop the backend and exit
+Data directory and MCP port live in `config.json` and are edited from the in-app settings screen; most other preferences (default model, notifications, `minimize_to_tray`, `launch_at_startup`, etc.) live in the `app_settings` DB table and apply without a restart. Changing the data directory does not migrate existing data.
 
-## Changing Settings After Setup
+## Key code
 
-To reconfigure the data directory or MCP server port after initial setup:
-
-1. Open the app's settings from the menu
-2. Update the values
-3. Restart the app for changes to take effect
-
-<Note>Changing the data directory does not migrate existing data. Copy the database and uploads folder manually if needed.</Note>
+- `client/public/setup.html` — wizard UI/logic (vanilla JS, not React)
+- `src-tauri/src/setup.rs` — `check_system`, `check_directory`, `get_default_dir`, `browse_folder`, `finish`, `quit`
+- `src-tauri/src/lib.rs` — setup vs. main window branch, single-instance plugin, tray, minimize-to-tray close interceptor
+- `src-tauri/src/db/settings.rs` — `AppSettings` defaults (`minimize_to_tray: false`, `default_model: "sonnet"`, ...)

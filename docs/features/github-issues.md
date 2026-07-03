@@ -1,89 +1,34 @@
----
-title: "GitHub Issues Sync"
-description: "Browse, import, and sync GitHub issues as tasks with automatic label mapping"
-icon: "github"
----
+# GitHub Issues Sync
 
-GitHub Issues Sync lets you browse your repository's open issues directly from Claude Board and selectively import them as tasks. Imported tasks get a `github` tag and link back to the original issue.
+Browse a project's open GitHub issues from the board and selectively import them as tasks (one-directional: import + auto-close-on-approve; no live two-way sync).
 
-## Prerequisites
+## Behavior
 
-<Steps>
-  <Step title="Install GitHub CLI" icon="terminal">
-    Install [`gh`](https://cli.github.com/) — Claude Board uses your existing `gh` authentication, no separate token needed.
-  </Step>
-  <Step title="Authenticate" icon="key">
-    Run `gh auth login` and follow the prompts. Claude Board will automatically use this session.
-  </Step>
-  <Step title="Configure project" icon="gear">
-    Go to **Project Settings > GitHub** tab. The repository is auto-detected from your git remote. Enable sync and save.
-  </Step>
-</Steps>
+1. **Auth** — no separate token is stored. Every request shells out to `gh auth token` for the credential; requires the `gh` CLI installed and `gh auth login` run once.
+2. **Browse** — the Issues panel (board toolbar) fetches open issues for the project's configured repo, showing number, title, a 200-char body preview, labels, a suggested task type (from label mapping), and whether already imported (matched by `github_issue_number` on existing tasks).
+3. **Import** — selected issues are inserted as `backlog` tasks in one transaction (all-or-nothing): title = issue title, description = issue body, `task_type` = label mapping, `tags` = `["github"]`, plus `github_issue_number`/`github_issue_url` linking back. Already-imported issues are skipped. Imported tasks are not auto-queued — started manually like any task.
+4. **Auto-close on approve** — when an imported task transitions to **Done**, if `github_sync_enabled` is on, the linked issue is closed on GitHub and a comment is posted referencing the task key and PR URL (if any).
 
-<Tip>The setup wizard checks for `gh` CLI during initial configuration. It's optional — you can install it later.</Tip>
+## Settings
 
-## Browsing Issues
-
-Click the **Issues** button in the board toolbar to open the GitHub Issues panel on the right side.
-
-The panel shows all open issues from your repository with:
-- **Issue number and title**
-- **Body preview** (first 200 characters)
-- **Labels** with color-coded badges
-- **Suggested task type** based on label mapping
-- **Import status** — already imported issues are dimmed
-
-Use the **refresh** button to fetch the latest issues from GitHub.
-
-## Importing Issues
-
-<Steps>
-  <Step title="Select issues" icon="check">
-    Click individual issues to select them, or use **Select all new** to select all unimported issues at once.
-  </Step>
-  <Step title="Import as tasks" icon="download">
-    Click **Import N as tasks**. Selected issues are created as backlog tasks with:
-    - Title from issue title
-    - Description from issue body
-    - Task type mapped from labels (see below)
-    - `github` tag automatically applied
-    - Link to original GitHub issue
-  </Step>
-  <Step title="Work on tasks" icon="play">
-    Imported tasks appear in your backlog. They are NOT auto-queued — you review and start them manually like any other task.
-  </Step>
-</Steps>
+Project-level:
+- `github_repo` — `owner/repo`, auto-detected from the git remote.
+- `github_sync_enabled` — gates both fetch/import (`get_project_repo` errors if off) and the auto-close-on-approve side effect.
 
 ## Label Mapping
 
-GitHub labels are automatically mapped to Claude Board task types:
+Case-insensitive **substring** match on label name (not exact match) — a label containing `bug` or `fix` → `bugfix`; `refactor` → `refactor`; `doc` → `docs`; `test` → `test`; `chore` or `maintenance` → `chore`; no match → `feature`. First matching label wins.
 
-| GitHub Label | Task Type |
-|-------------|-----------|
-| `bug`, `fix` | bugfix |
-| `refactor` | refactor |
-| `documentation`, `docs` | docs |
-| `test`, `testing` | test |
-| `chore`, `maintenance` | chore |
-| *(no match)* | feature |
+## Edge cases
 
-## Auto-Close on Approve
+- Import is all-or-nothing per batch (DB transaction) — a failure mid-import rolls back the whole batch, not just the failing issue.
+- `github_close_issue`/auto-close silently no-ops if `github_repo` is empty or the task has no linked issue number.
+- `github_check_status` reports 5 states in code: `not_installed`, `not_authenticated`, `no_access`, `ready` ("Connected"), and `authenticated` (logged in but no repo configured — not surfaced in the old doc's table).
 
-When you approve a task that was imported from a GitHub issue, the linked issue is **automatically closed** on GitHub. This keeps both systems in sync without manual work.
+## Key code
 
-## Task Card Badge
-
-Tasks imported from GitHub show a small badge with the issue number (e.g., `#42`) on the task card. Clicking the badge opens the original issue on GitHub in a new tab.
-
-## Check Connection
-
-In **Project Settings > GitHub**, use the **Check Connection** button to verify:
-
-| Status | Meaning |
-|--------|---------|
-| **Connected** | `gh` CLI installed, authenticated, and repo accessible |
-| **Not installed** | `gh` CLI not found — install from [cli.github.com](https://cli.github.com) |
-| **Not authenticated** | Run `gh auth login` to authenticate |
-| **Cannot access** | Token doesn't have access to this repository |
-
-<Info>Claude Board never stores your GitHub token. It reads it from `gh auth token` on every request, using your existing CLI session.</Info>
+- `src-tauri/src/commands/github.rs` — `github_fetch_issues`, `github_import_issues`, `github_close_issue`, `github_check_status`, `map_labels_to_type`.
+- `src-tauri/src/services/github.rs` — GitHub REST calls (`fetch_issues`, `close_issue`, `validate_token`).
+- `src-tauri/src/services/github_sync.rs` — `close_and_comment` (issue close + comment on approve).
+- `src-tauri/src/commands/tasks.rs` — `execute_done_side_effects` wires auto-close into the Done transition.
+- `client/src/features/board/GitHubIssuesPanel.tsx` — browse/select/import UI.

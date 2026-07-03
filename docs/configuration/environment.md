@@ -1,69 +1,35 @@
----
-title: "Configuration"
-description: "Configure Claude Board via config.json and environment variables"
-icon: "sliders"
----
+# Environment & App Config
 
-Claude Board stores its configuration in a `config.json` file inside the application data directory. Settings can also be changed through the [setup wizard](/desktop/setup) on first launch or the in-app settings menu.
+How Claude Board resolves its own runtime config, and how it makes the `claude` CLI subprocess environment work correctly from a GUI-launched app.
 
-## Config File Location
+> **Note:** There are no `CLAUDE_BOARD_DATA` / `PORT` OS environment variable overrides in the codebase — `config.rs::load`/`load_from_handle` read only `config.json`, nothing from `std::env`. If you need to change the data dir or port, edit `config.json` or use the setup wizard / settings screen.
 
-| Platform | Default Path |
-|----------|-------------|
-| Windows | `%APPDATA%/claude-board/config.json` |
-| macOS | `~/Library/Application Support/claude-board/config.json` |
-| Linux | `~/.config/claude-board/config.json` |
+## App config file
 
-## Available Settings
+- Path: Tauri's `app_data_dir()` (keyed by the bundle identifier `com.claudeboard.desktop`) joined with `config.json`.
+- Shape (`AppConfig` in `src-tauri/src/config.rs`): `{ dataDir: string, port: number, language: string }`.
+- Defaults: `port = 4000`, `language = "en"`, `dataDir = ""` (must be set on first run via the setup wizard).
+- If the file is corrupt JSON, it's renamed to `config.json.bak` and defaults are used instead of crashing.
+- The data directory itself holds `claude-board.db` (SQLite) and `uploads/` — separate from `config.json`'s own location.
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `port` | `4000` | MCP HTTP server port for Claude runner integration |
-| `dataDir` | OS-specific | Directory for database and uploads |
+## PATH resolution for subprocess spawning
 
-## MCP Server Port
+GUI-launched apps (opened from Finder/Dock, not a terminal) inherit a minimal `PATH` from the OS that excludes shell-rc additions (`~/.local/bin`, nvm/pyenv shims, Homebrew on Apple Silicon, cargo, etc.) — so a bare `Command::new("claude")` can fail with ENOENT even though `claude` works fine in a terminal.
 
-The built-in MCP HTTP server allows Claude Code runners to communicate with Claude Board. Set the port in `config.json`:
+`src-tauri/src/claude/env_path.rs` works around this: on macOS/Linux it runs the user's login shell (`$SHELL -lic 'printf %s "$PATH"'`) once per process launch, caches the result, and prepends it to the current `PATH` for every subprocess Claude Board spawns (primarily `claude`, also `git`/`gh`). On Windows this is a no-op — GUI apps already inherit the full user `PATH`.
 
-```json
-{
-  "port": 8080
-}
-```
+## Per-task subprocess environment
 
-<Note>If the port is in use, the MCP server will fail to start. Choose an available port or stop the conflicting process.</Note>
+Each spawned `claude` process gets an MCP server config (`--mcp-config`) with these env vars for the bundled `mcp-server.js` sidecar:
 
-## Data Directory
+| Variable | Value |
+|----------|-------|
+| `CLAUDE_BOARD_URL` | `http://localhost:<mcp port>` — where the sidecar reaches the Rust backend's HTTP API |
+| `CLAUDE_BOARD_TASK_ID` | The task's numeric id, so permission requests and MCP tool calls are attributed to the right task |
 
-Controls where Claude Board stores its SQLite database and uploaded file attachments:
+## Key code
 
-```json
-{
-  "dataDir": "/path/to/data"
-}
-```
-
-Default locations by platform:
-
-| Platform | Default Path |
-|----------|-------------|
-| Windows | `%APPDATA%/claude-board/` |
-| macOS | `~/Library/Application Support/claude-board/` |
-| Linux | `~/.config/claude-board/` |
-
-The directory contains:
-
-- `claude-board.db` — SQLite database (all projects, tasks, settings)
-- `uploads/` — file attachments
-- `config.json` — application configuration
-
-<Warning>Back up the data directory regularly. It contains all your project data, task history, and logs.</Warning>
-
-## Environment Variables
-
-For advanced use cases, the following environment variables are still respected and override `config.json` values:
-
-| Variable | Description |
-|----------|-------------|
-| `CLAUDE_BOARD_DATA` | Override the data directory path |
-| `PORT` | Override the MCP server port |
+- `src-tauri/src/config.rs` — `AppConfig`, load/save
+- `src-tauri/src/claude/env_path.rs` — login-shell PATH resolution
+- `src-tauri/src/claude/runner.rs::build_claude_args` — `--mcp-config` env injection
+- `src-tauri/resources/mcp-server.js` — reads `CLAUDE_BOARD_URL` / `CLAUDE_BOARD_TASK_ID`

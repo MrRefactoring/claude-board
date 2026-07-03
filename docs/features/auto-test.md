@@ -1,96 +1,35 @@
----
-title: "Auto Test"
-description: "Automatic verification of completed tasks with rich terminal output"
-icon: "flask-conical"
----
+# Auto Test
 
-When a task completes, it enters **Testing** status. With Auto Test enabled, a verification agent automatically checks the work using the same rich terminal output as regular tasks.
+Runs an automated QA verification agent on a task before it reaches Done.
 
-## How It Works
+## Behavior
+1. Task completes (`in_progress` → `testing`). If `auto_test` is enabled, a verification agent starts automatically (model from `auto_test_model`, effort `low`).
+2. The agent runs 4 checks sequentially, one Bash command at a time — parallel calls are avoided because a cancelled sibling call would corrupt verification, and to sidestep Windows parallel-tool-call cancellation errors: Build Check, Test Suite (skipped if no test suite found), Code Review, Acceptance Criteria (skipped if none specified).
+3. Progress is logged/emitted as `[STEP N/4] <name>` and surfaced on the task card as step indicators.
+4. The agent must emit a final JSON report: `{"verdict": "approve"|"reject", "summary", "checks": [{"name", "status": "pass"|"fail"|"skip"|"warn", "detail"}...], "feedback"}`, stored on `tasks.test_report`.
+5. Uses the same event/log pipeline as normal task execution — tool call grouping, duration, token/cost tracking. Auto-test tokens are added on top of the task's existing usage baseline (not reset), so totals reflect build + verification combined.
 
-1. Task completes and enters **Testing** status
-2. A verification agent (Sonnet, low effort) starts automatically
-3. The agent runs build checks, tests, code review, and acceptance criteria validation
-4. **Pass** — task moves to **Done** automatically
-5. **Fail** — task stays in **Testing** with detailed feedback
+## States & transitions
+- Verdict `approve`, `require_approval` off → `testing` → `done`.
+- Verdict `approve`, `require_approval` on → `testing` → `awaiting_approval` (needs manual accept/reject).
+- Verdict `reject`, revision count below `max_auto_revisions` → auto-revision: feedback is recorded, status moves `testing` → `in_progress`, and the task restarts automatically with the feedback as context.
+- Verdict `reject`, revision limit reached → task stays in `testing` for manual review.
+- Unparseable report or agent process error → task stays in `testing`, logged as `unknown`/`error`.
 
-## Enabling Auto Test
+## Settings
+- `auto_test` — enables the feature (Automation tab).
+- `test_prompt` — free-text custom instructions appended to the verification prompt (Automation tab).
+- `auto_test_model` — model for the verification agent (Engine tab). Empty string resolves to default `sonnet`.
+- `max_auto_revisions` — cap on automatic reject→revise cycles (Engine tab, default 3).
+- `require_approval` — whether an `approve` verdict still needs manual sign-off (Engine tab, "Approval Gate").
 
-Open **Project Settings > Automation** and toggle **Auto Test** on. Optionally add custom test instructions.
+## Edge cases
+- App restart while a task is in `testing`: crash recovery re-triggers auto-test for those tasks after a 3s startup delay, only if `auto_test` is still enabled on the project.
+- Task manually moved off `testing` while auto-test is running: the verdict is logged and skipped rather than force-applied.
 
-## Verification Steps
-
-The agent executes these checks **sequentially** (never in parallel, to avoid cascading errors):
-
-<Steps>
-  <Step title="Build Check">
-    Runs the project's build command (npm run build, cargo check, etc.). Reports success or failure.
-  </Step>
-  <Step title="Test Suite">
-    Checks if a test suite exists, then runs it. Reports pass/fail counts. Skipped if no test suite found.
-  </Step>
-  <Step title="Code Review">
-    Reviews changed files for syntax errors, broken imports, security concerns, and missing error handling.
-  </Step>
-  <Step title="Acceptance Criteria">
-    If acceptance criteria are specified, each criterion is verified individually.
-  </Step>
-</Steps>
-
-## Rich Terminal Output
-
-Auto-test output uses the **same event system** as regular task execution. This means:
-
-- Full tool call grouping with expand/collapse
-- Input parameters and output preview for each tool call
-- Duration tracking per tool call
-- Status indicators (running, success, error)
-- Token usage and cost tracking
-
-## Test Report
-
-Results are stored as a structured JSON report on the task, viewable in the **Test** tab of the task detail modal:
-
-- **Verdict banner** — Pass (green) or Fail (red) with summary
-- **Individual check cards** — Build, Tests, Code Review, Acceptance Criteria with PASS/FAIL/SKIP status
-- **Feedback section** — Detailed feedback when rejected
-
-## Crash Recovery
-
-If the app crashes during auto-test:
-
-- Tasks in `testing` status are detected on restart
-- If auto-test is enabled, verification is **automatically re-triggered** after a 3-second startup delay
-- No manual intervention needed
-
-## Custom Instructions
-
-Add project-specific verification commands:
-
-```
-Run 'npm test' and verify all tests pass.
-Check TypeScript compilation with 'npx tsc --noEmit'.
-Ensure no console.log statements remain in production code.
-```
-
-## Auto-Test Token Tracking
-
-Token usage during auto-test is now counted in the task's total token usage. This means the token counter, cost estimate, and analytics all reflect the full cost of execution including verification.
-
-## Step Progress Markers
-
-During auto-test execution, the task card shows real-time step progress indicators:
-- **Step 1/4: Build Check**
-- **Step 2/4: Test Suite**
-- **Step 3/4: Code Review**
-- **Step 4/4: Acceptance Criteria**
-
-Each step displays its current status (running, passed, failed, skipped) as it executes.
-
-## Auto-Test Model Selection
-
-By default, auto-test runs with Sonnet at low effort. You can override this in **Project Settings → Engine tab**:
-- **Test Model** — choose between Haiku, Sonnet, or Opus
-- Higher-capability models catch more subtle issues but cost more
-
-<Note>The verification agent runs commands one at a time to prevent parallel tool call cancellation errors on Windows.</Note>
+## Key code
+- `src-tauri/src/claude/runner.rs` — `start_test` (builds the verification prompt and launches the agent), verdict/report parsing and revision handling.
+- `src-tauri/src/services/queue.rs` — `startup_recovery` (crash-recovery re-trigger for tasks stuck in `testing`).
+- `src-tauri/src/claude/state_machine.rs` — `TaskStatus` transitions, `EngineConfig` (`auto_test_model` default, `max_auto_revisions`).
+- `client/src/features/tasks/TaskTestTab.tsx` — verdict banner and per-check cards.
+- `client/src/features/projects/AutomationSection.tsx`, `client/src/features/projects/EngineSection.tsx` — settings UI.

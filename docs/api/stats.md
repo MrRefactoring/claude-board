@@ -1,134 +1,21 @@
----
-title: "Stats API"
-description: "Project statistics, activity feed, and Claude usage data"
-icon: "chart-mixed"
----
+# Stats API
 
-## Project Stats
+Per-project stats/activity, global Claude usage, and CLAUDE.md read/write.
 
-```http
-GET /api/projects/:projectId/stats
-```
+## Endpoints / commands
+- `GET /api/projects/{pid}/stats` — aggregate status/type/priority counts etc. (`stats::get_project_stats`).
+- `GET /api/stats/claude-usage` — global (all projects) usage: `{ usage, models, timeline, limits }` from `stats::get_global_usage` / `get_global_model_breakdown` / `get_usage_timeline` / `get_claude_limits`.
+- `GET /api/projects/{pid}/activity?limit=&offset=` — recent activity feed (`activity::get_by_project`), `limit` default 50, `offset` default 0.
+- Tauri command `get_project_stats(projectId)` — same as the HTTP route, but 404s (`Err("Project not found")`) if the project doesn't exist; the HTTP handler doesn't check.
+- Tauri command `get_claude_usage()` / `get_activity(projectId, limit?, offset?)` — IPC equivalents of the two routes above.
+- Tauri command `get_claude_md(projectId)` — reads `<workingDir>/CLAUDE.md`, returns `{ exists, content }`.
+- Tauri command `save_claude_md(projectId, content)` — overwrites `<workingDir>/CLAUDE.md`.
 
-Returns aggregate statistics for a project.
+## Notes
+- CLAUDE.md read/write is Tauri-only (filesystem access) — no HTTP equivalent, despite `client/src/lib/api.ts` defining `/api/projects/:id/claude-md` fallback paths.
+- Cost figures are computed from published Claude API pricing tables, not billed amounts.
 
-```json
-{
-  "statusCounts": {
-    "backlog": 5,
-    "in_progress": 2,
-    "testing": 1,
-    "done": 12
-  },
-  "typeCounts": {
-    "feature": 8,
-    "bugfix": 5,
-    "refactor": 3,
-    "docs": 2,
-    "test": 1,
-    "chore": 1
-  },
-  "priorityCounts": {
-    "0": 3,
-    "1": 10,
-    "2": 5,
-    "3": 2
-  },
-  "totalTasks": 20,
-  "avgDuration": 845000,
-  "completedToday": 3
-}
-```
-
-| Field | Description |
-|-------|-------------|
-| `statusCounts` | Tasks per status column |
-| `typeCounts` | Tasks per type |
-| `priorityCounts` | Tasks per priority level |
-| `totalTasks` | Total task count |
-| `avgDuration` | Average completion time in milliseconds |
-| `completedToday` | Tasks moved to Done today |
-
-## Activity Feed
-
-```http
-GET /api/projects/:projectId/activity?limit=50&offset=0
-```
-
-Returns recent task events in chronological order. Useful for building a project timeline.
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `limit` | `50` | Max number of entries to return |
-| `offset` | `0` | Number of entries to skip (for pagination) |
-
-```json
-[
-  {
-    "taskId": 5,
-    "taskTitle": "Add login page",
-    "event": "status_change",
-    "from": "in_progress",
-    "to": "testing",
-    "timestamp": "2025-01-15T14:30:00Z"
-  }
-]
-```
-
-## Claude Usage
-
-```http
-GET /api/stats/claude-usage
-```
-
-Returns aggregated Claude API usage across all projects and tasks. This is a global endpoint, not per-project.
-
-```json
-{
-  "usage": {
-    "totalInputTokens": 125000,
-    "totalOutputTokens": 48000,
-    "totalCacheRead": 30000,
-    "totalCacheCreation": 15000,
-    "totalCost": 12.50
-  },
-  "models": {
-    "sonnet": { "tasks": 10, "inputTokens": 80000, "outputTokens": 30000, "cost": 5.20 },
-    "opus": { "tasks": 3, "inputTokens": 40000, "outputTokens": 15000, "cost": 6.80 },
-    "haiku": { "tasks": 7, "inputTokens": 5000, "outputTokens": 3000, "cost": 0.50 }
-  },
-  "timeline": [...],
-  "limits": {
-    "dailyLimit": null,
-    "currentUsage": 12.50
-  }
-}
-```
-
-<Info>Cost estimates are calculated from published Claude API pricing. Actual costs may vary based on your billing plan.</Info>
-
-## CLAUDE.md (Tauri IPC)
-
-### Get CLAUDE.md
-
-```javascript
-invoke('get_claude_md', { projectId: 1 })
-```
-
-Returns the contents of the project's CLAUDE.md file.
-
-```json
-{
-  "content": "# Project Instructions\n...",
-  "path": "/home/user/my-app/CLAUDE.md",
-  "exists": true
-}
-```
-
-### Save CLAUDE.md
-
-```javascript
-invoke('save_claude_md', { projectId: 1, content: "# Updated instructions" })
-```
-
-Writes content to the project's CLAUDE.md file.
+## Key code
+- `src-tauri/src/services/http_api.rs` — stats/activity/usage routes
+- `src-tauri/src/commands/stats.rs` — Tauri equivalents + CLAUDE.md
+- `src-tauri/src/db/stats.rs` — aggregation queries

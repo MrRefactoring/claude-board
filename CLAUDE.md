@@ -38,3 +38,38 @@ hook): every rule is either `error` or `off` with a rationale comment in
 `client/eslint.config.js`. An `eslint-disable` is only acceptable as a targeted
 `eslint-disable-next-line <rule> -- <reason>`; never blanket-disable a rule for
 a file and never disable without the reason.
+
+## Documentation
+
+`docs/` is **internal engineering documentation** — plain markdown (`.md`), no
+site generator, no build step, no translations. It is the source of truth for
+**how things should behave**. Structure:
+
+- `docs/concepts/` — the core model (agents, board, tasks, review).
+- `docs/features/` — one concise spec per feature.
+- `docs/configuration/` — project/permission/environment settings.
+- `docs/api/` — internal reference for the Tauri IPC commands and the `/api/*`
+  HTTP bridge.
+- `docs/desktop/` — build & setup.
+- `docs/README.md` — index linking the above.
+
+Every functional change ships with its spec **in the same change**. Each spec is
+short and behavioral (not marketing, not code internals), following this shape —
+omit sections that don't apply:
+
+```
+# <Title>
+
+<1–2 line purpose.>
+
+## Behavior
+## States & transitions   (if any)
+## Settings               (real project/task setting names)
+## Edge cases
+## Key code               (paths + role)
+```
+
+The doc is the contract: the code must match it. New feature or behavior change →
+create/update the matching `docs/features/<name>.md` (or `concepts/`) and link it
+from `docs/README.md`. A behavior change that leaves its spec stale is a bug —
+update the spec, don't let it drift.

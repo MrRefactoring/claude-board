@@ -1,113 +1,45 @@
----
-title: "Roadmap"
-description: "Plan milestones and phases with AI-assisted roadmap view — integrates with the GSD (Get Shit Done) spec-driven workflow"
-icon: "map"
----
+# Roadmap
 
-The **Roadmap** view gives you a bird's-eye perspective of a project's milestones and phases, and bridges to the [GSD](https://github.com/bahri-hirfanoglu/gsd) spec-driven development framework when the project has a `.planning/` directory.
+Project-level view of milestones and phases. Two independent systems share the tab: a file-based bridge into the GSD (`.planning/`) spec-driven workflow, and a classic DB-backed Milestones/Phases tracker that works without GSD.
 
-<Frame>
-  <img src="/images/feature-planning.svg" alt="Roadmap view" />
-</Frame>
+## Behavior
 
-## Opening the Roadmap
+The Roadmap tab renders up to three sections:
 
-Open any project, then click the **Roadmap** tab in the top view tabs. The view has three stacked sections:
+1. **Project Overview** — shown only if `.planning/PROJECT.md` exists. Collapsible card: header = project name (H1 of `PROJECT.md`) + summary + `current_phase` badge from `STATE.md`; expanded view shows current phase/step plus the raw `PROJECT.md`/`STATE.md` contents.
+2. **`.planning/` Roadmap** — shown only if `.planning/` exists. Parses `ROADMAP.md` phase-by-phase into structured fields (Goal, Depends on, Requirements, Success Criteria, Plans, Execution Order) instead of raw markdown; renders any embedded markdown tables as HTML tables. Header shows an overall progress bar, current phase/step, a refresh (re-read from disk) button, and a raw-source toggle.
+3. **Milestones** — always shown; DB-backed milestones → phases → plans → linked tasks, independent of GSD.
 
-1. **Project Overview** — summary of `.planning/PROJECT.md` plus current state (when GSD is initialized)
-2. **.planning/ Roadmap** — GSD file-based roadmap, phase list with per-phase actions
-3. **Milestones** — classic DB-backed milestones and phases, independent of GSD
+If there's no `.planning/` directory, only the Milestones section renders.
 
-If the project has no `.planning/` directory, only the Milestones section is shown.
+### `.planning/` phase actions (state machine, per phase)
 
-## Project Overview panel
+- No `PLAN.md` files yet, status `pending`/`planning` → **Plan Phase**: runs an inline Claude agent (no worktree) that writes `PLAN.md` files under `.planning/phases/phase-N/`.
+- Has `PLAN.md` files but no board tasks yet, status `pending`/`planning` → **Generate Tasks**: parses the `PLAN.md` files and creates board tasks with wave-based dependencies; the queue picks them up immediately.
+- Status `completed` → **Verify**: creates a task that runs `/gsd:verify-work` for that phase.
+- Status `failed` → **Retry**: re-runs task generation from the existing `PLAN.md` files.
+- **Preview parsed tasks** (before Generate Tasks): parses `PLAN.md` without creating anything; shows tasks grouped by wave (wave N runs after wave N-1), each with type, name, plan file, files touched, and done criteria. "Generate N tasks" inside the preview commits.
 
-When `.planning/PROJECT.md` exists, a collapsible card appears at the top of the Roadmap:
+> **Note:** the DB-backed Milestones section (`PhaseCard.tsx`) has a *different* action set — Surface Assumptions, AI Plan Phase, Execute Phase, Validate Phase, Insert Phase — independent of the `.planning/`-file state machine above.
 
-- **Header**: project name (the H1 of PROJECT.md) + a short summary line + the `current_phase` badge from STATE.md
-- **Expanded**: current phase / current step from STATE.md + the full raw `PROJECT.md` and `STATE.md` contents
+### Health & todos
 
-Use this to quickly remind yourself what the project is about, and where the GSD workflow currently stands, without leaving the Roadmap tab.
+- **Health** button calls `gsd_health_check`, reporting whether `.planning/` is healthy, degraded, or broken.
+- **Todos** button lists everything under `.planning/todos/pending` and `.planning/todos/done` (recursively), each with area + preview. Captured via `/gsd:add-todo` in a Claude session.
 
-## Structured phase description
+## Edge cases
 
-Phase descriptions in `ROADMAP.md` usually follow a convention:
+- GSD integration is fully optional — no `.planning/` means only the Milestones section, which supports its own milestones/phases/AI planning independent of GSD.
+- Stale `.planning/` files on disk are only picked up on the explicit Refresh action (or a fresh phase-action round-trip), not live-watched.
 
-```markdown
-## Phase 1: Foundation and Tech Debt
+## Key code
 
-**Goal**: The codebase runs on a fully supported, bug-free dependency stack
-**Depends on**: Nothing (first phase)
-**Requirements**: TECH-01, TECH-02, TECH-03
-**Success Criteria** (what must be TRUE):
-1. Terminal renders correctly
-2. No orphaned shell processes
-**Plans**: plan-1-xterm-upgrade, plan-2-server-fixes
-**Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3
-| Phase | Plans | Status |
-|-------|-------|--------|
-| 1. Foundation | 0/4 | Not started |
-```
-
-Instead of dumping this as raw markdown, the view **parses** it into dedicated sections with icons and badges:
-
-| Section            | Visual                                         |
-|--------------------|------------------------------------------------|
-| Goal               | Target icon · accent color · body text         |
-| Depends on         | Link icon · body text                          |
-| Requirements       | Flag icon · count badge · chip list            |
-| Success Criteria   | Check icon · count badge · numbered list       |
-| Plans              | File icon · count badge · chip list            |
-| Execution Order    | Arrow icon · body text + markdown table        |
-
-Markdown tables anywhere in the description are rendered as actual HTML tables with zebra rows and an emphasized first column — no more raw `| --- |` lines.
-
-## Phase actions
-
-Each phase row shows a state-machine action button based on its status:
-
-<Steps>
-  <Step title="pending / planning (no PLAN.md yet)" icon="brain">
-    **Plan Phase** — kicks off a Claude agent that researches how to implement the phase and writes `PLAN.md` files under `.planning/phases/phase-N/`. Progress streams in-place.
-  </Step>
-  <Step title="has PLAN.md files (no tasks yet)" icon="zap">
-    **Generate Tasks** — parses the PLAN.md files and creates board tasks with wave-based dependencies. The queue picks them up immediately.
-  </Step>
-  <Step title="completed" icon="eye">
-    **Verify** — creates a `/gsd:verify-work` task that re-checks the implementation against the success criteria.
-  </Step>
-  <Step title="failed" icon="rotate">
-    **Retry** — re-runs task generation from the existing PLAN.md files.
-  </Step>
-</Steps>
-
-### Preview parsed tasks
-
-Before committing to **Generate Tasks**, expand the phase and click **Preview parsed tasks**. The view fetches the parsed task list from `PLAN.md` without creating anything, and shows:
-
-- Tasks grouped by **wave** (wave N runs after wave N-1)
-- Per task: type badge · name · plan file · files touched · done criteria
-
-Review the list; if it looks right, click **Generate N tasks** inside the preview to commit. You can close the preview with the `×` if you want to edit the plans first.
-
-## .planning/ roadmap header
-
-Above the phases, the `.planning/ Roadmap` card header shows:
-
-- Overall progress bar (completed / in-progress / failed / pending)
-- Current phase + current step (from STATE.md)
-- Refresh button to re-read the files from disk
-- **Raw toggle** — pre-formatted view of the entire `ROADMAP.md` if you want to see the source
-
-## Health check
-
-The Roadmap toolbar has a **Health** button that calls `gsd_health_check` and reports whether the `.planning/` directory is healthy, degraded, or broken — useful after manual edits.
-
-## Todos
-
-The **Todos** button lists every todo captured under `.planning/todos/pending` and `.planning/todos/done` with their area and preview. Use `/gsd:add-todo` in a Claude session to capture ideas; they'll show up here for later review.
-
-<Info>
-  GSD integration is optional. Projects without a `.planning/` directory still get the Milestone section — you can create milestones, add phases, and run AI planning on a phase without using GSD at all.
-</Info>
+- `src-tauri/src/services/gsd.rs` — `.planning/` file parsing: `read_roadmap`/`parse_roadmap_phases`, `read_state`, `read_project`, `read_phase_details`, `parse_phase_plans`, `run_health_checks`, `list_todos`.
+- `src-tauri/src/commands/gsd.rs` — Tauri commands: `gsd_check_status`, `gsd_health_check`, `gsd_list_todos`, `gsd_get_roadmap`, `gsd_get_state`, `gsd_get_project`, `gsd_get_phase_details`, `gsd_parse_phase_plans`, `gsd_create_tasks_from_plans`.
+- `src-tauri/src/db/roadmap.rs` / `src-tauri/src/commands/roadmap.rs` — DB-backed Milestones/Phases/Plans CRUD, `plan_phase`, `approve_phase_plan`, `execute_phase`.
+- `client/src/features/roadmap/RoadmapView.tsx` — top-level tab composing the three sections.
+- `client/src/features/roadmap/GsdProjectOverview.tsx` — Project Overview panel.
+- `client/src/features/roadmap/GsdFileRoadmap.tsx` — `.planning/` roadmap card, phase action state machine, Health/Todos buttons.
+- `client/src/features/roadmap/phaseDescription.tsx` — structured phase-description parser/renderer (Goal/Depends on/Requirements/Success Criteria/Plans/Execution Order + markdown tables).
+- `client/src/features/roadmap/PlanPreviewPanel.tsx` — "Preview parsed tasks" panel.
+- `client/src/features/roadmap/MilestoneSection.tsx`, `PhaseCard.tsx`, `PlanRow.tsx` — DB-backed Milestones section.

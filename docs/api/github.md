@@ -1,115 +1,18 @@
----
-title: "GitHub API"
-description: "GitHub integration for issue sync, repo detection, and PR automation"
-icon: "github"
----
+# GitHub API
 
-<Note>GitHub integration features are Tauri-only. They require the GitHub CLI (`gh`) to be installed and authenticated via `gh auth login`.</Note>
+Issue import/sync and repo detection via the `gh` CLI — Tauri IPC only, no HTTP route. Requires `gh` installed and authenticated (`gh auth login`).
 
-## Detect Repository
+## Commands
+- `github_detect_repo(workingDir)` — reads `git remote get-url origin` in `workingDir`, returns `"owner/repo"`. Errors if there's no remote, or it isn't a GitHub URL.
+- `github_check_status(repo)` — checks `gh` installed → authenticated → repo accessible, in order. Returns `{ status, message, repo? }` with `status` ∈ `not_installed | not_authenticated | authenticated | no_access | ready`.
+- `github_fetch_issues(projectId)` — requires the project's `github_repo` + `github_sync_enabled=1` (Project Settings). Fetches open issues via `gh auth token` + GitHub API, returns `{ issues: [...], repo }` where each issue carries `already_imported` (matched by issue number already on a task) and `suggested_type` (mapped from labels: `bug/fix`→`bugfix`, `refactor`→`refactor`, `doc`→`docs`, `test`→`test`, `chore/maintenance`→`chore`, else `feature`). Does not create tasks.
+- `github_import_issues(projectId, issueNumbers)` — imports the selected issues as `backlog` tasks in one DB transaction (all-or-nothing); duplicates (by issue number) are skipped. Each task is tagged `["github"]`, description = issue body, type from `suggested_type`. Emits `task:created` per imported task. Returns `{ imported: <count> }`.
+- `github_close_issue(projectId, taskId)` — closes the GitHub issue linked to `taskId` (via its `github_issue_number`). No-op if no repo configured or task has no linked issue. Called automatically from `commands/tasks.rs` when a task with a linked issue reaches `done`.
 
-```javascript
-invoke('github_detect_repo', { workingDir: "/home/user/my-app" })
-// -> "owner/repo"
-```
+## Notes
+- All of these require `github_sync_enabled = 1` and a non-empty `github_repo` on the project (except `detect_repo`, which just reads the local git remote).
+- Nothing here is reachable over `/api/*` — `services/http_api.rs` defines no GitHub routes; `client/src/lib/api.ts`'s `githubDetectRepo` / `githubCheckStatus` / `githubFetchIssues` / `githubImportIssues` only work inside the Tauri app.
 
-Detects the GitHub repository from the git remote URL in the specified working directory.
-
-Returns the repository in `owner/repo` format, or an error if:
-- No git remote is found
-- The remote is not a GitHub URL
-- The repository format cannot be parsed
-
-## Check Status
-
-```javascript
-invoke('github_check_status', { repo: "owner/repo" })
-```
-
-Checks the full GitHub integration status: CLI installed, authenticated, and repository accessible.
-
-```json
-{
-  "status": "ready",
-  "message": "Connected",
-  "repo": "owner/repo"
-}
-```
-
-### Status Values
-
-| Status | Description |
-|--------|-------------|
-| `not_installed` | GitHub CLI (`gh`) is not installed |
-| `not_authenticated` | Not logged in -- run `gh auth login` |
-| `authenticated` | Logged in but no repo configured |
-| `no_access` | Cannot access the specified repository |
-| `ready` | Fully connected and repository accessible |
-
-## Fetch Issues
-
-```javascript
-invoke('github_fetch_issues', { projectId: 1 })
-```
-
-Fetches open GitHub issues from the project's configured repository. Does not create tasks -- just returns the issue list for the user to select from.
-
-```json
-{
-  "issues": [
-    {
-      "number": 42,
-      "title": "Login page crashes on mobile",
-      "body": "Steps to reproduce...",
-      "state": "open",
-      "html_url": "https://github.com/owner/repo/issues/42",
-      "labels": [{ "name": "bug", "color": "d73a4a" }],
-      "created_at": "2025-01-10T08:00:00Z",
-      "updated_at": "2025-01-12T15:30:00Z",
-      "already_imported": false,
-      "suggested_type": "bugfix"
-    }
-  ],
-  "repo": "owner/repo"
-}
-```
-
-| Field | Description |
-|-------|-------------|
-| `already_imported` | Whether this issue has already been imported as a task |
-| `suggested_type` | Auto-detected task type based on issue labels (`feature`, `bugfix`, `refactor`, `docs`, `test`, `chore`) |
-
-<Info>The project must have a GitHub repo configured in Project Settings before fetching issues.</Info>
-
-## Import Issues
-
-```javascript
-invoke('github_import_issues', {
-  projectId: 1,
-  issueNumbers: [42, 55, 61]
-})
-```
-
-Imports selected GitHub issues as tasks in the project. Each imported issue becomes a task in `backlog` status.
-
-```json
-{
-  "imported": 3
-}
-```
-
-- Duplicate imports are automatically skipped (matched by issue number)
-- Task type is auto-detected from issue labels
-- Issue body becomes the task description
-- All imported tasks are tagged with `["github"]`
-- A `task:created` event is emitted for each imported task
-
-## Close Issue
-
-```javascript
-invoke('github_close_issue', { projectId: 1, taskId: 5 })
-```
-
-Closes the GitHub issue linked to a task. Called automatically when a task with a linked issue moves to `done` status.
-
-Does nothing if the task has no linked GitHub issue or the project has no GitHub repo configured.
+## Key code
+- `src-tauri/src/commands/github.rs` — Tauri commands
+- `src-tauri/src/services/github.rs` — GitHub REST client (`fetch_issues`, `close_issue`, `validate_token`)

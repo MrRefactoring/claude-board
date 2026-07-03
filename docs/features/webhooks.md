@@ -1,88 +1,24 @@
----
-title: "Webhooks"
-description: "Send task events to Slack, Discord, Teams, or custom endpoints"
-icon: "bell"
----
+# Webhooks
 
-Webhooks notify external services when events happen in Claude Board. Get alerts when tasks start, finish, or need review.
+Per-project outbound notifications to Slack, Discord, Teams, or a custom HTTP endpoint when task events happen.
 
-<Frame><img src="/images/feature-webhooks.svg" alt="Webhook Notifications" /></Frame>
+## Behavior
+- Configured per project: platform, target URL, and an event subscription list (empty list = all events).
+- On a subscribed event, `webhook::fire` spawns an async dispatch that POSTs a platform-shaped JSON payload to every enabled, matching webhook for the project, with a 10s send timeout. Delivery failures are logged, not retried.
+- A **Test** button (`test_webhook`) sends a sample payload to verify the URL/platform before relying on it.
 
-## Supported Platforms
+## Events
+Selectable in the UI (`ALL_EVENTS`): `task_created`, `task_started`, `task_approved` (task moved to Done), `revision_requested`, `queue_auto_started`. Additional internal events (`task_timeout`, `circuit_breaker_activated`) also fire and are delivered under "All Events," but aren't individually selectable in the events list.
 
-<Columns cols={2}>
-  <Card title="Slack" icon="hashtag">
-    Posts formatted messages to a Slack channel via incoming webhook URL.
-  </Card>
-  <Card title="Discord" icon="discord">
-    Sends rich embeds to a Discord channel webhook.
-  </Card>
-  <Card title="Microsoft Teams" icon="microsoft">
-    Delivers adaptive cards to a Teams channel connector.
-  </Card>
-  <Card title="Custom" icon="globe">
-    Sends raw JSON payloads to any HTTP endpoint.
-  </Card>
-</Columns>
+> **Note:** event ids use underscore names (`task_started`, `task_approved`, ...), not the colon-style (`task:started`) names in an earlier version of this doc.
 
-## Event Filtering
+## Payload Formats
+- **Slack** (`platform: "slack"`) — Block Kit `section` block with event type + message.
+- **Discord** (`platform: "discord"`) — embed with title/description, color keyed off event type, timestamp, footer.
+- **Teams** and **Custom** — both fall through to the same generic JSON shape: `{ event, message, timestamp, metadata }`. Teams does not currently get an Adaptive Card payload — it's selectable in the UI but rendered identically to Custom.
 
-Choose which events trigger the webhook:
-
-| Event | Description |
-|-------|-------------|
-| `task:created` | A new task is added |
-| `task:started` | Task moves to In Progress |
-| `task:completed` | Agent finishes, task enters Testing |
-| `task:approved` | Task is approved and moves to Done |
-| `task:changes_requested` | Reviewer requests revisions |
-
-<Tip>For a "notify on completion" setup, subscribe only to `task:completed` and `task:approved`.</Tip>
-
-## Platform-Specific Payloads
-
-Each platform receives a tailored payload format:
-
-<Tabs>
-  <Tab title="Slack">
-    Uses Slack Block Kit with task title, status, model, and a link to the board.
-  </Tab>
-  <Tab title="Discord">
-    Uses Discord embed format with color-coded status, fields for priority and type.
-  </Tab>
-  <Tab title="Teams">
-    Uses Adaptive Card schema with action buttons.
-  </Tab>
-  <Tab title="Custom">
-    Raw JSON with all task fields, event type, and timestamp.
-    ```json
-    {
-      "event": "task:completed",
-      "task": { "id": 1, "title": "...", "status": "testing" },
-      "project": { "id": 1, "name": "..." },
-      "timestamp": "2025-01-15T10:30:00Z"
-    }
-    ```
-  </Tab>
-</Tabs>
-
-## Test Button
-
-After creating a webhook, click **Test** to send a sample payload. This verifies your URL and authentication are correct without waiting for a real event.
-
-## Setup
-
-<Steps>
-  <Step title="Go to project settings → Webhooks">
-    Click "Add Webhook".
-  </Step>
-  <Step title="Select platform and enter URL">
-    Paste your webhook URL from Slack, Discord, Teams, or your custom service.
-  </Step>
-  <Step title="Choose events">
-    Select which events should trigger this webhook.
-  </Step>
-  <Step title="Test and save">
-    Click Test to verify, then Save.
-  </Step>
-</Steps>
+## Key code
+- `src-tauri/src/services/webhook.rs` — `fire`/`dispatch`, `build_payload` per platform
+- `src-tauri/src/db/webhooks.rs` — webhook CRUD, `get_enabled_by_project`
+- `src-tauri/src/commands/webhooks.rs` — `test_webhook` and other commands
+- `client/src/features/webhooks/WebhooksModal.tsx` — platform list, `ALL_EVENTS`, test button

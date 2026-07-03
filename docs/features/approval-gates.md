@@ -1,35 +1,40 @@
----
-title: "Approval Gates"
-description: "Require manual approval after auto-test passes"
-icon: "badge-check"
----
+# Approval Gates
 
-Approval Gates add a manual review step between auto-test passing and marking a task as done.
+Optional manual review step between a task passing verification and being marked done.
 
-## Configuration
+## Behavior
+- Governed by the per-project `require_approval` flag (**Project Settings → Engine tab → Approval Gate** toggle: "Approval required" vs. "Auto-approve", default off).
+- With auto-test enabled and `require_approval` on: when auto-test passes, the task moves `testing → awaiting_approval` instead of `testing → done`. The "Awaiting Approval" board column only renders when `require_approval` is set on the project.
+- With auto-test **disabled** and `require_approval` on: the task simply stays in `testing` for manual review (it does not transition to `awaiting_approval`) — approval and auto-test-triggered approval are two separate code paths, and only the auto-test path uses the `awaiting_approval` status.
+- With `require_approval` off (default): auto-test passing (or manual completion with no auto-test) promotes the task straight to `done`.
+- From `awaiting_approval`, the task moves on generic status-update transitions (drag-and-drop, board actions, or the command palette's "Approve" action, which calls the same status-change path):
+  - → `done` (approved) — triggers the normal done-transition side effects: PR creation/merge, branch cleanup, GitHub issue close.
+  - → `in_progress` (rejected, rework)
+  - → `backlog` (returns to queue)
+  - → `failed` (rejected permanently)
 
-In **Project Settings → Engine tab**:
-- **Approval Gate** toggle — "Approval required" or "Auto-approve" (default)
-
-## Flow
-
-With approval enabled:
+## States & transitions
+Valid transitions involving the gate (`src-tauri/src/claude/state_machine.rs`):
 ```
-in_progress → testing → awaiting_approval → done
+testing          → awaiting_approval   (auto-test passed, approval required)
+awaiting_approval → done               (approved)
+awaiting_approval → in_progress        (rejected, needs rework)
+awaiting_approval → backlog            (moved back to queue)
+awaiting_approval → failed             (rejected permanently)
 ```
 
-Without approval (default):
-```
-in_progress → testing → done
-```
+## Settings
+- `require_approval` (`projects` table, `INTEGER DEFAULT 0`) — 1 enables the gate for the project.
 
-## Board Column
+## Edge cases
+- Toggling the flag doesn't affect tasks already in flight — it's read at the point auto-test/completion resolves.
+- The "Awaiting Approval" column is hidden client-side (`Board.tsx` filters `COLUMNS`) when the project flag is off, but a task already in that status would still be filtered out of view if the flag is turned off mid-flight.
 
-The "Awaiting Approval" column only appears on the board when approval is enabled for the project. Tasks in this column show a violet status badge.
-
-## Actions
-
-From `awaiting_approval`, you can:
-- **Approve** → moves to `done` (triggers PR creation, branch cleanup, etc.)
-- **Reject** → moves back to `in_progress` for rework
-- **Move to backlog** → returns to queue
+## Key code
+- `src-tauri/src/claude/state_machine.rs` — `TaskStatus::AwaitingApproval`, valid transitions
+- `src-tauri/src/claude/runner.rs` — auto-test completion handler branching on `require_approval` (sets `awaiting_approval` or `done`)
+- `src-tauri/src/commands/tasks.rs` — generic status-update command that applies transitions and done-side-effects (PR/branch/issue)
+- `src-tauri/src/db/projects.rs` — `require_approval` field, `update_approval_settings`
+- `client/src/features/projects/EngineSection.tsx` — Approval Gate toggle UI
+- `client/src/features/board/Board.tsx` — conditional "Awaiting Approval" column
+- `client/src/lib/constants.ts` — `awaiting_approval` column definition (violet)

@@ -1,38 +1,17 @@
----
-title: "Status Animations"
-description: "Visual feedback when tasks transition between statuses"
-icon: "sparkles"
----
+# Status Animations
 
-When a task moves between statuses — whether by drag-and-drop, button click, or voice command — Claude Board plays a transition animation on the task card.
+Short CSS overlay animations played on a task card when its status changes, for visual feedback on drag-and-drop, button, or voice-driven transitions.
+
+## Behavior
+1. Any status change calls `emitStatusTransition(taskId, fromStatus, toStatus)`, which records the transition in `StatusTransitionContext` (module-level event bus, usable outside the React tree).
+2. Each `TaskCard` reads the context for its own task ID; if a transition is active, it renders a `StatusTransitionEffect` overlay.
+3. The transition record — and its rendered effect — auto-clears after 2 seconds (per-task timeout, reset on a new transition for the same task).
 
 ## Animation Types
+Effect is chosen by the target status: In Progress (amber sparks), Testing (shimmer wave), Done (confetti burst), Awaiting Approval (violet stars), Failed (red flash), and any backward transition (gray rewind sweep). All transitions also apply a glow pulse in the target status color and a card pop scale.
 
-| Transition | Effect | Description |
-|-----------|--------|-------------|
-| → **In Progress** | Amber sparks | 12 glowing particles fly outward with a golden pulse |
-| → **Testing** | Shimmer wave | Purple/amber gradient sweeps across with floating dots |
-| → **Done** | Confetti burst | 24 colorful particles in mixed shapes with a checkmark pop |
-| → **Awaiting Approval** | Violet stars | Purple particles float up with star icon and violet glow |
-| → **Failed** | Red flash | Red shimmer wave, red glow pulse, and X mark |
-| ← **Backward** | Rewind sweep | Subtle gray sweep in reverse direction |
-
-All transitions also include:
-- A **glow pulse** matching the target status color
-- A **card pop** scale animation (briefly scales up then settles)
-
-## How It Works
-
-The animation system uses a React context (`StatusTransitionContext`) that tracks recent transitions:
-
-1. When `onStatusChange` fires, `emitStatusTransition(taskId, fromStatus, toStatus)` records the transition
-2. Each `TaskCard` checks the context for active transitions
-3. If a transition exists for its task, it renders `StatusTransitionEffect` overlay
-4. Animations auto-clear after 2 seconds
-
-## Technical Details
-
-- All effects use **pure CSS animations** — no external libraries
-- Particles are randomly generated `div` elements with CSS `@keyframes`
-- The confetti uses 8 different colors and mixed shapes (circles + rectangles)
-- Performance is lightweight since effects are short-lived and use GPU-accelerated transforms
+## Key code
+- `client/src/features/board/StatusTransitionContext.tsx` — transition state, `emitStatusTransition`, 2s auto-clear
+- `client/src/features/board/StatusTransitionEffect.tsx` — per-transition CSS animation overlay
+- `client/src/features/board/TaskCard.tsx` — reads context, renders the effect
+- `client/src/hooks/useTaskHandlers.ts` — calls `emitStatusTransition` on status changes

@@ -1,320 +1,42 @@
----
-title: "Tasks API"
-description: "CRUD, status changes, agent control, dependencies, and observability"
-icon: "list-check"
----
-
-## List Tasks
-
-```http
-GET /api/projects/:projectId/tasks
-```
-
-Returns all tasks for a project, ordered by priority and creation date.
-
-## Get Task
-
-```http
-GET /api/tasks/:id
-```
-
-Returns a single task with all fields.
-
-## Get Task Detail
-
-```http
-GET /api/tasks/:id/detail
-```
-
-Extended detail view including revision history, attachments, parsed commits, and complete log entries.
-
-```json
-{
-  "id": 1,
-  "title": "Add authentication",
-  "description": "Implement JWT login",
-  "status": "testing",
-  "priority": 2,
-  "task_type": "feature",
-  "model": "sonnet",
-  "thinking_effort": "medium",
-  "acceptance_criteria": "All tests pass",
-  "tags": "[\"auth\", \"backend\"]",
-  "task_key": "FTR-PRJ-1001",
-  "commits": [{ "hash": "abc1234", "message": "Add login endpoint" }],
-  "revisions": [
-    { "id": 1, "taskId": 1, "feedback": "Add validation", "createdAt": "..." }
-  ],
-  "attachments": [
-    { "id": 1, "taskId": 1, "fileName": "spec.pdf", "mimeType": "application/pdf" }
-  ]
-}
-```
-
-## Create Task
-
-```http
-POST /api/projects/:projectId/tasks
-Content-Type: application/json
-```
-
-```json
-{
-  "title": "Add user authentication",
-  "description": "Implement JWT-based login and registration",
-  "task_type": "feature",
-  "priority": 2,
-  "model": "sonnet",
-  "thinking_effort": "medium",
-  "acceptance_criteria": "All auth tests pass, tokens expire correctly",
-  "tags": "[\"auth\"]",
-  "parent_task_id": null
-}
-```
-
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `title` | Yes | -- | Task title |
-| `description` | No | `""` | Detailed instructions for the agent |
-| `task_type` | No | `feature` | `feature`, `bugfix`, `refactor`, `docs`, `test`, `chore` |
-| `priority` | No | `0` | 0 (low) to 3 (urgent) |
-| `model` | No | `sonnet` | `opus`, `sonnet`, `haiku` |
-| `thinking_effort` | No | `medium` | `low`, `medium`, `high` |
-| `acceptance_criteria` | No | `""` | Criteria the agent must satisfy |
-| `tags` | No | `null` | JSON array string of tag labels |
-| `parent_task_id` | No | `null` | Parent task ID for sub-task linking |
-
-<Info>When `parent_task_id` is set, the new task becomes a sub-task. The parent automatically enters "awaiting sub-tasks" mode and completes when all sub-tasks finish.</Info>
-
-## Update Task
-
-```http
-PUT /api/tasks/:id
-Content-Type: application/json
-```
-
-Accepts the same fields as Create (except `parent_task_id`). Only included fields are updated.
-
-```json
-{
-  "title": "Updated title",
-  "priority": 3,
-  "tags": "[\"urgent\", \"auth\"]"
-}
-```
-
-## Change Status
-
-```http
-PATCH /api/tasks/:id/status
-Content-Type: application/json
-```
-
-```json
-{ "status": "in_progress" }
-```
-
-Valid statuses: `backlog`, `in_progress`, `testing`, `done`, `failed`
-
-Moving to `in_progress` spawns a Claude agent. Moving to `done` stops any running agent.
-
-## Get Logs
-
-```http
-GET /api/tasks/:id/logs?limit=500
-```
-
-Returns recent agent log entries for a task, ordered chronologically (oldest first).
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `limit` | `500` | Max number of log entries to return |
-
-## Get Revisions
-
-```http
-GET /api/tasks/:id/revisions
-```
-
-Returns all change-request revisions for a task.
-
-## Delete Task
-
-```http
-DELETE /api/tasks/:id
-```
-
-Returns `{ "ok": true }` on success.
-
----
-
-## Agent Control (Tauri IPC)
-
-<Note>These endpoints are only available in the Tauri desktop app. They are not exposed via the HTTP API.</Note>
-
-### Stop Agent
-
-```javascript
-invoke('stop_task', { id: 1 })
-```
-
-Kills the running Claude process for a task and sets status to `backlog`.
-
-### Restart Agent
-
-```javascript
-invoke('restart_task', { id: 1, mcpPort: 4000 })
-```
-
-Stops any running agent and restarts a fresh Claude session.
-
-### Request Changes
-
-```javascript
-invoke('request_changes', {
-  id: 1,
-  feedback: "Add input validation to the login endpoint",
-  mcpPort: 4000
-})
-```
-
-Creates a revision record and resumes the agent with the feedback.
-
-### Get Task Diff
-
-```javascript
-invoke('get_task_diff', { taskId: 1 })
-```
-
-Returns git diff of changes made by the agent on the task's feature branch.
-
-```json
-{
-  "diff": "diff --git a/src/auth.rs ...",
-  "branch": "cb/add-authentication-1",
-  "stats": { "files": 3, "insertions": 45, "deletions": 12 }
-}
-```
-
----
-
-## Dependencies (Tauri IPC)
-
-### Add Dependency
-
-```javascript
-invoke('add_task_dependency', {
-  taskId: 5,
-  dependsOnId: 3,
-  conditionType: 'always' // 'always' | 'on_success' | 'on_failure'
-})
-```
-
-Creates a dependency edge with an optional condition type. Returns error if it would create a cycle.
-
-### Remove Dependency
-
-```javascript
-invoke('remove_task_dependency', { taskId: 5, dependsOnId: 3 })
-```
-
-### Get Task Dependencies
-
-```javascript
-invoke('get_task_dependencies', { taskId: 5 })
-// -> { parents: [3, 1], children: [8, 9] }
-```
-
-### Get Dependency Graph
-
-```javascript
-invoke('get_dependency_graph', { projectId: 1 })
-// -> { tasks: [...], edges: [{from: 3, to: 5, conditionType: "always"}, ...], waves: [...] }
-```
-
-### Get Execution Waves
-
-```javascript
-invoke('get_execution_waves', { projectId: 1 })
-// -> [[task1, task2], [task3], [task4, task5]]
-```
-
-Returns tasks grouped by execution wave. Tasks in the same wave can run in parallel.
-
-### Get Pipeline Status
-
-```javascript
-invoke('get_pipeline_status', { projectId: 1 })
-```
-
-Returns current pipeline execution state including which wave is active and which tasks are blocked.
-
----
-
-## Queue Management (Tauri IPC)
-
-### Reorder Queue
-
-```javascript
-invoke('reorder_queue', { projectId: 1, taskIds: [5, 3, 8, 1] })
-```
-
-Reorders the task queue by setting priority based on the provided order.
-
----
-
-## Observability (Tauri IPC)
-
-### Get Agent Activity
-
-```javascript
-invoke('get_agent_activity', { projectId: 1 })
-```
-
-Returns real-time data about all running agents:
-
-```json
-{
-  "agents": [
-    {
-      "taskId": 5,
-      "taskKey": "FTR-PRJ-1005",
-      "title": "Add authentication",
-      "model": "sonnet",
-      "elapsedSec": 120,
-      "inputTokens": 50000,
-      "outputTokens": 12000,
-      "totalCost": 0.33,
-      "toolCallCount": 45,
-      "recentTools": [...],
-      "activeFiles": ["src/auth.rs", "src/main.rs"],
-      "isRunning": true,
-      "awaitingSubtasks": false
-    }
-  ],
-  "fileMap": {
-    "src/auth.rs": [5],
-    "src/main.rs": [5, 8]
-  },
-  "conflicts": [
-    { "filePath": "src/main.rs", "taskIds": [5, 8] }
-  ]
-}
-```
-
-### Get Active File Map
-
-```javascript
-invoke('get_active_file_map')
-// -> { "src/auth.rs": [5], "src/main.rs": [5, 8] }
-```
-
-Returns a map of file paths to task IDs currently accessing them.
-
-### Get Task Events
-
-```javascript
-invoke('get_task_events', { taskId: 1, limit: 500 })
-```
-
-Returns structured event log for a task including tool calls, status changes, and agent messages.
+# Tasks API
+
+CRUD, status transitions (which drive the Claude agent lifecycle), dependencies, comments, and observability.
+
+## Endpoints / commands — CRUD & status
+- `GET /api/projects/{project_id}/tasks` — all tasks for a project.
+- `POST /api/projects/{project_id}/tasks` — create; body: `title` (required), `description?`, `priority?` (default 0), `task_type?` (default `feature`), `acceptance_criteria?`, `model?` (default `sonnet`), `thinking_effort?` (default `medium`), `tags?`, `parent_task_id?`, plus AI-orchestration extras `task_level?`, `story_points?`, `role_id?`, `auto_pr?`. Emits `task:created` (and `task:updated` on the parent if `parent_task_id` set).
+- `POST /api/projects/{project_id}/tasks/bulk` — atomically creates a hierarchy: body `{ nodes: [...], edges: [[parentIdx, childIdx], ...] }`; wires `parent`-index hierarchy and dependency edges in one call. Returns `{ tasks: [...] }`, `201`.
+- `GET /api/tasks/{id}` / `PUT /api/tasks/{id}` / `DELETE /api/tasks/{id}` — read / partial update / delete.
+- `PATCH /api/tasks/{id}/status` — body `{ status }`. Valid: `backlog | in_progress | testing | done | failed | awaiting_approval`. Rejects `in_progress` with `409` if any dependency is unmet (not `done`). Also cascades the GSD roadmap state.
+- `GET /api/tasks/{id}/detail` — task + `commits` (parsed JSON), `revisions`, `attachments`.
+- `GET /api/tasks/{id}/logs?limit=500` — recent agent log lines, chronological.
+- `GET /api/tasks/{id}/revisions` — change-request history.
+- `GET /api/projects/{project_id}/roles` — see `docs/api/roles.md`.
+
+## Endpoints / commands — dependencies, comments, PR intent
+- `POST /api/tasks/{id}/dependencies` — body `{ depends_on_id, condition_type? }` (`always | on_success | on_failure`); `{id}` depends on `{depends_on_id}`. Errors (`400`) on cycles. Emits `task:updated`.
+- `GET /api/tasks/{id}/comments` / `POST /api/tasks/{id}/comments` — work-log comments; POST body `{ body, author_type?, author_name?, pr_url? }`, emits `comment:created`.
+- `POST /api/tasks/{id}/pr-intent` — body `{ auto_pr: true|false|null }` (per-task override; `null` = inherit project default).
+
+## Tauri-only commands
+- `create_task` / `update_task` / `get_tasks` / `get_task` / `delete_task` / `get_task_logs` — IPC equivalents of the HTTP CRUD above (arg names camelCase, e.g. `parentTaskId`).
+- `change_task_status(id, status, mcpPort)` — same validation/gating as the HTTP route, plus it actually **starts/stops the Claude agent process** (`claude::runner::start`/`stop`) and auto-creates/merges the PR on `testing`/`done`. The HTTP `PATCH .../status` route only flips DB state — it does not spawn a runner (no `mcpPort`/`AppHandle` available there).
+- `stop_task(id)` / `restart_task(id, mcpPort)` / `request_changes(id, feedback, mcpPort)` — kill / restart-fresh / resume-with-feedback the agent process. `request_changes` only valid from `testing`/`done`.
+- `get_task_diff(taskId)` — `git diff` across the task's commit range on its feature branch/worktree, truncated at ~200KB.
+- `get_task_dependencies(taskId)` / `add_task_dependency(taskId, dependsOnId, conditionType?)` / `remove_task_dependency(taskId, dependsOnId)` — dependency graph edits (distinct from the HTTP add-dependency route above, which is what the MCP `add_task_dependency` tool uses).
+- `get_execution_waves(projectId)` / `get_dependency_graph(projectId)` / `get_pipeline_status(projectId)` — DAG views: wave-grouped parallel tasks, `{ tasks, edges, waves }`, and a status/cost/bottleneck/circuit-breaker summary respectively.
+- `reorder_queue(projectId, taskIds)` / `reorder_tasks(taskIds)` — set queue position / sort order from an ordered id list.
+- `get_active_file_map()` / `get_agent_activity(projectId)` — live observability: file→task-ids map, and per-running-task `{ elapsedSec, tokens, cost, toolCallCount, recentTools, activeFiles, isRunning, awaitingSubtasks }` plus detected file conflicts.
+- `get_task_events(taskId, limit?)` — structured `task_events` table rows: `{ id, eventType, data, timestampMs }`.
+- `get_task_comments(id)` / `add_task_comment(taskId, body, authorName?)` — IPC form of comments (author fixed to `"user"`).
+- `set_task_auto_pr(id, autoPr)` — IPC form of the pr-intent endpoint.
+
+## Notes
+- `client/src/lib/api.ts` defines HTTP fallback paths for `stop`/`restart`/`request-changes` (`/api/tasks/:id/stop` etc.), but **no such routes exist in `services/http_api.rs`** — agent lifecycle control (stop/restart/request-changes) is Tauri-only, as is everything under "Tauri-only commands" above.
+- `set_parent_task_id` + `set_awaiting_subtasks` link sub-tasks: a parent auto-enters "awaiting sub-tasks" and completes once all children finish.
+
+## Key code
+- `src-tauri/src/services/http_api.rs` — HTTP routes
+- `src-tauri/src/commands/tasks.rs` — Tauri commands + agent lifecycle wiring
+- `src-tauri/src/claude/runner.rs` — process spawn/stop, PR automation
+- `src-tauri/src/claude/state_machine.rs` — `TaskStatus` + valid transitions

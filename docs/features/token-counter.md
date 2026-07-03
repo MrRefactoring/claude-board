@@ -1,31 +1,21 @@
----
-title: "Token Counter"
-description: "Real-time token estimation and cost preview in task creation"
-icon: "coins"
----
+# Token Counter
 
-The token counter shows an estimated token count and input cost as you type your task description. It helps you predict API costs before running a task.
+Live estimated token count and input cost shown in the task creation form, to help gauge API cost before running a task.
 
-## How It Works
+## Behavior
+- Computed from the combined title + description + acceptance criteria text: `tokens = ceil(chars / 4)`.
+- Rendered below the description field once the estimate reaches 10 tokens; below that it renders nothing.
+- Cost is `tokens / 1e6 * inputCostPerMillion` for the currently selected model, using dynamic per-model pricing if available (`getModelCosts`) and falling back to a static table.
 
-As you type in the task creation modal, the counter calculates:
+## Settings
+Static fallback pricing (`MODEL_COSTS`, USD per 1M input tokens): Haiku `$1.00`, Sonnet `$3.00`, Opus `$5.00`.
 
-- **Token estimate** — Approximate tokens based on character count (~4 chars per token)
-- **Input cost** — Estimated cost using the selected model's pricing
-- **Character count** — Raw character length of your prompt
+> **Note:** corrected from a previous doc revision that listed Haiku `$0.25` / Opus `$15.00` — those don't match the code's pricing table.
 
-The counter appears below the description field once the content exceeds 10 tokens.
+## Edge cases
+- Estimate is input-tokens-only; actual task cost also includes output tokens, cache tokens, and tool usage.
 
-## Model Pricing
-
-Cost estimates are based on the model selected in task options:
-
-| Model | Input Cost (per 1M tokens) |
-|-------|---------------------------|
-| **Haiku** | $0.25 |
-| **Sonnet** | $3.00 |
-| **Opus** | $15.00 |
-
-<Info>These are input token estimates only. Actual task cost includes output tokens, cache tokens, and tool usage which vary by task complexity.</Info>
-
-<Tip>Use the token counter to spot overly long prompts. A concise, focused prompt often produces better results than a verbose one.</Tip>
+## Key code
+- `client/src/features/tasks/TokenEstimate.tsx` — `estimateTokens`, cost calculation, render threshold
+- `client/src/lib/constants.ts` — `MODEL_COSTS` fallback table
+- `client/src/lib/useModels.ts` — dynamic per-model `input_cost_per_mtok` / `output_cost_per_mtok`

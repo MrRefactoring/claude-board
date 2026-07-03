@@ -1,57 +1,27 @@
----
-title: "File Attachments"
-description: "Attach files to tasks for Claude to reference"
-icon: "paperclip"
----
+# File Attachments
 
-File attachments let you upload files directly to a task. These files are included in Claude's prompt as additional context.
+Files uploaded to a task that get copied into the agent's working directory as reference context.
 
-<Frame><img src="/images/feature-attachments.svg" alt="File Attachments" /></Frame>
+## Behavior
+1. Attach one or more files from the task creation form or the task detail view's Attachments tab.
+2. Files are uploaded via `upload_attachment` and stored under `<data-dir>/../uploads/<uuid>.<ext>`; metadata (original name, mime type, size) goes in the `task_attachments` table.
+3. When the task's runner starts, `copy_task_attachments` copies each attachment from the uploads dir into `<working_dir>/.claude-attachments/` (recreating the dir if it's a symlink, to prevent symlink attacks).
+4. The generated prompt lists each attached file (name, mime type, size, and its `.claude-attachments/<file>` path) under an "Attached Files" section and instructs Claude to read them from that directory as needed — file contents are **not** inlined into the prompt text itself.
 
-## Use Cases
+## Settings
+- None — always available, no toggle.
 
-<Columns cols={2}>
-  <Card title="Design Specs" icon="image">
-    Attach mockups, wireframes, or screenshots for Claude to reference when building UI.
-  </Card>
-  <Card title="Data Samples" icon="table">
-    Include CSV files, JSON samples, or API response examples.
-  </Card>
-  <Card title="Documentation" icon="file">
-    Attach spec documents, requirements, or architecture diagrams.
-  </Card>
-  <Card title="Error Logs" icon="bug">
-    Upload log files or stack traces for bugfix tasks.
-  </Card>
-</Columns>
+## Edge cases
+- Any file type is accepted; images render as previews in the UI, other files show a generic file icon and link to `/uploads/<filename>`.
+- Large binary files are stored and copied but are only useful to Claude if it reads them explicitly via its file tools.
 
-## How It Works
+> **Note:** deleting a task does not clean up its attachments. `attachments::remove_by_task` exists in `src-tauri/src/db/attachments.rs` but is never called — `delete_task` in `src-tauri/src/commands/tasks.rs` removes the task row and its dependencies but leaves `task_attachments` rows and uploaded files orphaned on disk.
 
-<Steps>
-  <Step title="Open a task">
-    Click on any task card to open the detail view.
-  </Step>
-  <Step title="Upload files">
-    Use the attachment section to upload one or more files. Files are stored in Claude Board's data directory.
-  </Step>
-  <Step title="Claude receives them">
-    When the agent starts, attached files are included in the prompt. Claude can read their contents as part of the task context.
-  </Step>
-</Steps>
-
-## Supported Files
-
-Attachments work best with text-based files that Claude can read directly:
-
-- Source code files (`.js`, `.py`, `.ts`, etc.)
-- Data files (`.json`, `.csv`, `.yaml`)
-- Documents (`.txt`, `.md`)
-- Images (`.png`, `.jpg`) — included as visual context
-
-<Note>Large binary files are stored but may not be useful as prompt context. Keep attachments focused and relevant to the task.</Note>
-
-## Managing Attachments
-
-- Attach files when creating a task or from the task detail view
-- Remove attachments by clicking the delete icon next to each file
-- Attachments are deleted when the task is deleted
+## Key code
+- `src-tauri/src/commands/attachments.rs` — `get_attachments`, `upload_attachment`, `delete_attachment` commands
+- `src-tauri/src/db/attachments.rs` — CRUD against `task_attachments`
+- `src-tauri/src/claude/runner.rs` — `copy_task_attachments` (uploads dir → `.claude-attachments/`)
+- `src-tauri/src/claude/prompt.rs` — "Attached Files" prompt section
+- `client/src/features/tasks/TaskAttachmentsTab.tsx` — attachment list/delete UI in task detail
+- `client/src/features/tasks/TaskOptionsPanel.tsx` — attach-on-create UI
+- `client/src/lib/api.ts` — `uploadAttachments`, `deleteAttachment`

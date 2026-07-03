@@ -1,78 +1,37 @@
----
-title: "Desktop Notifications"
-description: "Native OS notifications for task events with per-event toggles and localization"
-icon: "bell"
----
+# Desktop Notifications
 
-Claude Board sends **native desktop notifications** when important task events occur. Notifications use the operating system's notification system — Windows toast notifications and macOS Notification Center.
+Native OS notifications (macOS/Windows, via `tauri-plugin-notification`) fired on task lifecycle events, so a user doesn't have to keep the board in view while agents run.
 
-## Supported Events
+## Behavior
+- Each event sends one native notification with title `Claude Board — <Event>` and a body of `[TASK-KEY] title` followed by an icon + status line (e.g. `✔ Completed — ready for review`).
+- Body/title text is localized by the `language` app setting. Only `en` and `tr` string tables exist; any other value falls back to English.
+- The app icon (`resources/icons/32x32.png`) is attached when present.
+- Auto-test results reuse the task-level toggles: a passed auto-test fires under `notify_task_completed`, a failed one under `notify_task_failed`.
+- Settings are read fresh from the DB on every send (no caching), so toggling in Settings applies immediately.
 
-Each event type can be independently enabled or disabled in [App Settings](/features/settings):
+## Events
+| Event | Icon | Default |
+|-------|------|---------|
+| Task Started | ▶ | off |
+| Task Completed (+ test passed) | ✔ | on |
+| Task Failed (+ test failed) | ✘ | on |
+| Revision Requested | ↻ | on |
+| Queue Auto-Started | ⏵ | off |
 
-| Event | Default | Description |
-|-------|---------|-------------|
-| **Task Completed** | On | Claude finished working on a task (moved to Testing) |
-| **Task Failed** | On | A task failed or exited with an error |
-| **Task Started** | Off | Claude started working on a task |
-| **Revision Requested** | On | Revision feedback was sent to Claude |
-| **Queue Auto-Started** | Off | A task was automatically started from the queue |
+## Settings
+- `notify_task_started` (bool, default false)
+- `notify_task_completed` (bool, default true) — also gates the auto-test-passed notification
+- `notify_task_failed` (bool, default true) — also gates the auto-test-failed notification
+- `notify_revision_requested` (bool, default true)
+- `notify_queue_started` (bool, default false)
+- `language` (string, default `"en"`) — notification copy language (`en`/`tr` only)
+- `sound_enabled` (bool, default true) — toggle exists in the Notifications settings tab but is **not read anywhere** in `notification.rs` (or elsewhere); it currently has no effect. Actual sound is entirely OS-controlled.
 
-Auto-test results also trigger notifications:
-- **Test Passed** uses the Task Completed toggle
-- **Test Failed** uses the Task Failed toggle
+## Edge cases
+- Empty/missing `task_key` — the `[KEY]` tag is omitted, body falls back to the bare title.
+- Empty failure reason — body substitutes a localized "unknown error" string.
 
-## Notification Format
-
-Notifications include the **task key** for easy identification:
-
-```
-Claude Board — Task Completed
-[FTR-CB-1042] Implement login page
-✔ Completed — ready for review
-```
-
-### Event Icons
-
-Each event type uses a distinctive symbol:
-
-| Event | Symbol |
-|-------|--------|
-| Started | ▶ |
-| Completed | ✔ |
-| Failed | ✘ |
-| Revision | ↻ |
-| Queue | ⏵ |
-
-## Localization
-
-Notification titles and messages follow the **language setting** in App Settings. When Turkish is selected, notifications appear in Turkish:
-
-```
-Claude Board — Gorev Tamamlandi
-[FTR-CB-1042] Login sayfasi
-✔ Tamamlandi — inceleme bekliyor
-```
-
-## App Icon
-
-The Claude Board app icon is displayed in notifications on both platforms. On Windows, the app icon appears in the toast notification header. On macOS, it appears as the notification sender icon.
-
-## Platform Support
-
-| Platform | Notification System | App Icon |
-|----------|-------------------|----------|
-| **Windows 10/11** | Toast notifications | Automatic from app manifest |
-| **macOS 10.15+** | UNUserNotificationCenter | Automatic from app bundle |
-
-<Info>Notification sounds are controlled by your operating system notification settings.</Info>
-
-## Configuration
-
-Toggle notifications in **App Settings → Notifications**:
-
-1. Open App Settings (gear icon on Dashboard)
-2. Click the **Notifications** tab
-3. Toggle individual event types on/off
-
-All changes take effect immediately.
+## Key code
+- `src-tauri/src/services/notification.rs` — builds/sends all notifications, per-event gating, i18n strings
+- `src-tauri/src/db/settings.rs` — setting fields, defaults, persistence
+- `client/src/features/settings/NotificationsTab.tsx` — settings UI (includes the unwired `sound_enabled` toggle)

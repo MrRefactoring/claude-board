@@ -1,152 +1,37 @@
----
-title: "Claude Manager"
-description: "Manage MCP servers, plugins, agents, sessions, permissions, hooks, and settings from one place"
-icon: "sliders"
----
+# Claude Manager
 
-Claude Manager is a centralized control panel for everything related to your Claude CLI environment. Access it from the sidebar to configure MCP servers, install plugins, review agent sessions, edit permission rules, manage hooks, and update settings — all without touching config files manually.
+Control panel for the Claude CLI environment: MCP servers, plugins, agents, session history, permission rules, hooks, raw settings, and account/CLI version — all backed by shelling out to the `claude` CLI or reading its config files directly (no separate persistence layer).
 
-<Frame><img src="/images/feature-claude-manager.svg" alt="Claude Manager Dashboard" /></Frame>
+## Behavior
 
-## MCP Server Management
+Tabbed view with 8 tabs: MCP, Plugins, Agents, Sessions, Permissions, Hooks, Account, Settings.
 
-Add, remove, and monitor [Model Context Protocol](https://modelcontextprotocol.io/) servers that extend Claude's capabilities with external tools and data sources.
+- **MCP** — lists servers via `claude mcp list` (parsed from CLI text output). Add opens a form (name, scope: local/project/user, command, env vars) that runs `claude mcp add`; remove runs `claude mcp remove`. Connection status (`connected`) is whatever the CLI output reports at list time — there is no live ping from the app.
+- **Plugins** — lists installed plugins via `claude plugin list`; install/uninstall/enable/disable map directly to `claude plugin install|uninstall|enable|disable`. A separate marketplaces sub-section lists/adds/removes marketplaces via `claude plugin marketplace list|add|remove`. There is no browsing, filtering, or sorting UI — just a name/source input and a flat list.
+- **Agents** — lists agents via `claude agents`, split into "user" and "builtin" sections by name/model. This reflects configured agent definitions, not live/idle process state — there's no running-task or duration/outcome data.
+- **Sessions** — reads `~/.claude/projects/**/*.jsonl` directly (not via the CLI), grouped by project directory, sorted by file mtime descending, capped at 50 entries. Each entry shows session id, file size, and relative modified time. There's no per-session model/turns/tokens/cost breakdown — those fields don't exist in this view.
+- **Permissions** — read-only. Fetches `claude auto-mode config` and renders three buckets: allow / soft_deny / block. Each rule is a raw string (`"title: description"`), not a structured tool/pattern/action row. No add/edit/remove UI.
+- **Hooks** — reads/writes the `hooks` key of `~/.claude/settings.json` via `claude_manager::get_hooks`/`save_hooks`. Shows a read-only summary per event (event name + command count + truncated command previews) plus a raw JSON textarea for editing. It is a JSON editor, not a hook-script editor.
+- **Account** — shows auth info from `claude auth status` (email, plan, org, auth method, logged-in state) and the CLI version from `claude --version`. "Check for Updates" runs `claude update` and refreshes the version. There is no sidebar update badge — the check is manual, on demand.
+- **Settings** — a raw JSON textarea over the full contents of `~/.claude/settings.json` (get/save round-trip). There is no form UI with discrete fields like default model, max tokens, theme, or telemetry — it's whatever keys already exist in the file.
 
-### Adding a Server
+Also backs codebase scanning (`scan_codebase`), custom command/skill listing, and suggestion generation (e.g., "install claude-mem", "add an MCP server", "configure git identity") — these are adjacent features reachable through the same command module but not part of the manager's tabs.
 
-<Steps>
-  <Step title="Open Claude Manager" icon="sliders">
-    Navigate to the MCP Servers tab inside Claude Manager.
-  </Step>
-  <Step title="Add a server" icon="plus">
-    Click **Add Server** and provide the server name, command, and any required arguments or environment variables.
-  </Step>
-  <Step title="Verify connection" icon="check">
-    Claude Manager pings the server and displays its available tools. A green status indicator confirms a healthy connection.
-  </Step>
-</Steps>
+> **Note:** CLI updates and app updates are unrelated — `update_claude_cli` only affects the `claude` binary, not the desktop app.
 
-### Server Operations
+## Settings
 
-| Action | Description |
-|--------|-------------|
-| **Add** | Register a new MCP server with its command and arguments |
-| **Remove** | Unregister a server and clean up its configuration |
-| **List** | View all configured servers with connection status |
+- `~/.claude/settings.json` — full file is the editable "Settings" tab payload; `hooks` key specifically is the "Hooks" tab payload.
 
-<Tip>MCP servers are stored in your Claude CLI configuration. Changes made in Claude Manager are reflected in the CLI immediately.</Tip>
+## Edge cases
 
-## Plugin Management
+- MCP/plugin/marketplace list parsing is regex/string-based over CLI stdout — an unexpected CLI output format degrades gracefully to partial or empty parsed fields, not an error.
+- `save_hooks` requires the existing settings blob to deserialize as a JSON object; otherwise it errors before writing.
+- Session listing reads at most 50 most-recently-modified `.jsonl` files across all project dirs; older sessions are not shown.
 
-Install, uninstall, enable, and disable plugins that add new features to Claude's workflow.
+## Key code
 
-### Installing Plugins
-
-Browse available plugins from supported marketplaces or install directly by name. Each plugin card shows its description, version, and compatibility.
-
-| Action | Description |
-|--------|-------------|
-| **Install** | Download and register a plugin from a marketplace |
-| **Uninstall** | Remove a plugin and its associated configuration |
-| **Enable** | Activate an installed plugin so Claude can use it |
-| **Disable** | Deactivate a plugin without removing it |
-
-### Marketplaces
-
-Claude Manager supports browsing plugins from community marketplaces. Filter by category, sort by popularity, and read descriptions before installing.
-
-<Info>Plugins run locally on your machine. Review a plugin's source and permissions before installing.</Info>
-
-## Agents Viewer
-
-Monitor all Claude agent instances across your projects. The Agents Viewer shows:
-
-- **Active agents** — currently running tasks with live status
-- **Idle agents** — spawned but waiting for work
-- **Agent history** — past agent sessions with duration and outcome
-
-Each agent entry links back to its associated task, so you can jump directly to the terminal output or task card.
-
-## Session History
-
-Browse a complete history of Claude CLI sessions. Each session entry includes:
-
-| Field | Description |
-|-------|-------------|
-| **Timestamp** | When the session started and ended |
-| **Duration** | Total session length |
-| **Model** | Which Claude model was used |
-| **Turns** | Number of conversation turns |
-| **Tokens** | Input and output token counts |
-| **Cost** | Estimated API cost for the session |
-
-Use session history to audit past work, debug issues, or review what Claude did on a specific task.
-
-## Permission Rules
-
-View and manage the permission rules that control Claude's auto-mode behavior. Permission rules determine which tool calls Claude can execute without prompting for approval.
-
-### Rule Structure
-
-Each rule defines:
-
-- **Tool** — the tool or command being controlled (e.g., `bash`, `edit`, `write`)
-- **Pattern** — an optional path or command pattern to match
-- **Action** — `allow` or `deny`
-
-### Editing Rules
-
-Add, modify, or remove rules directly from the table view. Changes take effect on the next agent session. The viewer highlights active rules and shows which ones are inherited from global vs. project-level configuration.
-
-<Warning>Overly permissive rules allow Claude to execute commands without confirmation. Review rules carefully, especially for `bash` commands.</Warning>
-
-## Hooks Editor
-
-Configure hooks that run custom scripts at specific points in the Claude agent lifecycle. Hooks let you integrate Claude Board with your existing toolchain.
-
-### Available Hook Points
-
-| Hook | Triggers When |
-|------|--------------|
-| **PreToolUse** | Before Claude calls a tool |
-| **PostToolUse** | After a tool call completes |
-| **Notification** | When Claude sends a notification event |
-| **Stop** | When an agent session ends |
-
-### Editing Hooks
-
-Use the built-in editor to write hook scripts directly in Claude Manager. Each hook configuration includes the event type, a matcher pattern, and the command to execute.
-
-<Tip>Hooks are useful for running linters after file edits, sending custom notifications, or enforcing project conventions automatically.</Tip>
-
-## Settings Editor
-
-Edit Claude CLI settings without manually modifying JSON files. The Settings Editor provides a form-based interface for all configuration options:
-
-- **Default model** — set the preferred model for new tasks
-- **Max tokens** — configure output token limits
-- **Theme** — choose between light, dark, or system appearance
-- **API configuration** — manage API keys and endpoints
-- **Telemetry** — enable or disable usage data collection
-
-Changes are validated before saving and applied immediately.
-
-## Account & CLI Updates
-
-Manage your Claude account and keep the CLI up to date from within Claude Manager.
-
-### Account
-
-- View your current plan and usage limits
-- Check API key status and expiration
-- Switch between accounts or organizations
-
-### CLI Updates
-
-Claude Manager checks for new Claude CLI versions automatically. When an update is available:
-
-1. A badge appears on the Claude Manager sidebar icon
-2. Open the Account tab to see the new version details
-3. Click **Update** to install the latest CLI version
-
-<Info>CLI updates do not affect the Claude Board desktop app version. Board updates are managed separately through the app's auto-update system.</Info>
+- `src-tauri/src/commands/claude_manager.rs` — all MCP/plugin/agent/session/permission/hook/settings/account commands; CLI output parsing (`parse_mcp_list`, `parse_plugin_list`, `parse_agents`, `parse_marketplace_list`).
+- `client/src/features/claude-manager/ClaudeManager.tsx` — tab shell.
+- `client/src/features/claude-manager/McpTab.tsx`, `PluginsTab.tsx`, `AgentsTab.tsx`, `SessionsTab.tsx`, `PermissionsTab.tsx`, `HooksTab.tsx`, `AuthTab.tsx`, `SettingsTab.tsx` — per-tab views.
+- `client/src/features/claude-manager/types.ts` — local response shapes (`McpServer`, `PluginInfo`, `Agent`, `Session`, `PermissionRules`, `HooksConfig`, `AuthInfo`).

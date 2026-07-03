@@ -1,76 +1,49 @@
----
-title: "Board & Views"
-description: "Visual layouts for managing your tasks"
-icon: "table-columns"
----
+# Board & Views
 
-Claude Board offers multiple views to manage your tasks. Switch between them using the view toggle in the top toolbar.
+The main project screen offers several ways to look at the same task set. All views update live from realtime events — no polling.
 
 ## Views
 
-<Tabs>
-  <Tab title="Kanban Board">
-    The default view. Tasks are organized into columns by status:
+`client/src/features/board/Board.tsx` drives a `viewMode` toggle with these views:
 
-    | Column | Description |
-    |--------|-------------|
-    | **Backlog** | Queued tasks waiting to start |
-    | **In Progress** | Claude is actively working |
-    | **Testing** | Completed, awaiting your review |
-    | **Done** | Approved and finished |
-    | **Failed** | Permanently failed after all retries |
+- **Board** (`board`, default) — Kanban columns, drag-and-drop.
+- **List** (`list`) — sortable table: title, status, priority, model, and more (`ListView.tsx`).
+- **Pipeline** (`pipeline`) — pipeline/funnel-style stats (`PipelineView.tsx`, `PipelineStats.tsx`).
+- **Orchestration** (`orchestration`) — multi-agent command center, with its own sub-tabs: **Graph** (dependency DAG), **Timeline** (Gantt-style), **Live** (tool-call feed with conflict detection), **Battle** (`OrchestrationView.tsx` / `BattleView.tsx`).
+- **Analytics** (`analytics`) — usage/cost dashboards (`AnalyticsView.tsx`).
+- **Roadmap** — epic/story/task planning view.
+- **Terminal** — embedded terminal.
 
-    **Drag and Drop** — Move tasks between columns by dragging. Dropping into **In Progress** spawns a Claude agent automatically. Hold **Alt** while dragging to create a [dependency](/features/dependencies) between two tasks.
-  </Tab>
-  <Tab title="List View">
-    A compact table showing all tasks with sortable columns: title, status, priority, model, type, cost, duration, and creation date. Best for large projects with many tasks.
-  </Tab>
-  <Tab title="Summary View">
-    A dashboard-style overview with:
-    - **Status breakdown** — task counts per column
-    - **Priority distribution** — low, medium, high, urgent
-    - **Recent activity** — latest task updates
-    - **Agent utilization** — active vs idle agent slots
-  </Tab>
-  <Tab title="Orchestration">
-    The command center for multi-agent execution. Three sub-views:
-    - **Graph** — Interactive dependency DAG with draggable nodes
-    - **Timeline** — Gantt-style execution view with NOW marker
-    - **Live** — Real-time tool call feed with file conflict detection
+## Kanban columns
 
-    See [Orchestration View](/features/orchestration) for details.
-  </Tab>
-</Tabs>
+Columns come from `client/src/lib/constants.ts` `COLUMNS`, one per `TaskStatus`:
 
-## Real-time Updates
+| Column | Status value |
+|--------|--------------|
+| Backlog | `backlog` |
+| In Progress | `in_progress` |
+| Testing | `testing` |
+| Awaiting Approval | `awaiting_approval` |
+| Done | `done` |
+| Failed | `failed` |
 
-<Info>All views update in real-time via WebSocket. Task status changes, terminal output, token usage, and dependency updates are pushed instantly — you never need to refresh the page.</Info>
+`awaiting_approval` only becomes reachable when a project has `require_approval` on (see `docs/concepts/review.md`).
 
-## Toolbar
+## Behavior
 
-The board toolbar provides quick access to:
+- **Drag and drop** (`dnd-kit`, mouse-only): moving a card to a new column calls `change_task_status`. Dropping into **In Progress** spawns a Claude agent (subject to the dependency gate — a task blocked by an unfinished dependency is rejected).
+- **Alt-drag**: holding Alt while dragging one task onto another opens a dependency-creation dialog instead of moving it.
+- **Mobile** (`< md` breakpoint): columns become a horizontally-scrolling tab strip with tap-to-move instead of drag-and-drop.
 
-| Feature | Description |
-|---------|-------------|
-| **View toggle** | Switch between Kanban, List, Summary, and Orchestration |
-| **Model filter** | Show only tasks for a specific model (Opus/Sonnet/Haiku) |
-| **New Task** | Create a new task with the quick-create modal |
-| **Search** | Filter tasks by title or description |
+## Settings
 
-## Mobile Experience
+- `project.max_concurrent` / `project.auto_queue` — govern how many backlog tasks can be picked up automatically (see `docs/concepts/agents.md`).
+- `project.require_approval` — adds the Awaiting Approval column to the flow.
 
-Claude Board is fully responsive. On smaller screens:
+## Key code
 
-- The Kanban board scrolls horizontally
-- Quick-move buttons replace drag-and-drop
-- The terminal opens as a bottom sheet
-- Task creation uses a full-screen modal
-
-<Columns cols={2}>
-  <Card title="Task Lifecycle" icon="arrows-rotate" href="/concepts/tasks">
-    Learn how tasks flow through each status.
-  </Card>
-  <Card title="Orchestration" icon="sitemap" href="/features/orchestration">
-    Explore the dependency graph and timeline views.
-  </Card>
-</Columns>
+- `client/src/features/board/Board.tsx` — view switcher, drag-and-drop, alt-drag dependency creation
+- `client/src/features/board/Column.tsx`, `TaskCard.tsx` — Kanban rendering
+- `client/src/features/board/ListView.tsx`, `PipelineView.tsx`, `OrchestrationView.tsx`, `AnalyticsView.tsx` — other views
+- `client/src/lib/constants.ts` — `COLUMNS` (status → label/color)
+- `src-tauri/src/commands/tasks.rs::change_task_status` — status transition + side effects

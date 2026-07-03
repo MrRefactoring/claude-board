@@ -1,82 +1,44 @@
----
-title: "Building from Source"
-description: "Build the desktop app for Windows, macOS, and Linux"
-icon: "hammer"
----
+# Building from Source
 
-Claude Board uses [Tauri v2](https://v2.tauri.app/) to produce native desktop applications. The frontend is built with React + Vite, and the backend is written in Rust.
+Claude Board is a Tauri v2 app: React + Vite frontend (`client/`), Rust backend (`src-tauri/`). `bundle.targets` is `"all"` in `src-tauri/tauri.conf.json`, so `tauri build` produces every installer format supported by the host OS.
 
 ## Prerequisites
 
-- [Rust](https://rustup.rs/) (stable toolchain)
-- [Node.js](https://nodejs.org) 18+
-- npm or yarn
-- Platform-specific Tauri dependencies — see the [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/)
+- Rust (stable toolchain)
+- Node.js 18+ (CI uses Node 20)
+- Platform-specific Tauri build dependencies (see Tauri v2 docs) — on Linux CI this is `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev`
 
-## Build Commands
+## Build commands
 
-<Tabs>
-  <Tab title="Windows">
-    ```bash
-    npx tauri build
-    ```
-    Produces `.exe` and `.msi` installers in `src-tauri/target/release/bundle/nsis/` and `src-tauri/target/release/bundle/msi/`.
-  </Tab>
-  <Tab title="macOS">
-    ```bash
-    npx tauri build
-    ```
-    Produces a `.dmg` installer and `.app` bundle in `src-tauri/target/release/bundle/dmg/`. Requires macOS for signing.
-  </Tab>
-  <Tab title="Linux">
-    ```bash
-    npx tauri build
-    ```
-    Produces `.AppImage` and `.deb` packages in `src-tauri/target/release/bundle/`.
-  </Tab>
-</Tabs>
+```bash
+npm run setup        # npm install at root + client/
+npm run tauri:build   # npx tauri build
+```
+
+Tauri produces the standard bundle per host OS (NSIS `.exe` on Windows, `.dmg`/`.app` on macOS, `.AppImage`/`.deb` on Linux) under `src-tauri/target/release/bundle/`. Cross-compilation isn't supported natively — build on (or via CI for) each target platform.
+
+Dev mode: `npm run tauri:dev` (`npx tauri dev`) — compiles the Rust backend, starts the Vite dev server (`npm run client`), opens the app window with frontend hot-reload.
+
+## Bundled resources
+
+The MCP sidecar (`src-tauri/resources/mcp-server.js`) is packaged via `bundle.resources` and located at runtime relative to the executable — see `docs/concepts/agents.md`.
 
 ## Icons
 
-Application icons are configured in `src-tauri/tauri.conf.json` and located in `src-tauri/icons/`:
+`bundle.icon` in `tauri.conf.json` lists: `icons/32x32.png`, `icons/128x128.png`, `icons/128x128@2x.png`, `icons/icon.icns`, `icons/icon.ico`. Regenerate all formats from a source image with `npx tauri icon <path>`.
 
-| Platform | File | Format |
-|----------|------|--------|
-| Windows | `icon.ico` | ICO (256x256) |
-| macOS | `icon.icns` | ICNS |
-| Linux | `icon.png` | PNG (512x512) |
+## CI/CD
 
-To update icons, replace these files and rebuild, or use the `npx tauri icon` command to generate all formats from a single source image.
+> **Note:** `.github/workflows/release.yml` — not `build.yml` — is the release workflow, and it only builds **Windows and macOS** (`x86_64-pc-windows-msvc`, `x86_64-apple-darwin`, `aarch64-apple-darwin`). There is currently no Linux job in CI; Linux builds must be produced manually via `tauri build` on a Linux machine.
 
-## CI/CD Workflow
+- Triggers on tags matching `v*`.
+- Per matrix entry: checkout → Node 20 setup → `npm ci` (root + `client/`) → `tauri-apps/tauri-action` build with Tauri updater signing (`TAURI_SIGNING_PRIVATE_KEY`) and Apple codesigning/notarization secrets.
+- `includeUpdaterJson: true` — publishes `latest.json` for the built-in updater (`plugins.updater.endpoints` in `tauri.conf.json` points at the GitHub Releases asset).
+- A separate job (`publish-notes`) runs `gh release edit --generate-notes` after all builds finish.
+- `.github/workflows/ci.yml` (on PRs/push to `main`) runs lint, type-check, `vitest`, frontend build, and `cargo check`/`cargo clippy` — it does not produce installers.
 
-Claude Board includes a GitHub Actions workflow for automated builds:
+## Key code
 
-```yaml
-# .github/workflows/build.yml
-# Triggers on version tags (v*)
-# Builds for all three platforms
-# Uploads artifacts to GitHub Releases
-```
-
-The workflow:
-
-1. Checks out the repository
-2. Installs Rust toolchain and Node.js dependencies
-3. Builds the React frontend with Vite
-4. Compiles the Rust backend and bundles with Tauri
-5. Uploads installers as release assets
-
-<Tip>Tag a commit with `v*` (e.g., `v5.0.0`) to trigger an automatic release build.</Tip>
-
-## Development Mode
-
-For local development without building an installer:
-
-```bash
-npx tauri dev
-```
-
-This compiles the Rust backend, starts the Vite dev server for the React frontend, and opens the app window with hot-reload enabled for frontend changes.
-
-<Note>Cross-compilation is not natively supported by Tauri. Use the CI/CD workflow or a matching build machine for each target platform.</Note>
+- `src-tauri/tauri.conf.json` — bundle config, icons, updater endpoint
+- `.github/workflows/release.yml` — release build matrix
+- `.github/workflows/ci.yml` — lint/test/build checks

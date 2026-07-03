@@ -1,66 +1,18 @@
----
-title: "Skill Import"
-description: "Import skills from GitHub repositories"
-icon: "download"
----
+# Skill Import
 
-Browse, preview, and install skills from GitHub repositories directly within the app. Skills are markdown files that extend the AI agent's capabilities with specialized instructions.
+Browse, preview, and install Claude Code skills (markdown instruction files) from GitHub repositories, without leaving the app.
 
-## Opening the Skill Manager
+## Behavior
+- Opened from Project Menu > Skills. Default view lists skills already installed in `~/.claude/skills/`; selecting one previews its rendered markdown.
+- Import view: pick a popular repo shortcut or enter any GitHub URL/slug (`user/repo`, full URL, or a `tree/branch/path` URL) and fetch its contents via the GitHub API.
+- Results can include subdirectories (click to browse deeper, with a back button) and/or a flat skill list; a search box and category filter appear once a repo exposes more than 10 skills.
+- Each skill can be previewed (lazy-loads its raw content) and installed individually; already-installed skills show a green "Installed" badge.
+- Installing writes the skill's raw content to `~/.claude/skills/<name>.md`; the filename (without extension) is the skill name Claude reads.
 
-Navigate to **Project Menu > Skills** to open the Skills modal.
+## Edge cases
+- Only public repositories are supported; there is no GitHub authentication, so private repos will fail to fetch.
+- There is no bulk "Install All" action — skills must be installed one at a time.
 
-## Browsing Installed Skills
-
-The default view shows all skills installed in `~/.claude/skills/`:
-
-- Left panel lists installed skills
-- Click a skill to preview its content
-- Hover to reveal the **delete** button
-
-## Importing from GitHub
-
-Click the **Import** button (top-right) to switch to the import view.
-
-### Popular Repositories
-
-Quick-access buttons for well-known skill collections:
-
-| Repository | Description |
-|------------|-------------|
-| **anthropics/claude-code** | Official skills from Anthropic |
-| **eastlondoner/awesome-claude-code** | Community-curated collection |
-| **hesreallygood/claude-code-skills** | Practical skill templates |
-
-Click any repository to fetch its available skills.
-
-### Custom Repository URL
-
-Enter any GitHub URL in the input field:
-
-```
-user/repo
-https://github.com/user/repo
-https://github.com/user/repo/tree/main/skills
-```
-
-### Browsing Repository Contents
-
-After fetching, you can:
-
-- **Browse directories** — click folders to navigate deeper
-- **Preview skills** — click a skill to expand and view its content
-- **Install individually** — click "Install" next to any skill
-- **Install all** — click "Install All" to import everything at once
-
-Skills already installed show a green "Installed" badge.
-
-### Directory Navigation
-
-Use the breadcrumb trail at the top to navigate back through directories. The back arrow returns to the parent folder.
-
-## Where Skills Are Stored
-
-All skills are saved as `.md` files in `~/.claude/skills/`. The filename becomes the skill name used by the AI agent.
-
-<Note>Only public GitHub repositories are supported. Private repositories require GitHub authentication which is not currently implemented.</Note>
+## Key code
+- `client/src/features/skills/SkillsModal.tsx` — browse/import UI, popular repo list (`POPULAR_REPOS`: `sickn33/antigravity-awesome-skills`, `ComposioHQ/awesome-claude-skills`, `affaan-m/everything-claude-code`)
+- `src-tauri/src/commands/claude_manager.rs` — `list_custom_skills`, `save_custom_skill`, `delete_custom_skill`, `fetch_skill_content`, `fetch_github_skills` (reads/writes `~/.claude/skills/`, calls `api.github.com`)

@@ -1,71 +1,36 @@
----
-title: "Review System"
-description: "Approve tasks or request changes with feedback"
-icon: "magnifying-glass"
----
+# Review System
 
-When a Claude agent finishes, the task moves to **Testing**. The review system lets you evaluate the work and either approve it or send it back for revisions.
+Human-in-the-loop gate between an agent finishing work and a task being accepted. Lets you approve or send work back with feedback.
 
-<Frame><img src="/images/feature-review.svg" alt="Review System" /></Frame>
+## Behavior
 
-## Review Actions
+- A task reaches **Testing** when its agent run finishes (or, if `require_approval` is on and auto-test passed, **Awaiting Approval** — see below).
+- Entering Testing auto-opens a PR for the task's branch if `auto_pr` is on (idempotent — skipped if a PR already exists).
+- `ReviewModal` (`client/src/features/tasks/ReviewModal.tsx`) offers two actions:
+  - **Approve** → `change_task_status(id, "done")`. Accepting a task merges its open PR if `auto_merge` is on, closes the linked GitHub issue if github sync is enabled, and finalizes the timer.
+  - **Request Changes** → `request_changes(id, feedback)`. Requires non-empty feedback; stops any running auto-test process, increments `revision_count`, stores the feedback as a `TaskRevision`, appends it to a fresh prompt (previous work is *not* discarded — the agent is told to build on top of it), and respawns the agent in **In Progress**.
+- `request_changes` is valid from **Testing or Done** — you can reopen an already-approved task with feedback, not only one still awaiting review.
 
-<Tabs>
-  <Tab title="Approve">
-    Click **Approve** to mark the task as done. The task moves to the **Done** column and no further agent work happens.
-  </Tab>
-  <Tab title="Request Changes">
-    Provide written feedback explaining what needs to change. Claude Board spawns a new agent session with your feedback appended to the original prompt. The task moves back to **In Progress**.
+## States & transitions
 
-    ```
-    The login endpoint works, but:
-    - Missing input validation on email field
-    - Password should require minimum 8 characters
-    - Add rate limiting to prevent brute force
-    ```
-  </Tab>
-</Tabs>
+- `testing → in_progress` (revision requested)
+- `testing → done` (approved) / `testing → awaiting_approval` (auto-test passed + `require_approval`)
+- `awaiting_approval → done` (approved) / `awaiting_approval → in_progress` (rejected)
+- Full transition table: `src-tauri/src/claude/state_machine.rs::is_valid_transition`.
 
-## Feedback Loop
+## Settings
 
-The revision cycle can repeat as many times as needed:
+- `project.require_approval` — when on, a passing auto-test lands in **Awaiting Approval** instead of auto-completing; without auto-test, the finished task simply stays in Testing for manual review instead of auto-promoting to Done.
+- `project.auto_pr` / `project.auto_merge` — control whether Approve opens/merges a pull request as part of accepting the task.
 
-<Steps>
-  <Step title="Claude finishes → Testing">
-    Review the changes in the terminal log or your IDE.
-  </Step>
-  <Step title="Request changes with feedback">
-    Describe what's missing or wrong. Be specific — Claude performs better with clear instructions.
-  </Step>
-  <Step title="Claude iterates → Testing">
-    The agent picks up your feedback, makes adjustments, and returns to Testing.
-  </Step>
-  <Step title="Approve → Done">
-    When satisfied, approve the task.
-  </Step>
-</Steps>
+## Edge cases
 
-## Revision History
+- Denying/approving a task with no active PR is a no-op for the PR steps (silently skipped).
+- A failed PR merge on Approve never blocks the Done transition — the PR is left open and the error is logged to the task.
 
-Every revision is recorded. The task detail view shows:
+## Key code
 
-- Each round of feedback you provided
-- The agent session logs for each iteration
-- Token usage per revision
-- Total cumulative cost
-
-<Tip>Write feedback as if you're doing a code review. Bullet points with specific file or function references help Claude make targeted fixes.</Tip>
-
-## Best Practices
-
-<AccordionGroup>
-  <Accordion title="Be specific in feedback">
-    Instead of "this doesn't work," say "the `/api/users` endpoint returns 500 when the email field is missing."
-  </Accordion>
-  <Accordion title="Review before approving">
-    Check the git diff or terminal logs. Claude may have made changes beyond what you expected.
-  </Accordion>
-  <Accordion title="Use small, focused tasks">
-    Large tasks with vague descriptions lead to more revision cycles. Break work into smaller pieces.
-  </Accordion>
-</AccordionGroup>
+- `client/src/features/tasks/ReviewModal.tsx` — approve / request-changes UI, revision history list
+- `src-tauri/src/commands/tasks.rs::request_changes` — revision flow
+- `src-tauri/src/commands/tasks.rs::change_task_status` / `execute_done_side_effects` — approval flow, PR merge, branch cleanup, GitHub issue close
+- `src-tauri/src/claude/prompt.rs` — how revision feedback is folded into the next prompt
