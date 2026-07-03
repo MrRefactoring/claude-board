@@ -329,6 +329,7 @@ export default function DependencyGraph({
       setLocalPositions((prev) => {
         if (!prev) return prev;
         const next = { ...prev };
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- intentional eviction from a local copied position map
         delete next[nodeDrag.id];
         return Object.keys(next).length ? next : null;
       });

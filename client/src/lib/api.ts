@@ -283,18 +283,18 @@ const tauriApi = {
   reorderTasks: (taskIds: number[]) => tauriCall('reorder_tasks', { taskIds }),
   addDependency: (taskId: number, dependsOnId: number, conditionType?: string | null) =>
     tauriCall('add_task_dependency', {
-      taskId: Number(taskId),
-      dependsOnId: Number(dependsOnId),
+      taskId: taskId,
+      dependsOnId: dependsOnId,
       conditionType: conditionType || null,
     }),
   removeDependency: (taskId: number, dependsOnId: number) =>
-    tauriCall('remove_task_dependency', { taskId: Number(taskId), dependsOnId: Number(dependsOnId) }),
-  getTaskDependencies: (taskId: number) => tauriCall('get_task_dependencies', { taskId: Number(taskId) }),
-  getTaskEvents: (taskId: number, limit = 500) => tauriCall('get_task_events', { taskId: Number(taskId), limit }),
+    tauriCall('remove_task_dependency', { taskId: taskId, dependsOnId: dependsOnId }),
+  getTaskDependencies: (taskId: number) => tauriCall('get_task_dependencies', { taskId: taskId }),
+  getTaskEvents: (taskId: number, limit = 500) => tauriCall('get_task_events', { taskId: taskId, limit }),
   getDependencyGraph: (projectId: number) => tauriCall('get_dependency_graph', { projectId }),
   getPipelineStatus: (projectId: number) => tauriCall('get_pipeline_status', { projectId }),
   getAgentActivity: (projectId: number) => tauriCall('get_agent_activity', { projectId }),
-  getTaskDiff: (taskId: number) => tauriCall('get_task_diff', { taskId: Number(taskId) }),
+  getTaskDiff: (taskId: number) => tauriCall('get_task_diff', { taskId: taskId }),
   approvePlan: (projectId: number, tasks: unknown, model: string, dependencies: unknown, topic: string) =>
     tauriCall('approve_plan', { projectId, tasks, model, dependencies, topic }),
   getAuthInfo: () => tauriCall('get_auth_info'),

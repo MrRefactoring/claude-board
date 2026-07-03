@@ -198,7 +198,7 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
     }
   };
 
-  const handleCancel = async () => {
+  const handleCancel = () => {
     clearInterval(timerRef.current);
     setPhase('idle');
     setProgressText('');

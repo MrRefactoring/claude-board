@@ -44,6 +44,8 @@ export default tseslint.config(
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true, allowBoolean: true }],
       // async handlers on void-returning JSX attributes are safe (React ignores the promise)
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
+      // string + number concatenation is unambiguous (matches allowNumber above)
+      '@typescript-eslint/restrict-plus-operands': ['error', { allowNumberAndString: true }],
     },
   },
 

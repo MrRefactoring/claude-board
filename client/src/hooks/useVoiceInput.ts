@@ -19,6 +19,7 @@ export function useVoiceInput({ lang = 'en-US', continuous = false, onResult, on
   const [isListening, setIsListening] = useState(false);
   const [isSupported] = useState(!!SpeechRecognitionCtor);
   const [interim, setInterim] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- SpeechRecognitionInstance degrades to any because lib.dom typings for the Web Speech API are incomplete (see header comment)
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const manualStopRef = useRef(false);
   // Keep latest callbacks in refs to avoid stale closures

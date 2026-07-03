@@ -51,8 +51,8 @@ export default function GithubSection({ form }: { form: ProjectForm }) {
                     setGithubDetecting(true);
                     try {
                       const repo = await api.githubDetectRepo(workingDir);
-                      if (repo) {
-                        setGithubRepo(typeof repo === 'string' ? repo : String(repo));
+                      if (typeof repo === 'string' && repo) {
+                        setGithubRepo(repo);
                         setGithubValid(null);
                       }
                     } catch (e) {

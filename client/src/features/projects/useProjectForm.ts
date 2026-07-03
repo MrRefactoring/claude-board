@@ -150,7 +150,7 @@ export function useProjectForm(
     api
       .githubDetectRepo(workingDir)
       .then((repo) => {
-        if (repo) setGithubRepo(typeof repo === 'string' ? repo : String(repo));
+        if (typeof repo === 'string' && repo) setGithubRepo(repo);
       })
       .catch((e: unknown) => console.error('Failed to detect GitHub repo:', e))
       .finally(() => setGithubDetecting(false));
@@ -183,14 +183,14 @@ export function useProjectForm(
         iconSeed,
         permissionMode,
         allowedTools: allowedTools.trim(),
-        autoQueue: !!autoQueue,
+        autoQueue: autoQueue,
         maxConcurrent,
-        autoBranch: !!autoBranch,
-        autoPr: !!autoPr,
-        autoPush: !!autoPush,
-        autoMerge: !!autoMerge,
+        autoBranch: autoBranch,
+        autoPr: autoPr,
+        autoPush: autoPush,
+        autoMerge: autoMerge,
         prBaseBranch: prBaseBranch.trim() || 'main',
-        autoTest: !!autoTest,
+        autoTest: autoTest,
         testPrompt: testPrompt.trim(),
         taskTimeoutMinutes: taskTimeoutMinutes || 0,
         maxRetries: maxRetries || 0,
@@ -199,7 +199,7 @@ export function useProjectForm(
         retryMaxDelaySecs: retryMaxDelay || 0,
         autoTestModel: autoTestModel || '',
         circuitBreakerThreshold: circuitBreakerThreshold || 0,
-        requireApproval: !!requireApproval,
+        requireApproval: requireApproval,
         prProvider: prProvider || 'auto',
         githubRepo,
         githubSyncEnabled: githubSyncEnabled ? 1 : 0,

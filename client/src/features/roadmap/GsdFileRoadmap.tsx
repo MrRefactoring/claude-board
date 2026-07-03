@@ -296,6 +296,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
     const key = normalizePhaseNum(phaseNumber);
     setPlanPreviews((prev) => {
       const next = { ...prev };
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- intentional eviction from a local copied preview map
       delete next[key];
       return next;
     });

@@ -205,7 +205,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
       } else if (a.action === 'set_pr_intent') {
         await api.setTaskAutoPr(a.task_id, (p.enabled ?? null) as boolean | null);
       } else if (a.action === 'add_comment') {
-        await api.addTaskComment(a.task_id, String(p.body ?? ''));
+        await api.addTaskComment(a.task_id, typeof p.body === 'string' ? p.body : JSON.stringify(p.body ?? ''));
       }
     } catch (e) {
       const detail = (e as Error)?.message || 'Failed to apply';

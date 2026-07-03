@@ -58,7 +58,7 @@ export interface AppEventMap {
   // Tauri-only (emitted by the desktop shell, not in the Socket.IO list)
   'update:available': unknown;
   'update:ready': unknown;
-  'menu:preferences': void;
+  'menu:preferences': undefined;
 }
 
 export type AppEventName = keyof AppEventMap;

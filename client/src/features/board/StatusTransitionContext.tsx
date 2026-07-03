@@ -37,9 +37,11 @@ export function StatusTransitionProvider({ children }: { children: ReactNode }) 
     timeoutsRef.current[taskId] = setTimeout(() => {
       setTransitions((prev) => {
         const next = { ...prev };
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- intentional eviction from a local copied transition map
         delete next[taskId];
         return next;
       });
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- intentional eviction from the mutable timeout registry
       delete timeoutsRef.current[taskId];
     }, 2000);
   }, []);
