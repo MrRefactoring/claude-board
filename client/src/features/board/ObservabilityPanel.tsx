@@ -121,7 +121,7 @@ export default function ObservabilityPanel({ projectId }: ObservabilityPanelProp
     api
       .getAgentActivity?.(projectId)
       ?.then((d) => setData(d as AgentActivityData))
-      .catch((e) => console.error('Failed to load agent activity:', e));
+      .catch((e: unknown) => console.error('Failed to load agent activity:', e));
   }, [projectId]);
 
   useEffect(() => {

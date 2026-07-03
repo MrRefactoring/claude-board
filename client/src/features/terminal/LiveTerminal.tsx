@@ -92,7 +92,7 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
       .then((data) => {
         setLogs((data as LogLine[]).map((l) => ({ ...l, meta: l.meta || null })));
       })
-      .catch((e) => console.error('Failed to load task logs:', e));
+      .catch((e: unknown) => console.error('Failed to load task logs:', e));
   }, [task.id]);
 
   useEffect(() => {

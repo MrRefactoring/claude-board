@@ -163,7 +163,7 @@ export default function Dashboard({
           groupsCache = Array.isArray(grp) ? grp : [];
           setGroups(groupsCache);
         })
-        .catch((e) => console.error('Failed to load project groups:', e));
+        .catch((e: unknown) => console.error('Failed to load project groups:', e));
     }
     if (IS_TAURI && !suggestionsLoaded) {
       api
@@ -173,7 +173,7 @@ export default function Dashboard({
           suggestionsLoaded = true;
           setSuggestions(suggestionsCache);
         })
-        .catch((e) => {
+        .catch((e: unknown) => {
           suggestionsLoaded = true;
           console.error('Failed to load suggestions:', e);
         });

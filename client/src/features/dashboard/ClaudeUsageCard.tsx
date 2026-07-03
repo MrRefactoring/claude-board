@@ -66,7 +66,7 @@ export function ClaudeUsageCard({ t }: { t: TranslateFn }) {
         usageCache = d as ClaudeUsageData;
         setData(d as ClaudeUsageData);
       })
-      .catch((e) => console.error('Failed to load Claude usage:', e));
+      .catch((e: unknown) => console.error('Failed to load Claude usage:', e));
   }, []);
 
   if (!data?.usage) return null;

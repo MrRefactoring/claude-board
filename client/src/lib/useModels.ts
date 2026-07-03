@@ -119,7 +119,7 @@ async function loadOnce(): Promise<Model[]> {
       notify();
       return cache;
     })
-    .catch((e) => {
+    .catch((e: unknown) => {
       console.error('Failed to load models:', e);
       cache = BUILTIN_FALLBACK;
       inflight = null;

@@ -19,8 +19,8 @@ export default function PermissionsTab() {
         setRules(d as PermissionRules);
         setLoading(false);
       })
-      .catch((e) => {
-        setError(e.message);
+      .catch((e: unknown) => {
+        setError((e as Error).message);
         setLoading(false);
       });
   }, []);

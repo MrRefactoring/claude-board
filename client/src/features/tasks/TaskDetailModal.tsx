@@ -67,18 +67,18 @@ export default function TaskDetailModal({ task, onClose, onStatusChange }: Props
         setAttachments(detailData.attachments || []);
         setLoading(false);
       })
-      .catch((e) => {
+      .catch((e: unknown) => {
         console.error('Failed to load task detail:', e);
         setLoading(false);
       });
     api
       .getTaskDependencies(task.id)
       .then((d) => setDeps(d as TaskDependencies))
-      .catch((e) => console.error('Failed to load task dependencies:', e));
+      .catch((e: unknown) => console.error('Failed to load task dependencies:', e));
     api
       .getTasks(task.project_id)
       .then(setAllTasks)
-      .catch((e) => console.error('Failed to load tasks:', e));
+      .catch((e: unknown) => console.error('Failed to load tasks:', e));
   }, [task.id, task.project_id]);
 
   useEffect(() => {

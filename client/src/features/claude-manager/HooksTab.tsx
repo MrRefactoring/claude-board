@@ -22,8 +22,8 @@ export default function HooksTab() {
         setRaw(JSON.stringify(d, null, 2));
         setLoading(false);
       })
-      .catch((e) => {
-        setError(e.message);
+      .catch((e: unknown) => {
+        setError((e as Error).message);
         setLoading(false);
       });
   }, []);

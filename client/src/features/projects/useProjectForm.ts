@@ -152,7 +152,7 @@ export function useProjectForm(
       .then((repo) => {
         if (repo) setGithubRepo(typeof repo === 'string' ? repo : String(repo));
       })
-      .catch((e) => console.error('Failed to detect GitHub repo:', e))
+      .catch((e: unknown) => console.error('Failed to detect GitHub repo:', e))
       .finally(() => setGithubDetecting(false));
   }, [tab, workingDir, githubRepo]);
 

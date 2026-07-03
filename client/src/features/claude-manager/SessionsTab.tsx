@@ -18,8 +18,8 @@ export default function SessionsTab() {
         setSessions(Array.isArray(d) ? d : []);
         setLoading(false);
       })
-      .catch((e) => {
-        setError(e.message);
+      .catch((e: unknown) => {
+        setError((e as Error).message);
         setLoading(false);
       });
   }, []);

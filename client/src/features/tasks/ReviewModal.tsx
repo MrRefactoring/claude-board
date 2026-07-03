@@ -23,7 +23,7 @@ export default function ReviewModal({ task, onApprove, onRequestChanges, onClose
     api
       .getRevisions(task.id)
       .then(setRevisions)
-      .catch((e) => console.error('Failed to load revisions:', e));
+      .catch((e: unknown) => console.error('Failed to load revisions:', e));
   }, [task.id]);
 
   useEffect(() => {

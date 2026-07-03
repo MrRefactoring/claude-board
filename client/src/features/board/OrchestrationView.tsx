@@ -103,7 +103,7 @@ export default function OrchestrationView({
     api
       .getDependencyGraph(projectId)
       .then((data) => setGraphData(data as GraphData))
-      .catch((e) => console.error('Failed to load dependency graph:', e))
+      .catch((e: unknown) => console.error('Failed to load dependency graph:', e))
       .finally(() => setLoading(false));
   }, [projectId]);
 
@@ -168,7 +168,7 @@ export default function OrchestrationView({
   }, [graphData.tasks, filteredIds, tagFilter]);
 
   const handleStop = useCallback((task: Task) => {
-    api.stopTask(task.id).catch((e) => console.error('Failed to stop task:', e));
+    api.stopTask(task.id).catch((e: unknown) => console.error('Failed to stop task:', e));
   }, []);
 
   const handleAddDependency = useCallback(
@@ -177,7 +177,7 @@ export default function OrchestrationView({
       api
         .addDependency(taskId, dependsOnId)
         .then(() => loadGraph())
-        .catch((e) => console.error('Failed to add dependency:', e));
+        .catch((e: unknown) => console.error('Failed to add dependency:', e));
     },
     [loadGraph],
   );
