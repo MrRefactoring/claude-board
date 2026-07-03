@@ -137,19 +137,19 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
   useEffect(() => {
     const unsubs = [
       tauriListen('plan:log', (payload) => {
-        const p = payload as PlanEvent;
+        const p = payload as PlanEvent | undefined;
         if (p?.projectId !== projectId || !planningPhase) return;
         setPlanLogs((prev) => [...prev.slice(-100), { type: p.type, message: p.message }]);
       }),
       tauriListen('plan:phase', (payload) => {
-        const p = payload as PlanEvent;
+        const p = payload as PlanEvent | undefined;
         if (p?.projectId !== projectId || !planningPhase) return;
         setPlanLogs((prev) => [...prev, { type: 'phase', message: `Phase: ${p.phase}` }]);
       }),
       // Listener contract is void-returning — run the async completion flow detached.
       tauriListen('plan:completed', (payload) => {
         void (async () => {
-          const p = payload as PlanEvent;
+          const p = payload as PlanEvent | undefined;
           if (p?.projectId !== projectId || !planningPhase) return;
           const finishedPhase = planningPhase;
           setPlanningPhase(null);
@@ -183,7 +183,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
               finishedPhase.title,
               true,
             )) as unknown[];
-            if (created?.length > 0) {
+            if (created.length > 0) {
               setGeneratedPhases((prev) => new Set([...prev, phaseNum]));
               setPhaseMsg({
                 type: 'success',
@@ -198,7 +198,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
           } catch (e) {
             setPhaseMsg({
               type: 'error',
-              text: typeof e === 'string' ? e : (e as Error)?.message || 'Failed to generate tasks',
+              text: typeof e === 'string' ? e : (e as Error | undefined)?.message || 'Failed to generate tasks',
             });
           }
         })();
@@ -235,7 +235,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
     } catch (e) {
       setPhaseMsg({
         type: 'error',
-        text: typeof e === 'string' ? e : (e as Error)?.message || 'Failed to start planning',
+        text: typeof e === 'string' ? e : (e as Error | undefined)?.message || 'Failed to start planning',
       });
       setPlanningPhase(null);
     }
@@ -255,7 +255,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
         model: 'sonnet',
         tags: `gsd,gsd-${action.command},phase-${phase.number}`,
       } as Partial<Task>);
-      if (task?.id) {
+      if (task.id) {
         await api.restartTask(task.id);
         setPhaseMsg({
           type: 'success',
@@ -263,7 +263,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
         });
       }
     } catch (e) {
-      setPhaseMsg({ type: 'error', text: typeof e === 'string' ? e : (e as Error)?.message || 'Failed' });
+      setPhaseMsg({ type: 'error', text: typeof e === 'string' ? e : (e as Error | undefined)?.message || 'Failed' });
     }
     setBusyPhase(null);
   };
@@ -274,7 +274,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
     setPreviewLoadingPhase(phase.number);
     setPhaseMsg(null);
     try {
-      const parsed = (await api.gsdParsePhasePlans(projectId, phase.number as unknown as number)) as GsdPlanTask[];
+      const parsed = (await api.gsdParsePhasePlans(projectId, phase.number as unknown as number)) as GsdPlanTask[] | undefined;
       const key = normalizePhaseNum(phase.number);
       setPlanPreviews((prev) => ({ ...prev, [key]: parsed || [] }));
       if (!parsed || parsed.length === 0) {
@@ -286,7 +286,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
     } catch (e) {
       setPhaseMsg({
         type: 'error',
-        text: typeof e === 'string' ? e : (e as Error)?.message || 'Failed to parse PLAN files',
+        text: typeof e === 'string' ? e : (e as Error | undefined)?.message || 'Failed to parse PLAN files',
       });
     }
     setPreviewLoadingPhase(null);
@@ -314,7 +314,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
         phase.title,
         true,
       )) as unknown[];
-      if (created?.length > 0) {
+      if (created.length > 0) {
         setGeneratedPhases((prev) => new Set([...prev, normalizePhaseNum(phase.number)]));
         clearPreview(phase.number);
         setPhaseMsg({
@@ -325,7 +325,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
         setPhaseMsg({ type: 'error', text: `No tasks could be extracted from PLAN files for Phase ${phase.number}.` });
       }
     } catch (e) {
-      setPhaseMsg({ type: 'error', text: typeof e === 'string' ? e : (e as Error)?.message || 'Failed' });
+      setPhaseMsg({ type: 'error', text: typeof e === 'string' ? e : (e as Error | undefined)?.message || 'Failed' });
     }
     setBusyPhase(null);
   };
@@ -442,7 +442,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
                 return dNum === phaseNum;
               });
               const isExpanded = expandedPhase === phase.number;
-              const hasPlan = detail?.files.some((f) => f.name.toLowerCase().includes('plan'));
+              const hasPlan = detail?.files?.some((f) => f.name.toLowerCase().includes('plan'));
               const hasGeneratedTasks = generatedPhases.has(phaseNum);
               const isBusy = busyPhase === phase.number;
 
@@ -470,7 +470,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
                       </span>
                       {detail && (
                         <span className="text-[10px] text-surface-600">
-                          <FolderOpen size={10} className="inline -mt-0.5" /> {detail.files.length}
+                          <FolderOpen size={10} className="inline -mt-0.5" /> {detail.files?.length ?? 0}
                         </span>
                       )}
                     </button>
@@ -549,7 +549,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
 
                       {/* Phase files */}
                       {detail &&
-                        detail.files.map((file) => {
+                        (detail.files ?? []).map((file) => {
                           const fileKey = `${phase.number}-${file.name}`;
                           const isFileExpanded = expandedFile === fileKey;
                           const fileType = file.name.includes('PLAN')

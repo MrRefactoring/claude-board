@@ -126,7 +126,7 @@ export interface GsdFileEntry {
 
 export interface GsdPhaseDetail {
   number: string;
-  files: GsdFileEntry[];
+  files?: GsdFileEntry[];
 }
 
 export interface GsdPlanTask {
