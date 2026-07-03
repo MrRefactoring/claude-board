@@ -204,17 +204,45 @@ fn sanitize_branch_name(name: &str) -> String {
         .collect::<String>()
 }
 
+/// Transliterate Cyrillic (Russian) letters to Latin so branch names stay
+/// readable ASCII/English instead of carrying raw Cyrillic. Input is expected
+/// lowercased; non-Cyrillic characters pass through unchanged.
+fn transliterate_cyrillic(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for ch in input.chars() {
+        let mapped: &str = match ch {
+            'а' => "a", 'б' => "b", 'в' => "v", 'г' => "g", 'д' => "d",
+            'е' => "e", 'ё' => "yo", 'ж' => "zh", 'з' => "z", 'и' => "i",
+            'й' => "y", 'к' => "k", 'л' => "l", 'м' => "m", 'н' => "n",
+            'о' => "o", 'п' => "p", 'р' => "r", 'с' => "s", 'т' => "t",
+            'у' => "u", 'ф' => "f", 'х' => "kh", 'ц' => "ts", 'ч' => "ch",
+            'ш' => "sh", 'щ' => "shch", 'ъ' => "", 'ы' => "y", 'ь' => "",
+            'э' => "e", 'ю' => "yu", 'я' => "ya",
+            other => {
+                out.push(other);
+                continue;
+            }
+        };
+        out.push_str(mapped);
+    }
+    out
+}
+
 fn generate_branch_slug(title: &str) -> String {
-    title
+    let normalized = title
         .to_lowercase()
         .replace(['ç', 'Ç'], "c")
         .replace(['ğ', 'Ğ'], "g")
         .replace(['ı', 'İ'], "i")
         .replace(['ö', 'Ö'], "o")
         .replace(['ş', 'Ş'], "s")
-        .replace(['ü', 'Ü'], "u")
+        .replace(['ü', 'Ü'], "u");
+    // Latinize Cyrillic, then keep only ASCII alphanumerics so branch names are
+    // always English/ASCII (anything still non-ASCII is dropped; an all-dropped
+    // title falls back to `task-<id>` at the call site).
+    transliterate_cyrillic(&normalized)
         .chars()
-        .filter(|c| c.is_alphanumeric() || c.is_whitespace() || *c == '-')
+        .filter(|c| c.is_ascii_alphanumeric() || c.is_whitespace() || *c == '-')
         .collect::<String>()
         .trim()
         .replace(char::is_whitespace, "-")
@@ -2755,7 +2783,28 @@ fn extract_test_report(text: &str) -> Option<serde_json::Value> {
 
 #[cfg(test)]
 mod tests {
-    use super::{subtask_disposition, SubtaskDisposition};
+    use super::{generate_branch_slug, subtask_disposition, SubtaskDisposition};
+
+    #[test]
+    fn slug_transliterates_cyrillic_to_latin() {
+        // Russian title → readable latin slug, no raw Cyrillic left.
+        assert_eq!(generate_branch_slug("Обновить документацию"), "obnovit-dokumentatsiyu");
+        assert!(generate_branch_slug("Починить кнопку").is_ascii());
+    }
+
+    #[test]
+    fn slug_keeps_ascii_and_mixes() {
+        assert_eq!(generate_branch_slug("Fix login bug"), "fix-login-bug");
+        // Mixed Cyrillic + latin/technical tokens survive together.
+        assert_eq!(generate_branch_slug("Добавить OAuth flow"), "dobavit-oauth-flow");
+    }
+
+    #[test]
+    fn slug_all_non_ascii_becomes_empty_for_fallback() {
+        // Scripts we don't transliterate get dropped, leaving the empty-slug
+        // fallback (`task-<id>`) to the caller.
+        assert_eq!(generate_branch_slug("日本語"), "");
+    }
 
     #[test]
     fn completes_when_nothing_drives_subtasks() {
