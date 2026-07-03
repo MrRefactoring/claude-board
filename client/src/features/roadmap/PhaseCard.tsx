@@ -270,7 +270,7 @@ export function PhaseCard({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleSurfaceAssumptions();
+                void handleSurfaceAssumptions();
               }}
               disabled={surfacing}
               className="p-1.5 rounded hover:bg-amber-500/20 text-surface-500 hover:text-amber-400 transition-colors disabled:opacity-50"
@@ -307,7 +307,7 @@ export function PhaseCard({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleValidatePhase();
+                void handleValidatePhase();
               }}
               disabled={validating}
               className="p-1.5 rounded hover:bg-purple-500/20 text-surface-500 hover:text-purple-400 transition-colors disabled:opacity-50"
@@ -339,7 +339,7 @@ export function PhaseCard({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              handleDeletePhase();
+              void handleDeletePhase();
             }}
             className="p-1.5 rounded hover:bg-red-500/20 text-surface-500 hover:text-red-400 transition-colors"
             title="Delete Phase"

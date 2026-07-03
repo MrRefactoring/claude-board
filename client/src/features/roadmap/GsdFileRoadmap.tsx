@@ -130,7 +130,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
-    load();
+    void load();
   }, [load]);
 
   // Listen for planning events
@@ -478,7 +478,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handlePlanPhase(phase);
+                            void handlePlanPhase(phase);
                           }}
                           disabled={!!busyPhase || !!planningPhase}
                           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors disabled:opacity-40 bg-blue-500/15 text-blue-400 hover:bg-blue-500/25"
@@ -497,7 +497,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleGenerateTasks(phase);
+                            void handleGenerateTasks(phase);
                           }}
                           disabled={!!busyPhase}
                           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors disabled:opacity-40 bg-claude/15 text-claude hover:bg-claude/25"
@@ -512,7 +512,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleOtherAction(phase, GSD_ACTIONS.completed);
+                            void handleOtherAction(phase, GSD_ACTIONS.completed);
                           }}
                           disabled={!!busyPhase}
                           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors disabled:opacity-40 bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
@@ -527,7 +527,7 @@ export function GsdFileRoadmap({ projectId }: { projectId: number }) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleGenerateTasks(phase);
+                            void handleGenerateTasks(phase);
                           }}
                           disabled={!!busyPhase}
                           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors disabled:opacity-40 bg-red-500/15 text-red-400 hover:bg-red-500/25"

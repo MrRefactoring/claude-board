@@ -58,7 +58,7 @@ if (IS_TAURI) {
         'claude:limits',
       ];
       for (const name of events) {
-        listen(name, (event) => {
+        void listen(name, (event) => {
           const cbs = listeners.get(name);
           if (cbs) cbs.forEach((cb) => cb(event.payload));
         });

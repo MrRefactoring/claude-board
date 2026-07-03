@@ -268,7 +268,7 @@ export function VoiceAssistantProvider({
   useEffect(() => {
     if (voice.isListening && !prevListening.current) {
       playStartBeep();
-      startAudioCapture();
+      void startAudioCapture();
     }
     if (!voice.isListening && prevListening.current) {
       playStopBeep();

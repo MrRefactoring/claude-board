@@ -209,7 +209,7 @@ export default function WebhooksModal({ projectId, projectName, onClose }: Props
 
   const handleToggle = async (webhook: WebhookRow) => {
     await api.updateWebhook(webhook.id, { ...webhook, enabled: !webhook.enabled } as unknown as Partial<Webhook>);
-    crud.reload();
+    void crud.reload();
   };
 
   const handleTest = async (webhook: WebhookRow) => {

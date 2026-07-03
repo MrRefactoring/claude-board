@@ -136,7 +136,7 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
         /* transient — retry next tick */
       }
     };
-    tick();
+    void tick();
     const iv = setInterval(tick, 1000);
     return () => {
       alive = false;

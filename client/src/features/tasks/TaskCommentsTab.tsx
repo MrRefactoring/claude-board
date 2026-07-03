@@ -94,7 +94,7 @@ export function TaskCommentsTab({ taskId }: { taskId: number }) {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
-              handleAdd();
+              void handleAdd();
             }
           }}
           placeholder="Add a comment… (⌘/Ctrl+Enter)"

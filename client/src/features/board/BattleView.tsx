@@ -470,7 +470,7 @@ export default function BattleView({ tasks, projectId }: BattleViewProps) {
         .getAgentActivity(projectId)
         .then((d) => setConflicts((d as AgentActivityPayload)?.conflicts || []))
         .catch(() => {});
-    load();
+    void load();
     const iv = setInterval(load, 3000);
     return () => clearInterval(iv);
   }, [projectId]);

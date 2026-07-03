@@ -338,7 +338,7 @@ export default function RolesModal({ projectId, projectName, onClose }: Props) {
                   role={crud.editing === 'new' ? (prefill as Role | null) : crud.editing}
                   onSave={(data) => {
                     setPrefill(null);
-                    crud.handleSave(data);
+                    void crud.handleSave(data);
                   }}
                   onCancel={() => {
                     setPrefill(null);

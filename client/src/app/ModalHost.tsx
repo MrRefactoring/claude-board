@@ -50,7 +50,7 @@ export default function ModalHost({
   // transport-independent freshness fallback next to the entity events.
   const closeAndInvalidate = (name: 'templates' | 'roles') => {
     closeModal(name);
-    queryClient.invalidateQueries({ queryKey: [name] });
+    void queryClient.invalidateQueries({ queryKey: [name] });
   };
 
   // Values are either the sentinel `true` (opened without a payload) or the entity being edited.

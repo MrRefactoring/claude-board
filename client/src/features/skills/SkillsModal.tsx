@@ -355,7 +355,7 @@ function ImportView({ installedSkills, t, onInstalled }: ImportViewProps) {
                 key={repo.repo}
                 onClick={() => {
                   setRepoUrl(repo.repo);
-                  fetchRepo(repo.repo);
+                  void fetchRepo(repo.repo);
                 }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-800/50 hover:bg-surface-800 border border-surface-700/30 hover:border-surface-700 text-left transition-colors group"
               >
@@ -534,7 +534,7 @@ function ImportView({ installedSkills, t, onInstalled }: ImportViewProps) {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleInstall(skill);
+                              void handleInstall(skill);
                             }}
                             disabled={isInstalling}
                             className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-violet-300 bg-violet-500/15 hover:bg-violet-500/25 disabled:opacity-50 rounded-lg transition-colors flex-shrink-0"

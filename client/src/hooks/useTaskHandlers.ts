@@ -242,7 +242,7 @@ export function useTaskHandlers({ tasks, t, terminal, currentProject }: UseTaskH
         await api.reorderTasks(orderedIds);
       } catch {
         // Optimistic reorder failed on the backend — refetch server order.
-        if (projectId !== null) queryClient.invalidateQueries({ queryKey: queryKeys.tasks(projectId) });
+        if (projectId !== null) void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(projectId) });
       }
     },
     [setTasks, projectId, queryClient],

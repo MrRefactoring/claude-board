@@ -147,7 +147,7 @@ export function useModels() {
     subscribers.add(handler);
     // Kick off (or join in-flight) load.
     if (!cache) {
-      loadOnce().then((next) => {
+      void loadOnce().then((next) => {
         if (active) setModels(next || BUILTIN_FALLBACK);
       });
     } else {

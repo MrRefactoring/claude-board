@@ -115,7 +115,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
         /* transient — try again next tick */
       }
     };
-    tick();
+    void tick();
     const iv = setInterval(tick, 800);
     return () => {
       alive = false;
@@ -224,7 +224,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 

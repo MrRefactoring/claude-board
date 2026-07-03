@@ -64,13 +64,13 @@ export default function RoadmapView({ projectId }: RoadmapViewProps) {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
-    loadRoadmap();
-    loadGsdStatus();
+    void loadRoadmap();
+    void loadGsdStatus();
   }, [loadRoadmap, loadGsdStatus]);
 
   useEffect(() => {
     return tauriListen('roadmap:updated' as keyof AppEventMap, (payload) => {
-      if ((payload as number) === projectId) loadRoadmap();
+      if ((payload as number) === projectId) void loadRoadmap();
     });
   }, [projectId, loadRoadmap]);
 
@@ -80,7 +80,7 @@ export default function RoadmapView({ projectId }: RoadmapViewProps) {
       await api.createMilestone(projectId, newMs.version.trim(), newMs.title.trim(), newMs.description);
       setNewMs({ version: '', title: '', description: '' });
       setShowCreateMs(false);
-      loadRoadmap();
+      void loadRoadmap();
     } catch (e) {
       console.error('Create milestone failed:', e);
     }
@@ -104,7 +104,7 @@ export default function RoadmapView({ projectId }: RoadmapViewProps) {
     });
     try {
       await api.executePhase(projectId, phase.id);
-      loadRoadmap();
+      void loadRoadmap();
     } catch (e) {
       console.error('Execute phase failed:', e);
     } finally {
@@ -190,7 +190,7 @@ export default function RoadmapView({ projectId }: RoadmapViewProps) {
         });
         setShowGsdForm(false);
       }
-      loadGsdStatus();
+      void loadGsdStatus();
     } catch (e) {
       setGsdInitMsg({
         type: 'error',

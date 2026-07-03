@@ -82,7 +82,7 @@ export default function PipelineView({ tasks, onViewLogs, onViewDetail }: Pipeli
       setDepMap(map);
       setLoading(false);
     };
-    loadDeps();
+    void loadDeps();
   }, [tasks]);
 
   const enrichedTasks: EnrichedPipelineTask[] = useMemo(
@@ -141,7 +141,7 @@ export default function PipelineView({ tasks, onViewLogs, onViewDetail }: Pipeli
     newOrder.splice(targetIdx, 0, moved);
     setDragId(null);
     setDragOverIdx(null);
-    reorder(newOrder);
+    void reorder(newOrder);
   };
 
   const moveTask = (idx: number, direction: number) => {
@@ -153,7 +153,7 @@ export default function PipelineView({ tasks, onViewLogs, onViewDetail }: Pipeli
     if (!a || !b) return;
     newOrder[idx] = b;
     newOrder[targetIdx] = a;
-    reorder(newOrder);
+    void reorder(newOrder);
   };
 
   // Reset local queue when tasks change externally

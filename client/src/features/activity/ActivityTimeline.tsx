@@ -83,7 +83,7 @@ export default function ActivityTimeline({ projectId, onClose }: { projectId: nu
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
-    loadEvents();
+    void loadEvents();
   }, [loadEvents]);
 
   // Group events by date

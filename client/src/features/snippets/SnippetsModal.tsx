@@ -93,7 +93,7 @@ export default function SnippetsModal({ projectId, projectName, onClose }: Props
 
   const handleToggle = async (snippet: Snippet) => {
     await api.updateSnippet(snippet.id, { enabled: !snippet.enabled } as unknown as Partial<Snippet>);
-    crud.reload();
+    void crud.reload();
   };
 
   return (

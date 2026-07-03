@@ -419,7 +419,7 @@ export default function TaskModal({ task, onSubmit, onClose, templates = [], rol
                 dependencies={dependencies}
                 onAddDependency={(_, depId) => {
                   if (task?.id) {
-                    api
+                    void api
                       .addDependency(task.id, depId)
                       .then(() =>
                         api.getTaskDependencies(task.id).then((deps) => setDependencies(deps as TaskDependencies)),
@@ -433,7 +433,7 @@ export default function TaskModal({ task, onSubmit, onClose, templates = [], rol
                 }}
                 onRemoveDependency={(_, depId) => {
                   if (task?.id) {
-                    api
+                    void api
                       .removeDependency(task.id, depId)
                       .then(() =>
                         api.getTaskDependencies(task.id).then((deps) => setDependencies(deps as TaskDependencies)),

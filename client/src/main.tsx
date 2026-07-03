@@ -6,7 +6,7 @@ import '@/index.css';
 import { installGlobalErrorHandlers } from '@/lib/logger';
 
 // Install error handlers before the first render so we don't lose boot errors.
-installGlobalErrorHandlers();
+void installGlobalErrorHandlers();
 
 const queryClient = new QueryClient({
   defaultOptions: {

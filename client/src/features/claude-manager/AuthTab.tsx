@@ -14,7 +14,7 @@ export default function AuthTab() {
   const [updating, setUpdating] = useState(false);
   const [updateResult, setUpdateResult] = useState<string | null>(null);
   useEffect(() => {
-    Promise.all([api.getAuthInfo().catch(() => null), api.getClaudeVersion().catch(() => null)]).then(([a, v]) => {
+    void Promise.all([api.getAuthInfo().catch(() => null), api.getClaudeVersion().catch(() => null)]).then(([a, v]) => {
       setAuth(a as AuthInfo | null);
       setVersion(v as string | null);
       setLoading(false);

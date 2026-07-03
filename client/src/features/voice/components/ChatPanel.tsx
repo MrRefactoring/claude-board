@@ -48,7 +48,7 @@ export default function ChatPanel({
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!textInput.trim()) return;
-    processInput(textInput);
+    void processInput(textInput);
     setTextInput('');
   };
 

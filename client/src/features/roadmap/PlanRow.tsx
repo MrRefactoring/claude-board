@@ -25,7 +25,7 @@ export function PlanRow({ plan, onRefresh }: PlanRowProps) {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
-    loadTasks();
+    void loadTasks();
   }, [loadTasks]);
 
   const handleDeletePlan = async (e: React.MouseEvent) => {
@@ -39,7 +39,7 @@ export function PlanRow({ plan, onRefresh }: PlanRowProps) {
   const handleUnlinkTask = async (taskId: number) => {
     try {
       await api.unlinkTaskFromPlan(plan.id, taskId);
-      loadTasks();
+      void loadTasks();
       onRefresh();
     } catch {}
   };

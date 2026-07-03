@@ -41,7 +41,7 @@ export function useCrudResource<T extends { id: number }>({
         await update(editing.id, data);
       }
       setEditing(null);
-      reload();
+      void reload();
     },
     [editing, projectId, create, update, reload],
   );
@@ -50,7 +50,7 @@ export function useCrudResource<T extends { id: number }>({
     async (id: number) => {
       await remove(id);
       setDeleting(null);
-      reload();
+      void reload();
     },
     [remove, reload],
   );

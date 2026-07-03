@@ -228,11 +228,11 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
   };
 
   const handleRescan = () => {
-    handleStart();
+    void handleStart();
   };
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(result).then(() => {
+    void navigator.clipboard.writeText(result).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -252,7 +252,7 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
   }, [projectId]);
 
   const handleToggleHistory = () => {
-    if (!showHistory) loadHistory();
+    if (!showHistory) void loadHistory();
     setShowHistory(!showHistory);
   };
 

@@ -15,7 +15,7 @@ function getCtx(): AudioContext | null {
 function beep(freq: number, duration = 0.08, startTime = 0): void {
   const ctx = getCtx();
   if (!ctx) return;
-  if (ctx.state === 'suspended') ctx.resume();
+  if (ctx.state === 'suspended') void ctx.resume();
 
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
