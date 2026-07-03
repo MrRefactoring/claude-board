@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { FormEvent } from 'react';
+import type { SyntheticEvent } from 'react';
 import { api } from '@/lib/api';
 import { IS_TAURI } from '@/lib/tauriEvents';
 import { useGitRepoStatus } from '@/lib/useGitRepoStatus';
@@ -170,7 +170,7 @@ export function useProjectForm(
   const randomizeSeed = () => setIconSeed(Math.random().toString(36).substring(2, 10));
   const avatarSeed = iconSeed || name || 'project';
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!name.trim() || !slug.trim() || !workingDir.trim()) return;
     setLoading(true);

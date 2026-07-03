@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { FormEvent, ChangeEventHandler } from 'react';
+import type { SyntheticEvent, ChangeEventHandler } from 'react';
 import { Plus, Pencil, Trash2, Layers, Variable, Eye, ChevronLeft } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { Template, TemplateVariable } from '@/lib/types';
@@ -169,7 +169,7 @@ function TemplateForm({ template, onSave, onCancel }: TemplateFormProps) {
   const [thinkingEffort, setThinkingEffort] = useState(template?.thinking_effort || 'medium');
   const [showPreview, setShowPreview] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = (e: SyntheticEvent) => {
     e.preventDefault();
     if (!name.trim() || !templateText.trim()) return;
     onSave({

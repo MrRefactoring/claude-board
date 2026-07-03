@@ -22,6 +22,7 @@ export default function GithubSection({ form }: { form: ProjectForm }) {
   } = form;
   return (
     <div className="space-y-4">
+      {/* eslint-disable-next-line @typescript-eslint/no-deprecated -- lucide brand-icon deprecation; no non-brand replacement conveys GitHub — revisit when lucide removes it */}
       <Section title={t('projectModal.githubIssuesSync')} icon={Github}>
         <ToggleRow
           enabled={githubSyncEnabled}

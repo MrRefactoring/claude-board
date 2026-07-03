@@ -504,6 +504,7 @@ export default function Board({
                   }`}
                   title="GitHub Issues"
                 >
+                  {/* eslint-disable-next-line @typescript-eslint/no-deprecated -- lucide brand-icon deprecation; no non-brand replacement conveys GitHub — revisit when lucide removes it */}
                   <Github size={13} />
                   <span className="hidden sm:inline">Issues</span>
                 </button>

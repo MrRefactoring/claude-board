@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { FormEvent } from 'react';
+import type { SyntheticEvent } from 'react';
 import { X, Sparkles, ChevronDown, ChevronRight, Settings2, Mic, MicOff } from 'lucide-react';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { useTranslation } from '@/i18n/I18nProvider';
@@ -145,7 +145,7 @@ export default function TaskModal({ task, onSubmit, onClose, templates = [], rol
     setTemplateVars(vars);
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: SyntheticEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     setLoading(true);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { FormEvent } from 'react';
+import type { SyntheticEvent } from 'react';
 import {
   Plus,
   Pencil,
@@ -79,7 +79,7 @@ function WebhookForm({ webhook, onSave, onCancel }: WebhookFormProps) {
     setEvents((prev) => (prev.includes(eventId) ? prev.filter((e) => e !== eventId) : [...prev, eventId]));
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = (e: SyntheticEvent) => {
     e.preventDefault();
     if (!name.trim() || !url.trim()) return;
     onSave({

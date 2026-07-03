@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type SyntheticEvent } from 'react';
 import { Mic, MicOff, Send, Trash2, Volume2, VolumeX, Keyboard, Globe } from 'lucide-react';
 import AudioVisualizer from '@/features/voice/components/AudioVisualizer';
 import CommandHints from '@/features/voice/components/CommandHints';
@@ -45,7 +45,7 @@ export default function ChatPanel({
     return () => document.removeEventListener('mousedown', handler);
   }, [langOpen]);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = (e: SyntheticEvent) => {
     e.preventDefault();
     if (!textInput.trim()) return;
     void processInput(textInput);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { FormEvent } from 'react';
+import type { SyntheticEvent } from 'react';
 import { Plus, Pencil, Trash2, Shield, Globe, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { Role, AgentSuggestion } from '@/lib/types';
@@ -41,7 +41,7 @@ function RoleForm({ role, onSave, onCancel }: RoleFormProps) {
   const [taskTypeAffinity, setTaskTypeAffinity] = useState(role?.task_type_affinity || '');
   const [isGlobal, setIsGlobal] = useState((role?.project_id as number | null | undefined) === null);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = (e: SyntheticEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     onSave({

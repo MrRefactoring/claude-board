@@ -120,6 +120,7 @@ export default function SkillsModal({ onClose }: Props) {
                 onClick={() => setView('import')}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 rounded-lg transition-colors"
               >
+                {/* eslint-disable-next-line @typescript-eslint/no-deprecated -- lucide brand-icon deprecation; no non-brand replacement conveys GitHub — revisit when lucide removes it */}
                 <Github size={12} />
                 {t('skills.import')}
               </button>
@@ -359,6 +360,7 @@ function ImportView({ installedSkills, t, onInstalled }: ImportViewProps) {
                 }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-800/50 hover:bg-surface-800 border border-surface-700/30 hover:border-surface-700 text-left transition-colors group"
               >
+                {/* eslint-disable-next-line @typescript-eslint/no-deprecated -- lucide brand-icon deprecation; no non-brand replacement conveys GitHub — revisit when lucide removes it */}
                 <Github size={16} className="text-surface-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium text-surface-200">{repo.label}</div>

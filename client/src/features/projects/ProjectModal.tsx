@@ -26,6 +26,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'permissions', label: 'Permissions', icon: Shield },
   { id: 'automation', label: 'Automation', icon: Workflow },
   { id: 'engine', label: 'Engine', icon: Cog },
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- lucide brand-icon deprecation; no non-brand replacement conveys GitHub — revisit when lucide removes it
   { id: 'github', label: 'GitHub', icon: Github },
 ];
 

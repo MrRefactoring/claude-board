@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { FormEvent } from 'react';
+import type { SyntheticEvent } from 'react';
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, BookOpen } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { Snippet, TranslateFn } from '@/lib/types';
@@ -22,7 +22,7 @@ function SnippetForm({ snippet, onSave, onCancel, t }: SnippetFormProps) {
   const [title, setTitle] = useState(snippet?.title || '');
   const [content, setContent] = useState(snippet?.content || '');
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = (e: SyntheticEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) return;
     onSave({
