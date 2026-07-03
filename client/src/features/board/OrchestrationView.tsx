@@ -57,7 +57,7 @@ interface OrchestrationViewProps {
 function loadPositions(projectId: number): SavedPositionMap | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY + projectId);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? (JSON.parse(raw) as SavedPositionMap) : null;
   } catch {
     return null;
   }

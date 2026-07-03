@@ -138,7 +138,7 @@ export default function ObservabilityPanel({ projectId }: ObservabilityPanelProp
       const p = payload as TaskLogPayload;
       let meta: TaskLogMeta = {};
       try {
-        meta = p.meta ? (typeof p.meta === 'string' ? JSON.parse(p.meta) : p.meta) : {};
+        meta = p.meta ? (typeof p.meta === 'string' ? (JSON.parse(p.meta) as typeof meta) : p.meta) : {};
       } catch {}
       if (p.logType !== 'tool' && p.logType !== 'tool_result') return;
 

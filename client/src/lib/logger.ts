@@ -86,7 +86,7 @@ export async function installGlobalErrorHandlers(): Promise<void> {
 
   // Unhandled Promise rejections
   window.addEventListener('unhandledrejection', (event) => {
-    const reason = event?.reason;
+    const reason: unknown = event.reason;
     backend.error(`[frontend] unhandled promise rejection: ${safeStringify(reason)}`);
   });
 

@@ -45,8 +45,8 @@ function parseAction(content: string): { text: string; action?: ChatAction } {
     const body = m[1];
     if (body === undefined) continue;
     try {
-      const obj = JSON.parse(body.trim());
-      if (obj && typeof obj === 'object' && ACTION_TYPES.has(obj.action) && typeof obj.task_id === 'number') {
+      const obj = JSON.parse(body.trim()) as { action?: string; task_id?: unknown } | null;
+      if (obj && typeof obj === 'object' && ACTION_TYPES.has(obj.action ?? '') && typeof obj.task_id === 'number') {
         const text = (content.slice(0, m.index) + content.slice(m.index + m[0].length)).trim();
         return { text, action: obj as ChatAction };
       }

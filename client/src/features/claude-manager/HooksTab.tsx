@@ -32,7 +32,7 @@ export default function HooksTab() {
     setError(null);
     setSuccess(false);
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(raw) as HooksConfig;
       await api.saveHooks(parsed);
       setHooks(parsed);
       setSuccess(true);

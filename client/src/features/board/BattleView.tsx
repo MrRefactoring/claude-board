@@ -483,7 +483,7 @@ export default function BattleView({ tasks, projectId }: BattleViewProps) {
       if (p.logType === 'tool') {
         let meta: { toolName?: string } = {};
         try {
-          meta = p.meta ? (typeof p.meta === 'string' ? JSON.parse(p.meta) : p.meta) : {};
+          meta = p.meta ? (typeof p.meta === 'string' ? (JSON.parse(p.meta) as typeof meta) : p.meta) : {};
         } catch {}
         setActionMap((prev) => ({ ...prev, [p.taskId]: meta.toolName || 'Working...' }));
       }

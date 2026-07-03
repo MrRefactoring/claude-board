@@ -24,7 +24,7 @@ interface SuggestionBannerProps {
 
 function getDismissed(): string[] {
   try {
-    return JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]');
+    return JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]') as string[];
   } catch {
     return [];
   }

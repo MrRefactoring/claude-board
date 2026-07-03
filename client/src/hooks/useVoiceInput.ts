@@ -1,12 +1,35 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-const SpeechRecognitionCtor =
-  typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
+// The lib.dom typings for the Web Speech API are incomplete (the ctor comes
+// through as `any`), so we declare the minimal surface this hook uses.
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  [index: number]: { transcript: string } | undefined;
+}
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: { length: number; [index: number]: SpeechRecognitionResultLike | undefined };
+}
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+interface SpeechRecognitionInstance {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
 
-// The lib.dom typings for the Web Speech API are incomplete in this TS release
-// (the SpeechRecognition instance interface isn't named), so derive it from the
-// constructor value we already reference.
-type SpeechRecognitionInstance = InstanceType<NonNullable<Window['SpeechRecognition']>>;
+const SpeechRecognitionCtor: (new () => SpeechRecognitionInstance) | null =
+  typeof window !== 'undefined'
+    ? ((window.SpeechRecognition || window.webkitSpeechRecognition) as (new () => SpeechRecognitionInstance) | null)
+    : null;
 
 interface VoiceInputOptions {
   lang?: string;
@@ -19,7 +42,6 @@ export function useVoiceInput({ lang = 'en-US', continuous = false, onResult, on
   const [isListening, setIsListening] = useState(false);
   const [isSupported] = useState(!!SpeechRecognitionCtor);
   const [interim, setInterim] = useState('');
-  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- SpeechRecognitionInstance degrades to any because lib.dom typings for the Web Speech API are incomplete (see header comment)
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const manualStopRef = useRef(false);
   // Keep latest callbacks in refs to avoid stale closures
@@ -64,7 +86,7 @@ export function useVoiceInput({ lang = 'en-US', continuous = false, onResult, on
       setInterim('');
     };
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event) => {
       let finalText = '';
       let interimText = '';
 
@@ -87,7 +109,7 @@ export function useVoiceInput({ lang = 'en-US', continuous = false, onResult, on
       }
     };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event) => {
       if (event.error !== 'aborted' && event.error !== 'no-speech') {
         console.warn('Speech recognition error:', event.error);
       }

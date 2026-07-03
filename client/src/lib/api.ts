@@ -48,7 +48,7 @@ async function request<T = unknown>(path: string, options: RequestInit = {}): Pr
     throw e;
   }
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
+    const err = (await res.json().catch(() => ({ error: res.statusText }))) as { error?: string };
     const msg = err.error || `Request failed (${res.status})`;
     if (res.status >= 400) notifyError(msg);
     throw new Error(msg);

@@ -169,7 +169,7 @@ export default function Dashboard({
       api
         .getSuggestions()
         .then((sug) => {
-          suggestionsCache = filterDismissed(Array.isArray(sug) ? sug : []);
+          suggestionsCache = filterDismissed(Array.isArray(sug) ? (sug as Suggestion[]) : []);
           suggestionsLoaded = true;
           setSuggestions(suggestionsCache);
         })

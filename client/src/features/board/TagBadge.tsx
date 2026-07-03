@@ -30,7 +30,7 @@ export function parseTags(tagsField?: string | string[] | null): string[] {
   if (!tagsField) return [];
   if (Array.isArray(tagsField)) return tagsField;
   try {
-    return JSON.parse(tagsField);
+    return JSON.parse(tagsField) as string[];
   } catch {
     return [];
   }
