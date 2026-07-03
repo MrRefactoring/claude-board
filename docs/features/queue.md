@@ -4,7 +4,7 @@ DAG-aware task auto-queue with crash recovery and periodic polling. Enable per p
 
 ## Behavior
 
-- **Trigger points:** app startup (`startup_recovery`), a background poll thread every 15s, and immediately on task completion/failure (event-driven, not just polling).
+- **Trigger points:** app startup (`startup_recovery`), a background poll thread every 15s, immediately on task completion/failure (event-driven, not just polling), and immediately when `auto_queue` is switched on (`update_project` calls `start_next_queued` right after enabling, so ready backlog tasks start now rather than at the next poll).
 - **Slot counting uses real process state, not DB status:** `slots = max_concurrent - count(tasks that are InProgress AND have a live/starting process)`. A task whose process crashed doesn't block a slot even if its DB row still says `in_progress`.
 - **Readiness (`dependencies::get_ready_tasks`):** a backlog task is ready when: it is not an `epic`/`story` container, its `retry_count` is within the project's retry limit, its `retry_after` timestamp (if any) has passed, and all of its dependencies are met per their `condition_type`.
 - **Dependency condition types:** `always` / `on_success` (default) — blocker must be `done`; `on_failure` — blocker must be `failed`; `on_any` — blocker must be `done` or `failed`.
@@ -16,7 +16,7 @@ DAG-aware task auto-queue with crash recovery and periodic polling. Enable per p
 
 ## Settings
 
-- `auto_queue` — enables the queue for a project.
+- `auto_queue` — enables the queue for a project. Toggled either in project settings (`AutomationSection`) or via a compact toggle in the board toolbar (`Board.tsx`, Tauri-only — the HTTP `updateProject` route doesn't exist in web mode). Both write the same field via `update_project`; a partial update preserves `max_concurrent`.
 - `max_concurrent` — concurrent running-task cap. UI offers quick picks 1/2/3/5/10 plus a free-form field, range **1–50**.
 - `circuit_breaker_threshold` — consecutive failures before the queue pauses (0 = disabled); see circuit-breaker doc.
 
@@ -32,4 +32,6 @@ DAG-aware task auto-queue with crash recovery and periodic polling. Enable per p
 - `src-tauri/src/db/dependencies.rs` — `get_ready_tasks` (readiness + ordering SQL), `dep_met_predicate` (condition-type semantics), `get_execution_waves` (wave grouping for preview/DAG visualization).
 - `src-tauri/src/db/tasks.rs` — `get_auto_queue_project_ids`, `recover_orphaned_tasks`, `awaiting_subtasks` column.
 - `src-tauri/src/db/projects.rs` — `max_concurrent`, `circuit_breaker_threshold` fields and setters.
-- `client/src/features/projects/AutomationSection.tsx` — Auto-Queue toggle and Max Concurrent control.
+- `client/src/features/projects/AutomationSection.tsx` — Auto-Queue toggle and Max Concurrent control (project settings).
+- `client/src/features/board/Board.tsx` — compact Auto-Queue toggle in the board toolbar (`toggleAutoQueue`, Tauri-only).
+- `src-tauri/src/commands/projects.rs` — `update_project` persists the toggle and kicks `start_next_queued` when auto_queue is enabled.

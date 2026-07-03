@@ -297,6 +297,12 @@ pub fn update_project(
 
     let updated = pq::get_by_id(&db, id).ok_or("Failed to retrieve updated project")?;
     app.emit("project:updated", &updated).ok();
+    // Enabling auto-queue should start ready backlog tasks immediately instead of
+    // waiting for the ~15s queue poll. Idempotent — start_next_queued re-checks
+    // auto_queue, the circuit breaker, and concurrency slots.
+    if auto_queue == Some(true) {
+        crate::services::queue::start_next_queued(&db, &app, id);
+    }
     Ok(updated)
 }
 

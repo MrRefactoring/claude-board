@@ -17,6 +17,7 @@ import {
   Map as MapIcon,
   Terminal,
   Rows3,
+  Zap,
 } from 'lucide-react';
 import Column from '@/features/board/Column';
 import ListView from '@/features/board/ListView';
@@ -33,6 +34,7 @@ const ProjectTerminal = lazy(() => import('@/features/terminal/ProjectTerminal')
 import { useTranslation } from '@/i18n/I18nProvider';
 import { parseTags } from '@/features/board/TagBadge';
 import { api } from '@/lib/api';
+import type { ProjectFormValues } from '@/features/projects/useProjectForm';
 import type { Task, Project } from '@/lib/types';
 
 interface BoardTask extends Task {
@@ -97,6 +99,7 @@ export default function Board({
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const [showGithubPanel, setShowGithubPanel] = useState(false);
   const [depDialog, setDepDialog] = useState<{ from: Task; to: Task } | null>(null);
+  const [queuePending, setQueuePending] = useState(false);
 
   const handleReorder = useCallback(
     (taskIds: number[]) => {
@@ -109,6 +112,27 @@ export default function Board({
     if (fromTask.id === toTask.id) return;
     setDepDialog({ from: fromTask, to: toTask });
   }, []);
+
+  // Quick Auto Queue toggle from the board toolbar. Partial update — only
+  // `auto_queue` is sent, so `max_concurrent` is preserved (see update_project).
+  // The project prop refreshes from the `project:updated` event, so no optimistic
+  // state is needed; `queuePending` just blocks double-sends. Tauri-only (the
+  // HTTP updateProject route doesn't exist in web mode).
+  const toggleAutoQueue = useCallback(async () => {
+    if (!project || queuePending) return;
+    const next = !project.auto_queue;
+    setQueuePending(true);
+    try {
+      // `auto_queue` reads as number but the update command takes the form's
+      // camelCase boolean write-shape (ProjectFormValues), same as the settings modal.
+      const payload: Partial<ProjectFormValues> = { autoQueue: next };
+      await api.updateProject(projectId, payload);
+    } catch (e) {
+      notifyError((e as Error).message || 'Failed to toggle auto queue');
+    } finally {
+      setQueuePending(false);
+    }
+  }, [project, projectId, queuePending]);
 
   // ─── Drag & drop (dnd-kit) ───
   // Mouse-only on purpose: mobile uses the tap-to-move status buttons, and a
@@ -511,6 +535,26 @@ export default function Board({
                   {/* eslint-disable-next-line @typescript-eslint/no-deprecated -- lucide brand-icon deprecation; no non-brand replacement conveys GitHub — revisit when lucide removes it */}
                   <Github size={13} />
                   <span className="hidden sm:inline">Issues</span>
+                </button>
+              </>
+            )}
+
+            {/* Auto Queue toggle (Tauri only — updateProject has no HTTP route) */}
+            {IS_TAURI && project && (
+              <>
+                <div className="w-px h-5 bg-surface-700/50 mx-1.5" />
+                <button
+                  onClick={() => void toggleAutoQueue()}
+                  disabled={queuePending}
+                  title={t('projectModal.autoQueueDesc')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                    project.auto_queue
+                      ? 'bg-emerald-500/15 text-emerald-300'
+                      : 'text-surface-500 hover:text-surface-300 hover:bg-surface-800/50'
+                  }`}
+                >
+                  <Zap size={13} />
+                  <span className="hidden sm:inline">{t('board.autoQueue')}</span>
                 </button>
               </>
             )}
