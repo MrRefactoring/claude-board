@@ -256,7 +256,8 @@ export function VoiceAssistantProvider({
   const voice = useVoiceInput({
     lang: voiceLang,
     continuous: false,
-    onResult: processInput,
+    // onResult expects void — the async pipeline runs detached
+    onResult: (text) => void processInput(text),
   });
   // Latest-ref pattern: consumers are async callbacks, post-render sync is fine.
   useEffect(() => {

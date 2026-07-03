@@ -31,7 +31,7 @@ export function useRealtimeSync() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const invalidate = (prefix: string) => () => queryClient.invalidateQueries({ queryKey: [prefix] });
+    const invalidate = (prefix: string) => () => void queryClient.invalidateQueries({ queryKey: [prefix] });
 
     const handlers: { [K in AppEventName]?: (payload: AppEventMap[K]) => void } = {
       // ─── Tasks: patch in place ───

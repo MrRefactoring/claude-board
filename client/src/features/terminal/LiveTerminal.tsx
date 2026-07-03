@@ -137,7 +137,7 @@ export default function LiveTerminal({ task, onClose, layout = 'side', onToggleL
       }
     };
     void tick();
-    const iv = setInterval(tick, 1000);
+    const iv = setInterval(() => void tick(), 1000);
     return () => {
       alive = false;
       clearInterval(iv);

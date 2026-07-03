@@ -36,7 +36,8 @@ export function useGitRepoStatus(
     }
     let cancelled = false;
     setLoading(true);
-    const t = setTimeout(async () => {
+    // setTimeout expects a void callback — the async check runs detached
+    const check = async () => {
       try {
         const res = (await api.checkGitRepo(path.trim())) as Record<string, unknown> | null;
         if (cancelled) return;
@@ -60,7 +61,8 @@ export function useGitRepoStatus(
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }, debounceMs);
+    };
+    const t = setTimeout(() => void check(), debounceMs);
     return () => {
       cancelled = true;
       clearTimeout(t);

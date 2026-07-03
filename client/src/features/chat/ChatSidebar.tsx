@@ -116,7 +116,7 @@ export default function ChatSidebar({ projectId, projectName, onClose, onDecompo
       }
     };
     void tick();
-    const iv = setInterval(tick, 800);
+    const iv = setInterval(() => void tick(), 800);
     return () => {
       alive = false;
       clearInterval(iv);

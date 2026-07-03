@@ -65,10 +65,10 @@ export async function installGlobalErrorHandlers(): Promise<void> {
     try {
       const plugin = await import('@tauri-apps/plugin-log');
       backend = {
-        info: (m) => plugin.info(m).catch(() => {}),
-        warn: (m) => plugin.warn(m).catch(() => {}),
-        error: (m) => plugin.error(m).catch(() => {}),
-        debug: (m) => plugin.debug(m).catch(() => {}),
+        info: (m) => void plugin.info(m).catch(() => {}),
+        warn: (m) => void plugin.warn(m).catch(() => {}),
+        error: (m) => void plugin.error(m).catch(() => {}),
+        debug: (m) => void plugin.debug(m).catch(() => {}),
       };
     } catch (e) {
       // Plugin import failed — keep no-op sinks but warn once to console.
