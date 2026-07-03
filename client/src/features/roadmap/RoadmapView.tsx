@@ -142,7 +142,7 @@ export default function RoadmapView({ projectId }: RoadmapViewProps) {
   const loadTodos = useCallback(async () => {
     setTodosLoading(true);
     try {
-      const list = (await api.gsdListTodos(projectId)) as Todo[];
+      const list = (await api.gsdListTodos(projectId)) as Todo[] | undefined;
       setTodos(list || []);
       setShowTodos(true);
     } catch (e) {
@@ -182,7 +182,7 @@ export default function RoadmapView({ projectId }: RoadmapViewProps) {
         model: 'sonnet',
         tags: 'gsd-init',
       } as Partial<Task>);
-      if (task?.id) {
+      if (task.id) {
         await api.restartTask(task.id);
         setGsdInitMsg({
           type: 'success',
@@ -194,7 +194,7 @@ export default function RoadmapView({ projectId }: RoadmapViewProps) {
     } catch (e) {
       setGsdInitMsg({
         type: 'error',
-        text: typeof e === 'string' ? e : (e as Error)?.message || 'Failed to create task',
+        text: typeof e === 'string' ? e : (e as Error | undefined)?.message || 'Failed to create task',
       });
     }
     setGsdIniting(false);
@@ -427,10 +427,10 @@ export default function RoadmapView({ projectId }: RoadmapViewProps) {
       )}
 
       {/* GSD File-Based Roadmap */}
-      {gsdStatus?.has_planning && gsdStatus?.has_roadmap && <GsdFileRoadmap projectId={projectId} />}
+      {gsdStatus?.has_planning && gsdStatus.has_roadmap && <GsdFileRoadmap projectId={projectId} />}
 
       {/* GSD Init */}
-      {gsdStatus?.installed && !gsdStatus?.has_planning && (
+      {gsdStatus?.installed && !gsdStatus.has_planning && (
         <div className="space-y-2">
           {!showGsdForm && !gsdInitMsg?.type && (
             <div className="flex items-center gap-3 px-4 py-3 bg-surface-800/40 border border-surface-700/30 rounded-xl">

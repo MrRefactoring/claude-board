@@ -39,9 +39,10 @@ interface WaveData {
 }
 
 interface GraphData {
-  tasks: GraphNode[];
-  edges: GraphEdgeData[];
-  waves: WaveData[];
+  // Parsed from the API — fields may be absent in older payloads.
+  tasks?: GraphNode[];
+  edges?: GraphEdgeData[];
+  waves?: WaveData[];
 }
 
 type SavedPositionMap = Record<string, { x: number; y: number }>;

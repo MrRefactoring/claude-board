@@ -111,7 +111,7 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
     if (phase !== 'idle') return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch effect: the sync loading-flag toggle marks the refetch start
     setPrescanLoading(true);
-    (api.prescanStats ? api.prescanStats(projectId) : Promise.resolve(null))
+    api.prescanStats(projectId)
       .then((data) => {
         if (data) setPrescan(data);
       })
@@ -185,9 +185,9 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
         projectId,
         scanType,
         scanType === 'custom' ? customPrompt : null,
-      )) as ScanResult;
+      )) as ScanResult | string;
       clearInterval(timerRef.current);
-      setResult(typeof res === 'string' ? res : res?.content || JSON.stringify(res, null, 2));
+      setResult(typeof res === 'string' ? res : res.content || JSON.stringify(res, null, 2));
       setPhase('preview');
       setProgressText('');
     } catch (e) {
@@ -240,7 +240,6 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
 
   // History
   const loadHistory = useCallback(async () => {
-    if (!api.getScanHistory) return;
     setHistoryLoading(true);
     try {
       const data = await api.getScanHistory(projectId);
@@ -257,7 +256,6 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
   };
 
   const handleDeleteScan = async (id: number) => {
-    if (!api.deleteScan) return;
     try {
       await api.deleteScan(id);
       setHistory((prev) => prev.filter((h) => h.id !== id));
@@ -274,7 +272,7 @@ export default function ScanModal({ projectId, onClose }: ScanModalProps) {
       setDiffMode(false);
       return;
     }
-    if (api.getScanDetail && !item.content) {
+    if (!item.content) {
       try {
         const detail = await api.getScanDetail(item.id);
         setViewingHistoryItem(detail as ScanHistoryItem);
